@@ -1,0 +1,75 @@
+import * as fs from "fs";
+import * as path from "path";
+
+/**
+ * Metric: national_parks
+ * Driving distance in miles to the nearest Utah National Park (Mighty 5) or premier State Park.
+ * Source: National Park Service & Utah State Parks
+ */
+
+const nationalParksValues: Record<string, number> = {
+  "midway": 2.3,
+  "moab": 4.2,
+  "park-city": 4.8,
+  "provo": 5.2,
+  "orem": 5.9,
+  "heber-city": 6.2,
+  "hurricane": 7.9,
+  "washington": 8.5,
+  "st-george": 10.6,
+  "pleasant-grove": 11.0,
+  "spanish-fork": 11.9,
+  "brigham-city": 12.5,
+  "american-fork": 12.7,
+  "ephraim": 13.5,
+  "kanab": 13.9,
+  "ogden": 14.4,
+  "cedar-city": 14.5,
+  "saratoga-springs": 14.6,
+  "vernal": 14.8,
+  "lehi": 15.1,
+  "tooele": 16.2,
+  "roy": 17.8,
+  "layton": 18.1,
+  "eagle-mountain": 18.9,
+  "kaysville": 20.1,
+  "cottonwood-heights": 22.1,
+  "sandy": 23.7,
+  "draper": 23.7,
+  "richfield": 24.2,
+  "holladay": 24.4,
+  "millcreek": 26.5,
+  "bountiful": 27.1,
+  "riverton": 27.9,
+  "murray": 27.9,
+  "south-jordan": 28.1,
+  "west-jordan": 29.3,
+  "herriman": 30.8,
+  "taylorsville": 31.0,
+  "price": 32.4,
+  "salt-lake-city": 32.4,
+  "west-valley-city": 33.1,
+  "logan": 35.1,
+};
+
+const metricData = {
+  id: "national_parks",
+  label: "National & State parks",
+  category: "outdoors",
+  unit: "miles",
+  higherIsBetter: false,
+  description: "Driving distance in miles to the nearest Utah National Park (Mighty 5) or premier State Park.",
+  source: "National Park Service & Utah State Parks",
+  sourceUrl: "https://www.nps.gov/state/ut/index.htm",
+  year: 2025,
+  values: nationalParksValues,
+};
+
+const outDir = path.resolve(__dirname, "../../data/metrics");
+if (!fs.existsSync(outDir)) {
+  fs.mkdirSync(outDir, { recursive: true });
+}
+
+const outPath = path.join(outDir, "national_parks.json");
+fs.writeFileSync(outPath, JSON.stringify(metricData, null, 2), "utf-8");
+console.log(`Wrote ${outPath}`);
