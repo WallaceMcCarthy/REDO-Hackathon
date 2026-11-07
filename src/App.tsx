@@ -25,6 +25,20 @@ function BuildStamp() {
   return id ? <p className="pointer-events-none fixed bottom-1 left-2 z-[1100] text-[10px] text-dusk">{id}</p> : null;
 }
 
+// Old cmascope.com paths (/markets/..., /pricing) are rewritten to this app by vercel.json; the real routes are all hash routes.
+function NotFound() {
+  useEffect(() => {
+    const m = Object.assign(document.createElement('meta'), { name: 'robots', content: 'noindex' });
+    document.head.append(m);
+    return () => m.remove();
+  }, []);
+  return (
+    <main>
+      <EmptyState className="m-gutter" title="That page has moved" description="cmascope.com is now Utah Fit, a way to rank Utah towns by what matters to you." action={<Button href="/">Find a home in Utah</Button>} />
+    </main>
+  );
+}
+
 export default function App() {
   const [route, setRoute] = useState(readHash);
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
@@ -43,6 +57,8 @@ export default function App() {
   const view = params.get('view');
   const isMessages = path === 'messages' || path.startsWith('messages/');
   const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
+
+  if (!['/', '/index.html'].includes(window.location.pathname)) return <NotFound />;
 
   return (
     <div className={path === 'results' || isMessages ? 'flex h-dvh flex-col' : undefined}>
