@@ -1,6 +1,6 @@
 /**
  * Streams every improved residential UGRC parcel inside our towns into Convex.
- * Run: npm run seed:assessor -- [--dry-run] [--town=provo] [--max-per-town=25000] [--refresh]
+ * Run: npm run seed:assessor -- [--dry-run] [--town=provo] [--max-per-town=2000] [--refresh]
  *      npm run seed:assessor:prod
  * --dry-run fetches and counts without touching Convex.
  * Each town keeps at most MAX_PER_TOWN homes (free Convex plan), an even spatial spread that is the same on every run.
@@ -27,7 +27,7 @@ const MAX_CHUNK_BYTES = 400_000;
 // Value is per parcel, so past a few structures it prices a complex, not a home. A judgment call: raise it to admit more.
 const MAX_STRUCTURES = 4;
 // Sized so a dev plus a prod load stay under half of the Free plan's 1 GB/month (estimate, see CONTRACT.md).
-export const MAX_PER_TOWN = 25_000;
+export const MAX_PER_TOWN = 2_000;
 const GRID = 16;
 // Measured parcels inside the polygon but in another county's layer. Others are boundary slivers under 30.
 const EXTRA_COUNTIES: Record<string, string[]> = { draper: ["Utah"], "park-city": ["Wasatch"] };

@@ -99,9 +99,9 @@ describe("per-town cap", () => {
   const placed = (n: number): AssessorRow => ({ ...row(n), lat: Math.floor(n / 100), lng: n % 100 });
   const grid = Array.from({ length: 10_000 }, (_, n) => placed(n));
 
-  it("defaults to 25000 and the flag overrides it", () => {
-    expect(MAX_PER_TOWN).toBe(25_000);
-    expect(maxPerTownFlag(["node", "x.ts"])).toBe(25_000);
+  it("defaults to 2000 and the flag overrides it", () => {
+    expect(MAX_PER_TOWN).toBe(2_000);
+    expect(maxPerTownFlag(["node", "x.ts"])).toBe(2_000);
     expect(maxPerTownFlag(["--max-per-town=150"])).toBe(150);
     expect(() => maxPerTownFlag(["--max-per-town=abc"])).toThrow("positive integer");
     expect(() => maxPerTownFlag(["--max-per-town=0"])).toThrow("positive integer");
