@@ -1,20 +1,22 @@
+import type { ReactNode } from 'react';
 import MetricRow from '../components/detail/MetricRow';
 import TownListings from '../components/listings/TownListings';
 import { openSignIn } from '../components/auth/AccountMenu';
 import TownFeed from '../components/feed/TownFeed';
 import CommentsThread from '../components/social/CommentsThread';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
+import { Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
 import { CATEGORY_LABELS, toMetricWeights } from '../prefs';
 import { CATEGORIES, type Prefs } from '../types';
 
-function BackButton({ onBack }: { onBack: () => void }) {
-  return (
-    <button onClick={onBack} className="cursor-pointer rounded-full border border-rock-300 px-4 py-1.5 text-sm font-semibold text-rock-800 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500">
-      Back to results
-    </button>
-  );
-}
+const BackButton = ({ onBack }: { onBack: () => void }) => (
+  <Button variant="secondary" size="sm" onClick={onBack}><span aria-hidden="true">←</span> Back to results</Button>
+);
+
+const Unavailable = ({ children }: { children: ReactNode }) => (
+  <Card className="mt-section bg-surface-sunken text-small text-text-muted">{children}</Card>
+);
 
 export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: Prefs; onBack: () => void }) {
   const cities = useCities();
@@ -23,21 +25,23 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
 
   if (!cities || !metrics || !ranked) {
     return (
-      <main className="mx-auto max-w-4xl space-y-4 px-4 py-16" role="status" aria-busy="true">
-        <p className="text-sm text-dusk">Loading town details</p>
-        <div className="h-12 w-1/2 animate-pulse rounded-xl bg-rock-100/70" />
-        <div className="h-5 w-3/4 animate-pulse rounded bg-rock-100/70" />
-        {[0, 1, 2].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-rock-100/70" />)}
+      <main className="mx-auto max-w-4xl space-y-stack px-gutter py-section" role="status" aria-busy="true">
+        <p className="text-small text-text-muted">Loading town details</p>
+        <Skeleton className="h-12 w-1/2" />
+        <Skeleton className="h-5 w-3/4" />
+        {[0, 1, 2].map(i => <Skeleton key={i} className="h-28 rounded-card" />)}
       </main>
     );
   }
   const town = cities.find(c => c.id === id);
   if (!town) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-16">
-        <h1 className="font-display text-3xl text-ink">We couldn’t find that town</h1>
-        <p className="mt-2 mb-6 text-dusk">No town matches “{id}”. Head back to the results and pick another.</p>
-        <BackButton onBack={onBack} />
+      <main className="mx-auto max-w-4xl px-gutter py-section">
+        <EmptyState
+          title="We couldn’t find that town"
+          description={`No town matches “${id}”. Head back to the results and pick another.`}
+          action={<BackButton onBack={onBack} />}
+        />
       </main>
     );
   }
@@ -47,64 +51,77 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
   const groups = CATEGORIES.map(category => ({ category, items: metrics.filter(m => m.category === category) })).filter(g => g.items.length);
 
   return (
-    <main className="min-h-full pb-20">
-      <header className="border-b border-rock-100 bg-rock-50">
-        <div className="mx-auto max-w-4xl px-4 pt-6 pb-8 sm:pt-8 sm:pb-10">
-          <BackButton onBack={onBack} />
-          <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div className="max-w-xl">
-              <h1 className="font-display text-5xl leading-none text-rock-800 sm:text-6xl">{town.name}</h1>
-              <p className="mt-3 text-sm text-dusk">{town.county} County, population {town.population.toLocaleString('en-US')}</p>
-              <p className="mt-4 font-display text-lg leading-relaxed text-ink">{town.blurb}</p>
-            </div>
-            <div className="shrink-0 sm:text-right">
-              {score ? (
-                <>
-                  <p className="font-display text-6xl leading-none tabular-nums text-alpine-700">{Math.round(score.score)}</p>
-                  <p className="mt-2 text-sm text-dusk">Fit for your priorities, ranked {idx + 1} of {ranked.length}</p>
-                </>
-              ) : (
-                <p className="max-w-56 text-sm text-dusk">Your filters hide this town, so it has no rank right now. Relax them on the results screen to see its score.</p>
+    <main className="mx-auto min-w-0 max-w-4xl px-gutter pt-stack pb-section">
+      <BackButton onBack={onBack} />
+
+      <Card as="section" raised aria-label={`${town.name} overview`} className="mt-stack space-y-stack">
+        <PageHeader
+          title={town.name}
+          description={`${town.county} County, population ${town.population.toLocaleString('en-US')}`}
+          actions={<Button href="#/results" size="lg" fullWidth className="sm:w-auto">See homes in {town.name}</Button>}
+        />
+        <p className="max-w-prose break-words font-display text-body text-text sm:text-title">{town.blurb}</p>
+        <div className="flex flex-col gap-4 border-t border-border pt-stack sm:flex-row sm:items-start sm:gap-8">
+          {score ? (
+            <>
+              <div className="shrink-0">
+                <p className="font-display text-display tabular-nums text-success">{Math.round(score.score)}</p>
+                <p className="text-small text-text-muted">Fit for your priorities, ranked {idx + 1} of {ranked.length}</p>
+              </div>
+              {score.highlights.length > 0 && (
+                <ul aria-label="Why it fits" className="flex min-w-0 flex-wrap gap-2">
+                  {score.highlights.map(h => <li key={h}><Badge>{h}</Badge></li>)}
+                </ul>
               )}
-            </div>
-          </div>
-          {score && score.highlights.length > 0 && (
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {score.highlights.map(h => (
-                <li key={h} className="rounded-full bg-alpine-100 px-3 py-1 text-sm font-medium text-alpine-900">{h}</li>
-              ))}
-            </ul>
+            </>
+          ) : (
+            <p className="max-w-prose text-small text-text-muted">Your filters hide this town, so it has no rank right now. Relax them on the results screen to see its score.</p>
           )}
         </div>
-      </header>
+      </Card>
 
-      <div className="mx-auto max-w-4xl px-4">
-        <SafeSectionBoundary>
-          <TownListings cityId={id} cityName={town.name} />
-        </SafeSectionBoundary>
+      <SafeSectionBoundary fallback={<Unavailable>Homes for {town.name} aren’t available right now. Try again in a moment.</Unavailable>}>
+        <TownListings cityId={id} cityName={town.name} />
+      </SafeSectionBoundary>
 
-        <SafeSectionBoundary>
-          <TownFeed
-            cityId={town.id} cityName={town.name} onSignIn={openSignIn}
-            renderComments={postId => <CommentsThread targetType="post" targetId={postId} />}
-          />
-        </SafeSectionBoundary>
+      <SafeSectionBoundary fallback={<Unavailable>The {town.name} feed couldn’t load right now. Try again in a moment.</Unavailable>}>
+        <TownFeed
+          cityId={town.id} cityName={town.name} onSignIn={openSignIn}
+          renderComments={postId => (
+            <SafeSectionBoundary fallback={<p className="text-small text-text-muted">Comments couldn’t load right now.</p>}>
+              <CommentsThread targetType="post" targetId={postId} />
+            </SafeSectionBoundary>
+          )}
+        />
+      </SafeSectionBoundary>
 
-        <SafeSectionBoundary>
-          <div className="mt-12 border-t border-rock-200 pt-8">
-            <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
-          </div>
-        </SafeSectionBoundary>
+      <SafeSectionBoundary fallback={<Unavailable>Comments couldn’t load right now. Try again in a moment.</Unavailable>}>
+        <div className="mt-section">
+          <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
+        </div>
+      </SafeSectionBoundary>
 
+      <section className="mt-section" aria-labelledby="town-metrics-heading">
+        <h2 id="town-metrics-heading" className="font-display text-heading text-text">The numbers</h2>
+        <nav aria-label="Metric categories" className="mt-3 flex flex-wrap gap-2">
+          {groups.map(({ category }) => (
+            <Button key={category} href={`#cat-${category}`} variant="secondary" size="sm"
+              onClick={e => { e.preventDefault(); document.getElementById(`cat-${category}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+              {CATEGORY_LABELS[category]}
+            </Button>
+          ))}
+        </nav>
         {groups.map(({ category, items }) => (
-          <section key={category} className="mt-10" aria-labelledby={`cat-${category}`}>
-            <h2 id={`cat-${category}`} className="border-b-2 border-alpine-300 pb-2 font-display text-2xl text-alpine-900">{CATEGORY_LABELS[category]}</h2>
-            <ul className="divide-y divide-rock-100">
+          <section key={category} className="mt-stack" aria-labelledby={`cat-${category}`}>
+            <h3 id={`cat-${category}`} className="scroll-mt-4 border-b border-border-strong pb-2 font-display text-title text-text">
+              {CATEGORY_LABELS[category]} <span className="font-sans text-caption font-normal text-text-muted">{items.length} measures</span>
+            </h3>
+            <ul className="divide-y divide-border">
               {items.map(m => <MetricRow key={m.id} metric={m} townId={id} />)}
             </ul>
           </section>
         ))}
-      </div>
+      </section>
     </main>
   );
 }

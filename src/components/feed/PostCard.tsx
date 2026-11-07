@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Badge, Button, Card } from '../ui';
 
 export interface FeedPost {
   _id: string;
@@ -22,9 +23,6 @@ export function relativeTime(ts: number, now = Date.now()): string {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const action =
-  'cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-alpine-500';
-
 interface Props {
   post: FeedPost;
   canAct: boolean;
@@ -36,35 +34,29 @@ interface Props {
 
 export default function PostCard({ post, canAct, onLike, onReport, onDelete, comments }: Props) {
   return (
-    <article className="rounded-2xl border border-rock-100 bg-white p-4">
-      <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <span className="font-semibold text-ink">{post.authorName}</span>
-        {post.isSample && (
-          <span className="rounded-full bg-alpine-100 px-2 py-0.5 text-xs font-semibold text-alpine-700">Sample</span>
-        )}
-        <time className="text-dusk" dateTime={new Date(post.createdAt).toISOString()}>{relativeTime(post.createdAt)}</time>
+    <Card as="article">
+      <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small">
+        <span className="font-semibold text-text">{post.authorName}</span>
+        {post.isSample && <Badge tone="sample" />}
+        <time className="text-text-muted" dateTime={new Date(post.createdAt).toISOString()}>{relativeTime(post.createdAt)}</time>
       </header>
       {/* plain text only: React escapes it, whitespace is preserved by CSS */}
-      <p className="mt-2 whitespace-pre-wrap break-words text-ink">{post.body}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-1">
-        <button
-          type="button"
+      <p className="mt-2 whitespace-pre-wrap break-words text-body text-text [overflow-wrap:anywhere]">{post.body}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <Button
+          variant={post.likedByMe ? 'secondary' : 'ghost'}
+          size="sm"
           onClick={onLike}
           disabled={!canAct}
           aria-pressed={post.likedByMe}
           aria-label={`${post.likedByMe ? 'Unlike' : 'Like'}, ${post.likes} ${post.likes === 1 ? 'like' : 'likes'}`}
-          className={`${action} disabled:cursor-default ${post.likedByMe ? 'bg-rock-100 text-rock-800' : 'text-dusk hover:bg-rock-50'}`}
         >
           <span aria-hidden="true">{post.likedByMe ? '♥' : '♡'} {post.likes}</span>
-        </button>
-        {canAct && post.isMine && (
-          <button type="button" onClick={onDelete} className={`${action} text-rock-600 hover:bg-rock-50`}>Delete</button>
-        )}
-        {canAct && !post.isMine && (
-          <button type="button" onClick={onReport} className={`${action} text-dusk hover:bg-rock-50`}>Report</button>
-        )}
+        </Button>
+        {canAct && post.isMine && <Button variant="ghost" size="sm" onClick={onDelete}>Delete</Button>}
+        {canAct && !post.isMine && <Button variant="ghost" size="sm" onClick={onReport}>Report</Button>}
       </div>
-      {comments && <div className="mt-3 border-t border-rock-100 pt-3">{comments}</div>}
-    </article>
+      {comments && <div className="mt-3 border-t border-border pt-3">{comments}</div>}
+    </Card>
   );
 }
