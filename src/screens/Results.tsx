@@ -3,7 +3,8 @@ import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
-import type { Listing } from '../components/listings/types';
+import ListingDetailPanel from '../components/listings/ListingDetailPanel';
+import type { Listing, Recommendation } from '../components/listings/types';
 import type { Row } from '../components/results/types';
 import { useFlip } from '../components/results/useFlip';
 import FilterBar, { type Sort } from '../components/homes/FilterBar';
@@ -45,6 +46,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [listings, setListings] = useState<Listing[] | undefined>();
+  const [recs, setRecs] = useState<Recommendation[] | undefined>();
 
   const kind = view === 'apartments' ? 'apartment' : 'home';
   const budget = view === 'apartments' ? rentMax : prefs.filters.maxHomeValue;
@@ -85,6 +87,30 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     setSelectedListing(l);
     if (l.cityId) setHovered(l.cityId);
   }, []);
+
+  const closePanel = useCallback(() => setSelectedListing(null), []);
+  const selIndex = selectedListing && recs ? recs.findIndex(r => r.listing.id === selectedListing.id) : -1;
+  const step = (d: number) => {
+    if (!recs?.length) return;
+    const i = selIndex < 0 ? (d > 0 ? 0 : recs.length - 1) : selIndex + d;
+    if (i >= 0 && i < recs.length) selectListing(recs[i].listing);
+  };
+  const selectedId = selectedListing?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    document.querySelector(`[data-listing-id="${CSS.escape(selectedId)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
+  const panel = selectedListing && view !== 'areas' ? (
+    <ListingDetailPanel
+      key={selectedListing.id}
+      listing={selectedListing} rec={recs?.find(r => r.listing.id === selectedListing.id)}
+      cityName={towns.get(selectedListing.cityId)?.name} variant={wide ? 'floating' : 'sheet'}
+      index={selIndex} total={recs?.length}
+      onPrev={recs && selIndex > 0 ? () => step(-1) : undefined}
+      onNext={recs && selIndex >= 0 && selIndex < recs.length - 1 ? () => step(1) : undefined}
+      onClose={closePanel} onOpenTown={onOpenTown}
+    />
+  ) : null;
 
   const changeView = (v: View) => {
     setSelectedListing(null);
@@ -169,13 +195,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
                 towns={towns} townFilter={townFilter} onClearTown={() => changeView('homes')}
                 onBrowseAreas={() => changeView('areas')} onRaiseBudget={() => setBudget(undefined)}
                 selectedId={selectedListing?.id} onSelect={selectListing} onHoverCity={setHovered}
-                onOpenTown={onOpenTown} onListings={setListings}
+                onOpenTown={onOpenTown} onListings={setListings} onRecs={setRecs}
               />
             </ListErrorBoundary>
           )}
         </section>
 
-        <section aria-label="Map" className={`isolate h-full ${pane === 'list' ? 'hidden lg:block' : ''}`}>
+        <section aria-label="Map" className={`relative isolate h-full ${pane === 'list' ? 'hidden lg:block' : ''}`}>
           {showMap && (
             <SafeSectionBoundary fallback={<p className="p-6 text-sm text-dusk">The map needs WebGL, which this browser has turned off. The list still works.</p>}>
             <ResultsMap
@@ -185,8 +211,10 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
             />
             </SafeSectionBoundary>
           )}
+          {wide && panel}
         </section>
       </div>
+      {!wide && panel}
     </main>
   );
 }

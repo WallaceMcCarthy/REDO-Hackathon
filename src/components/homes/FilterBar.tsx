@@ -1,7 +1,7 @@
 import type { View } from './Segmented';
 import { FOCUS, money } from './ui';
 
-export type Sort = 'fit' | 'price' | 'newest';
+export type Sort = 'fit' | 'price_asc' | 'newest';
 const HOME_BUDGETS = [300_000, 400_000, 500_000, 650_000, 800_000, 1_000_000, 1_500_000];
 const RENT_BUDGETS = [1200, 1500, 1800, 2200, 2800, 3500];
 
@@ -29,8 +29,8 @@ export default function FilterBar({ view, budget, onBudget, sort, onSort }: Prop
         <span className="hidden font-medium sm:inline">Sort</span>
         <select aria-label="Sort" value={sort} onChange={e => onSort(e.target.value as Sort)} className={selectCls}>
           <option value="fit">Best fit</option>
-          <option value="price">Lowest price</option>
-          <option value="newest">Newest</option>
+          <option value="price_asc">{apt ? 'Lowest area benchmark' : 'Lowest estimated value'}</option>
+          <option value="newest">Newest built</option>
         </select>
       </label>
     </>
