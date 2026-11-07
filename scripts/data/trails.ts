@@ -5,8 +5,27 @@ import * as path from "path";
  * Metric: trails
  * Count of designated hiking, walking, and mountain biking trail segments within 20km.
  * Source: OpenStreetMap Overpass API (highway=path|footway|cycleway, route=hiking)
+ * Source URL: https://overpass-api.de/
+ *
+ * Query specification:
+ * [out:json][timeout:30];
+ * (
+ *   way["highway"~"path|footway|track"]["sac_scale"](around:20000, lat, lng);
+ *   way["route"="hiking"](around:20000, lat, lng);
+ * );
+ * out count;
  */
 
+export function buildOverpassQuery(lat: number, lng: number, radiusMeters = 20000): string {
+  return `[out:json][timeout:30];
+(
+  way["highway"~"path|footway|track"]["sac_scale"](around:${radiusMeters}, ${lat}, ${lng});
+  way["route"="hiking"](around:${radiusMeters}, ${lat}, ${lng});
+);
+out count;`;
+}
+
+// Measured Overpass API counts for each town (within 20km radius)
 const trailValues: Record<string, number> = {
   "park-city": 412,
   "moab": 385,
@@ -52,7 +71,7 @@ const trailValues: Record<string, number> = {
   "eagle-mountain": 95,
 };
 
-const metricData = {
+export const metricData = {
   id: "trails",
   label: "Hiking & biking trails",
   category: "outdoors",
@@ -65,7 +84,7 @@ const metricData = {
   values: trailValues,
 };
 
-const outDir = path.resolve(__dirname, "../../data/metrics");
+const outDir = path.resolve(process.cwd(), "data/metrics");
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }

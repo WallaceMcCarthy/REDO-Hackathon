@@ -4,8 +4,9 @@ import * as path from "path";
 /**
  * Metric: transit
  * Weekly scheduled public transit departures per 1,000 residents via Utah Transit Authority (UTA)
- * and regional transit systems.
+ * and regional transit systems (SunTran, High Valley Transit, CVTD, CATS).
  * Source: Utah Transit Authority (UTA) Open GTFS Data & Regional Transit Agencies
+ * Source URL: https://www.rideuta.com/Developer-Resources/Data-Feeds
  */
 
 const transitValues: Record<string, number> = {
@@ -53,7 +54,7 @@ const transitValues: Record<string, number> = {
   "kanab": 3.5,
 };
 
-const metricData = {
+export const metricData = {
   id: "transit",
   label: "Public transit departures",
   category: "transit",
@@ -66,7 +67,7 @@ const metricData = {
   values: transitValues,
 };
 
-const outDir = path.resolve(__dirname, "../../data/metrics");
+const outDir = path.resolve(process.cwd(), "data/metrics");
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }
