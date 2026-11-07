@@ -86,7 +86,7 @@ export const metricData = {
   category: "outdoors",
   unit: "minutes",
   higherIsBetter: false,
-  description: "Modeled driving time in minutes to the nearest Utah ski resort based on straight-line distances with mountain road routing and speed factors to resort coordinates.",
+  description: "Estimated driving time in minutes to the nearest Utah ski resort. It is modeled from straight-line distance with mountain-road and speed adjustments, not a routed drive.",
   source: "Ski Utah resort coordinates & modeled road distances",
   sourceUrl: "https://www.skiutah.com/resorts",
   year: 2025,

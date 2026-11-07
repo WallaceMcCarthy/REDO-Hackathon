@@ -21,7 +21,7 @@ const main = async () => {
   }
   writeMetric("data/metrics/sports.json", {
     id: "sports", label: "Distance to pro/college sports", category: "culture", unit: "km to nearest pro or NCAA D1 venue", higherIsBetter: false,
-    description: `Straight-line km from town center to the nearest pro or NCAA Division I venue: ${pts.map(u => u.n).join("; ")}.`,
+    description: "Straight-line distance in km from the town center to the nearest professional or NCAA Division I sports venue in Utah, such as the Delta Center or Rice-Eccles Stadium. It is not driving distance.",
     source: "Venue coordinates from Wikipedia", sourceUrl: "https://en.wikipedia.org/wiki/List_of_sports_venues_in_Utah", year: 2025, values,
   });
 };

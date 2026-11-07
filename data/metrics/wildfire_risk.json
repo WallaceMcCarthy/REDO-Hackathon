@@ -4,7 +4,7 @@
   "category": "environment",
   "unit": "FEMA NRI wildfire risk index score (0-100, higher is riskier)",
   "higherIsBetter": false,
-  "description": "FEMA National Risk Index wildfire Risk Index score (expected annual loss scaled by social vulnerability and community resilience, national percentile 0-100), averaged over the census tracts inside the town weighted by population. Tracts are assigned to a town when the tract centroid is inside the UGRC municipal outline; moab, richfield, kanab, ephraim had no tract centroid inside and take the tract containing the town center. Measured, not estimated, for all 42 towns.",
+  "description": "FEMA National Risk Index score for wildfire, from 0 to 100 against all U.S. areas, where higher is riskier. It combines expected losses with how vulnerable and resilient the community is, averaged over the town's census tracts by population. A few small towns have no census tract centered inside them and use the tract around the town center instead.",
   "source": "FEMA National Risk Index, census tract layer (Wildfire, WFIR_RISKS)",
   "sourceUrl": "https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Census_Tracts/FeatureServer/0",
   "year": 2025,

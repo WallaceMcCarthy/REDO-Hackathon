@@ -93,7 +93,7 @@ const homeValue = {
   unit: "USD",
   higherIsBetter: false,
   description:
-    "Median value of owner-occupied housing units (U.S. Census Bureau American Community Survey 5-year estimates, table DP04), as reported per place; every one of the 42 towns has a place-level ACS estimate, so no county-level proxy was needed.",
+    "Median value of owner-occupied homes, from the Census Bureau's American Community Survey (5-year estimates). It is the owners' own estimate, not a sale or asking price.",
   source: "U.S. Census Bureau, American Community Survey 5-Year Estimates (Table DP04)",
   sourceUrl: DP04_URL,
   year: YEAR,
@@ -107,7 +107,7 @@ const medianRent = {
   unit: "USD/month",
   higherIsBetter: false,
   description:
-    "Median gross rent (U.S. Census Bureau American Community Survey 5-year estimates, table DP04), as reported per place; every one of the 42 towns has a place-level ACS estimate, so no county-level proxy was needed. Small towns' estimates carry wider margins of error given smaller renter-occupied samples.",
+    "Median monthly rent including utilities, from the Census Bureau's American Community Survey (5-year estimates). Small towns' figures are less precise because fewer renters were surveyed.",
   source: "U.S. Census Bureau, American Community Survey 5-Year Estimates (Table DP04)",
   sourceUrl: DP04_URL,
   year: YEAR,
@@ -121,7 +121,7 @@ const medianIncome = {
   unit: "USD/year",
   higherIsBetter: true,
   description:
-    "Median household income (U.S. Census Bureau American Community Survey 5-year estimates, table S1901), as reported per place; every one of the 42 towns has a place-level ACS estimate, so no county-level proxy was needed.",
+    "Median household income in each town, from the Census Bureau's American Community Survey (5-year estimates).",
   source: "U.S. Census Bureau, American Community Survey 5-Year Estimates (Table S1901)",
   sourceUrl: S1901_URL,
   year: YEAR,

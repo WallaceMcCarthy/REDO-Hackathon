@@ -17,7 +17,7 @@ if (process.argv[1]?.endsWith("owner_occupancy.ts")) {
     category: "community",
     unit: "share of occupied housing units that are owner-occupied",
     higherIsBetter: true,
-    description: "Owner-occupied housing units divided by all occupied housing units (ACS table B25003, place level, all 42 towns measured directly). A higher share means more long-term residents with a stake in the neighborhood.",
+    description: "Share of occupied homes that are lived in by their owners, from the Census American Community Survey. A higher share means more long-term residents.",
     source: "U.S. Census Bureau, 2020-2024 ACS 5-year estimates (B25003)",
     sourceUrl: `${ACS_BASE}acsdt5y2024-b25003.dat`,
     year: 2024,

@@ -38,7 +38,7 @@ if (process.argv[1]?.endsWith("net_migration.ts")) {
     category: "community",
     unit: "net movers per 1,000 residents, county, July 2020 to July 2024",
     higherIsBetter: true,
-    description: "Domestic plus international net migration into the town's county over the four years July 2020 to July 2024, per 1,000 residents at July 2020. The Census Bureau publishes migration components for counties only, so every town takes its county's value (13 Salt Lake County towns share one value, and so on).",
+    description: "People moving in minus people moving out of the town's county from July 2020 to July 2024, per 1,000 residents, counting domestic and international moves. The Census Bureau publishes this by county only, so every town in a county shows the same number.",
     source: "U.S. Census Bureau, Vintage 2024 County Population Estimates, components of change (co-est2024-alldata)",
     sourceUrl: URL_,
     year: 2024,

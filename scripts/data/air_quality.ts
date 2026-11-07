@@ -1,6 +1,7 @@
 // PM2.5 annual mean per town from nearest EPA AQS monitor. Run: npx -y tsx scripts/data/air_quality.ts
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { writeMethodology } from "./lib.ts";
 import { loadTowns, haversineKm, cached } from "./towns.ts";
 
 const YEAR = Number(process.env.YEAR ?? 2025);
@@ -39,6 +40,7 @@ for (const t of loadTowns()) {
 console.log(mons.length, "monitors;", notes.join(" "));
 writeFileSync("data/metrics/air_quality.json", JSON.stringify({
   id: "air_quality", label: "Air quality", category: "environment", unit: "µg/m³ PM2.5 (annual mean)", higherIsBetter: false,
-  description: `Annual mean PM2.5 (${YEAR}) at the nearest EPA AQS regulatory monitor in Utah (${mons.length} monitors; straight-line distance, mean across monitors' POCs). Towns have no monitor of their own, so distance to assigned monitor in km: ${notes.join(", ")}.`,
+  description: `Average fine-particle pollution (PM2.5) in ${YEAR} at the nearest EPA air monitor in Utah. Towns have no monitor of their own, so each uses the closest one by straight-line distance. Rural towns far from any monitor are rough estimates.`,
   source: "EPA Air Quality System (AQS) annual concentration by monitor", sourceUrl: "https://aqs.epa.gov/aqsweb/airdata/download_files.html#Annual", year: YEAR, values,
 }, null, 2));
+writeMethodology("air_quality", `Annual mean PM2.5 (${YEAR}) at the nearest EPA AQS regulatory monitor in Utah (${mons.length} monitors; straight-line distance, mean across monitors' POCs). Towns have no monitor of their own, so distance to assigned monitor in km: ${notes.join(", ")}.`);

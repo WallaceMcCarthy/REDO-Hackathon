@@ -33,7 +33,7 @@ if (process.argv[1]?.endsWith("population_growth.ts")) {
     category: "community",
     unit: "% change in population, April 2020 to July 2024",
     higherIsBetter: true,
-    description: "Percent change in the town's resident population from the April 2020 estimates base to the July 2024 estimate. Place-level for all 42 towns, no county proxy. Shows how fast a town is attracting residents.",
+    description: "Percent change in the town's population from April 2020 to July 2024, from Census Bureau estimates. Shows how fast a town is attracting residents.",
     source: "U.S. Census Bureau, Vintage 2024 Population Estimates, incorporated places (sub-est2024)",
     sourceUrl: URL_,
     year: 2024,

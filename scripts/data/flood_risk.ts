@@ -13,7 +13,7 @@ if (process.argv[1]?.endsWith("flood_risk.ts")) {
     category: "environment",
     unit: "FEMA NRI inland-flooding risk index score (0-100, higher is riskier)",
     higherIsBetter: false,
-    description: `FEMA National Risk Index inland-flooding Risk Index score (expected annual loss scaled by social vulnerability and community resilience, national percentile 0-100), averaged over the census tracts inside the town weighted by population. Tracts are assigned to a town when the tract centroid is inside the UGRC municipal outline${centerFallback.length ? `; ${centerFallback.join(", ")} had no tract centroid inside and take the tract containing the town center` : ""}. Measured, not estimated, for all 42 towns.`,
+    description: `FEMA National Risk Index score for inland flooding, from 0 to 100 against all U.S. areas, where higher is riskier. It combines expected losses with how vulnerable and resilient the community is, averaged over the town's census tracts by population.${centerFallback.length ? " A few small towns have no census tract centered inside them and use the tract around the town center instead." : ""}`,
     source: "FEMA National Risk Index, census tract layer (Inland Flooding, IFLD_RISKS)",
     sourceUrl: NRI_LAYER,
     year: 2025,

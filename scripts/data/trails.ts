@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMethodology, townList, writeMethodology } from "./lib.ts";
 
 /**
  * Metric: trails
@@ -275,7 +276,7 @@ async function main() {
   const endpointsUsed = Array.from(new Set(Object.values(sourceByTown))).filter((e) => e !== "cached");
   const queriedDate = new Date().toISOString().slice(0, 10);
 
-  const baseDescription =
+  const baseMethodology =
     "Count of OpenStreetMap ways tagged with sac_scale (the hiking-difficulty tag applied to real trails, " +
     "not urban sidewalks) whose highway type is path/footway/track/cycleway/bridleway, plus hiking/mountain-biking " +
     "route relations, within 20km of the town center. Queried live from the Overpass API " +
@@ -283,12 +284,17 @@ async function main() {
     `["sac_scale"](around:20000,lat,lng);relation["route"~"^(hiking|mtb)$"](around:20000,lat,lng););out count;) `;
   const queriedNote = `on ${queriedDate}, via ${endpointsUsed.join(" and/or ")} (raw per-town responses cached under data/raw/trails/<town-id>.json).`;
   // In --only mode keep the earlier run's provenance and add this run's, so each town's date and mirror stay auditable.
-  const description =
-    (previous ? previous.description.replace(/ \d+ town\(s\) could not be queried live.*$/, "") + ` ${towns.map((t) => t.id).join(", ")} re-queried separately ${queriedNote}` : baseDescription + queriedNote) +
+  const previousMethodology = ONLY ? readMethodology().trails : undefined;
+  const methodology =
+    (previousMethodology ? previousMethodology.replace(/ \d+ town\(s\) could not be queried live.*$/, "") + ` ${towns.map((t) => t.id).join(", ")} re-queried separately ${queriedNote}` : baseMethodology + queriedNote) +
     (omitted.length > 0
       ? ` ${omitted.length} town(s) could not be queried live after repeated retries across all ` +
         `endpoints and are omitted here rather than guessed: ${omitted.map((t) => t.id).sort().join(", ")}.`
       : "");
+  writeMethodology("trails", methodology);
+  const description =
+    "Count of mapped hiking and mountain-biking trails and routes within 20 km of the town center, from OpenStreetMap. It counts trails, not city sidewalks, and depends on how completely each area has been mapped." +
+    (omitted.length > 0 ? ` No count for ${townList(omitted.map((t) => t.id).sort())}, which could not be queried.` : "");
   const metric = {
     id: "trails",
     label: "Hiking & biking trails",

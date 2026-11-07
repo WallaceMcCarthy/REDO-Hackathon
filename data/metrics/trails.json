@@ -4,7 +4,7 @@
   "category": "outdoors",
   "unit": "trails within 20km",
   "higherIsBetter": true,
-  "description": "Count of OpenStreetMap ways tagged with sac_scale (the hiking-difficulty tag applied to real trails, not urban sidewalks) whose highway type is path/footway/track/cycleway/bridleway, plus hiking/mountain-biking route relations, within 20km of the town center. Queried live from the Overpass API (Overpass QL: [out:json][timeout:50];(way[\"highway\"~\"^(path|footway|track|cycleway|bridleway)$\"][\"sac_scale\"](around:20000,lat,lng);relation[\"route\"~\"^(hiking|mtb)$\"](around:20000,lat,lng););out count;) on 2026-11-07, via https://maps.mail.ru/osm/tools/overpass/api/interpreter (raw per-town responses cached under data/raw/trails/<town-id>.json). draper re-queried separately on 2026-11-07, via https://maps.mail.ru/osm/tools/overpass/api/interpreter (raw per-town responses cached under data/raw/trails/<town-id>.json).",
+  "description": "Count of mapped hiking and mountain-biking trails and routes within 20 km of the town center, from OpenStreetMap. It counts trails, not city sidewalks, and depends on how completely each area has been mapped.",
   "source": "OpenStreetMap contributors, via the Overpass API",
   "sourceUrl": "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "year": 2026,

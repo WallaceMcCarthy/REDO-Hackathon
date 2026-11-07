@@ -4,7 +4,7 @@
   "category": "community",
   "unit": "% change in population, April 2020 to July 2024",
   "higherIsBetter": true,
-  "description": "Percent change in the town's resident population from the April 2020 estimates base to the July 2024 estimate. Place-level for all 42 towns, no county proxy. Shows how fast a town is attracting residents.",
+  "description": "Percent change in the town's population from April 2020 to July 2024, from Census Bureau estimates. Shows how fast a town is attracting residents.",
   "source": "U.S. Census Bureau, Vintage 2024 Population Estimates, incorporated places (sub-est2024)",
   "sourceUrl": "https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/cities/totals/sub-est2024_49.csv",
   "year": 2024,

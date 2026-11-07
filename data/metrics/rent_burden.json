@@ -4,7 +4,7 @@
   "category": "cost",
   "unit": "share of median household income spent on median rent (annualized)",
   "higherIsBetter": false,
-  "description": "Median gross rent annualized (×12) divided by median household income: the share of the typical household's income the typical rent here would consume. Derived entirely from this repo's existing median_rent.json and median_income.json (both 2023 Census ACS 5-year estimates), no new data retrieved. Lower is more affordable. A common affordability guideline is that paying more than 0.30 (30%) of income on rent is considered cost-burdened.",
+  "description": "The share of the typical household's income that the typical rent would take, from median annual rent divided by median household income (Census American Community Survey). Lower is more affordable. Spending more than 30% of income on rent is a common guideline for being cost-burdened.",
   "source": "Derived from this repo's median_rent and median_income metrics (Census ACS 5-year estimates)",
   "sourceUrl": "https://data.census.gov/table/ACSDP5Y2023.DP04",
   "year": 2023,

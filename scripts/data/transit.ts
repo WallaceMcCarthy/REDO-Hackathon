@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeMethodology } from "./lib.ts";
 
 /**
  * Metric: transit
@@ -259,6 +260,18 @@ async function main() {
     }
   }
 
+  writeMethodology("transit", "UTA coverage only, not total public transit: Heber City has High Valley Transit route 106 (https://www.hvtutah.gov/bus-106-wasatch-back-connect-to-heber-valley), which is excluded from this UTA feed. A zero here does not mean no public transportation. Scheduled weekly (Mon-Sun) UTA transit departures per 1,000 residents, computed from UTA's real " +
+  `published GTFS feed (${GTFS_URL}, feed_version 2026 AUG_20261008) by counting stop_times rows at every ` +
+  `GTFS stop within ${RADIUS_KM}km of the town centroid, for the representative week of ` +
+  `${WEEK_DATES[0]}-${WEEK_DATES[6]}, divided by town population and multiplied by 1000. Towns with 0 have no ` +
+  "UTA stops within range, i.e. outside UTA's GTFS-covered service area: " +
+  notes.sort().join(", ") +
+  ". That includes rural southern/eastern Utah towns UTA does not serve at all (moab, vernal, price, " +
+  "richfield, kanab, cedar-city, st-george, hurricane, washington, ephraim), some of which have separate " +
+  "regional systems (e.g. SunTran in Cedar City/St. George) not covered by this feed, plus a few towns " +
+  "just outside UTA's practical reach (park-city, heber-city, midway, logan, eagle-mountain, " +
+  "saratoga-springs) where the nearest GTFS stop is well beyond this radius.");
+
   const metric = {
     id: "transit",
     label: "UTA transit departures",
@@ -266,17 +279,7 @@ async function main() {
     unit: "weekly departures per 1k residents",
     higherIsBetter: true,
     description:
-      "UTA coverage only, not total public transit: Heber City has High Valley Transit route 106 (https://www.hvtutah.gov/bus-106-wasatch-back-connect-to-heber-valley), which is excluded from this UTA feed. A zero here does not mean no public transportation. Scheduled weekly (Mon-Sun) UTA transit departures per 1,000 residents, computed from UTA's real " +
-      `published GTFS feed (${GTFS_URL}, feed_version 2026 AUG_20261008) by counting stop_times rows at every ` +
-      `GTFS stop within ${RADIUS_KM}km of the town centroid, for the representative week of ` +
-      `${WEEK_DATES[0]}-${WEEK_DATES[6]}, divided by town population and multiplied by 1000. Towns with 0 have no ` +
-      "UTA stops within range, i.e. outside UTA's GTFS-covered service area: " +
-      notes.sort().join(", ") +
-      ". That includes rural southern/eastern Utah towns UTA does not serve at all (moab, vernal, price, " +
-      "richfield, kanab, cedar-city, st-george, hurricane, washington, ephraim), some of which have separate " +
-      "regional systems (e.g. SunTran in Cedar City/St. George) not covered by this feed, plus a few towns " +
-      "just outside UTA's practical reach (park-city, heber-city, midway, logan, eagle-mountain, " +
-      "saratoga-springs) where the nearest GTFS stop is well beyond this radius.",
+      `Weekly UTA departures per 1,000 residents, counting stops within ${RADIUS_KM} km of the town center. UTA only, so a zero does not mean no public transit: regional systems such as High Valley Transit in Heber and SunTran in St. George are not included. Towns outside UTA's service area score zero.`,
     source: "Utah Transit Authority (UTA) GTFS feed",
     sourceUrl: GTFS_URL,
     year: 2026,
