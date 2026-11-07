@@ -216,7 +216,7 @@ describe("ads security & exploit resistance", () => {
     await attacker.mutation(refs.recordClick, { campaignId: id, viewerKey: "anonkey_4444" });
     expect((await pending()).clicks).toBe(1);
     const rows = await t.run(async (ctx: any) => ctx.db.query("adEvents").collect());
-    expect(rows.some((r: any) => r.kind === "click" && r.viewerKey.startsWith("user:"))).toBe(true);
+    expect(rows.some((r: any) => r.kind === "click" && /^[a-f0-9]{64}$/.test(r.viewerKey))).toBe(true);
 
     await expect(t.mutation(refs.recordClick, { campaignId: id, viewerKey: "bad key!" })).rejects.toThrow();
   });
