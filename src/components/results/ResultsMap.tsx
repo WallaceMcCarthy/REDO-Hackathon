@@ -87,6 +87,9 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns', grouped: b
   map.setPaintProperty('towns-label', 'text-color', towns ? INK : TOWN_MUTED);
 }
 
+// Pale to dark green, so a pin's colour reads as how well its town fits this search.
+const fitColor: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['get', 'fit'], 0, '#f2d9c7', 0.35, '#e8a33d', 0.7, '#3aa76d', 1, '#0b6b3a'];
+const fitOpacity: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['get', 'fit'], 0, 0.35, 0.5, 0.75, 1, 1];
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
 // MapLibre allows one zoom curve per paint value, and only at the top, so hover scales each stop.
@@ -132,15 +135,19 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
 
   const listingData = useMemo<FeatureCollection>(() => {
     listingsRef.current = listings ?? [];
+    const scores = new Map(rows.map(r => [r.city.id, r.score.score]));
+    const values = [...scores.values()];
+    const low = Math.min(...values), span = Math.max(...values) - low || 1;
     return {
       type: 'FeatureCollection',
       features: (listings ?? []).map(l => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [l.lng, l.lat] },
-        properties: { id: l.id, kind: l.kind, price: priceLabel(l) },
+        // Fit against the current priorities, scaled to the best and worst town in this search.
+        properties: { id: l.id, kind: l.kind, price: priceLabel(l), fit: ((scores.get(l.cityId) ?? low) - low) / span },
       })),
     };
-  }, [listings]);
+  }, [listings, rows]);
 
   // Create the map once.
   useEffect(() => {
@@ -166,7 +173,6 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 13 });
       map.addSource('listings-flat', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: false });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
-      const kindColor: maplibregl.ExpressionSpecification = ['match', ['get', 'kind'], 'apartment', APARTMENT_COLOR, HOME_COLOR];
       // Utah border and faint outside mask: above the basemap, beneath all data layers.
       map.addSource('utah-border', { type: 'geojson', data: UTAH_LINE });
       map.addSource('utah-mask', { type: 'geojson', data: UTAH_MASK });
@@ -237,7 +243,8 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         id: 'listings-circle', type: 'circle', source: 'listings', filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 8, 12, 11],
-          'circle-color': kindColor, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2.5,
+          'circle-color': fitColor, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2.5,
+          'circle-opacity': fitOpacity, 'circle-stroke-opacity': fitOpacity,
         },
       });
       map.addLayer({
@@ -259,7 +266,8 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         id: 'flat-circle', type: 'circle', source: 'listings-flat',
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 4, 10, 6, 14, 10],
-          'circle-color': kindColor, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5,
+          'circle-color': fitColor, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5,
+          'circle-opacity': fitOpacity, 'circle-stroke-opacity': fitOpacity,
         },
       });
       map.addLayer({
