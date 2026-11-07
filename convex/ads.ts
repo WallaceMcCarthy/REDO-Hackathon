@@ -1,7 +1,11 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
-import { redoClient } from "./lib/payments";
+import { redoClient, selectPaymentClient } from "./lib/payments";
+import { priceCents, type CampaignKind } from "./lib/pricing";
 
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 
@@ -90,85 +94,107 @@ export const listMyCampaigns = query({
   },
 });
 
-export const createCampaign = mutation({
-  args: {
-    kind: v.union(v.literal("pin"), v.literal("featured"), v.literal("job")),
-    title: v.string(),
-    body: v.string(),
-    url: v.string(),
-    lat: v.optional(v.number()),
-    lng: v.optional(v.number()),
-    listingId: v.optional(v.string()),
-    cityId: v.optional(v.string()),
-    durationDays: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+const campaignArgs = {
+  kind: v.union(v.literal("pin"), v.literal("featured"), v.literal("job")),
+  title: v.string(),
+  body: v.string(),
+  url: v.string(),
+  lat: v.optional(v.number()),
+  lng: v.optional(v.number()),
+  listingId: v.optional(v.string()),
+  cityId: v.optional(v.string()),
+  durationDays: v.number(),
+};
 
-    // 1. Title validation
-    const title = args.title.trim();
-    if (title.length < 3 || title.length > 80) {
-      throw new Error("Campaign title must be between 3 and 80 characters");
-    }
+type CampaignInput = {
+  kind: CampaignKind;
+  title: string;
+  body: string;
+  url: string;
+  lat?: number;
+  lng?: number;
+  listingId?: string;
+  cityId?: string;
+  durationDays: number;
+};
 
-    // 2. Body validation
-    const body = args.body.trim();
-    if (body.length < 5 || body.length > 300) {
-      throw new Error("Campaign description must be between 5 and 300 characters");
-    }
+/** Validate client input and insert a pending_payment campaign priced server-side. */
+async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args: CampaignInput) {
+  // 1. Title validation
+  const title = args.title.trim();
+  if (title.length < 3 || title.length > 80) {
+    throw new Error("Campaign title must be between 3 and 80 characters");
+  }
 
-    // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
-    const validUrl = validateHttpsUrl(args.url);
+  // 2. Body validation
+  const body = args.body.trim();
+  if (body.length < 5 || body.length > 300) {
+    throw new Error("Campaign description must be between 5 and 300 characters");
+  }
 
-    // 4. Duration bounds
-    const durationDays = Math.round(args.durationDays);
-    if (durationDays < 1 || durationDays > 90) {
-      throw new Error("Campaign duration must be between 1 and 90 days");
-    }
+  // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
+  const validUrl = validateHttpsUrl(args.url);
 
-    // 5. Geographic validation for map pins
-    if (args.kind === "pin" || args.kind === "job") {
-      if (args.lat !== undefined || args.lng !== undefined) {
-        if (
-          args.lat === undefined ||
-          args.lng === undefined ||
-          args.lat < UTAH_BOUNDS.minLat ||
-          args.lat > UTAH_BOUNDS.maxLat ||
-          args.lng < UTAH_BOUNDS.minLng ||
-          args.lng > UTAH_BOUNDS.maxLng
-        ) {
-          throw new Error(
-            `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
-          );
-        }
+  // 4. Duration bounds
+  const durationDays = Math.round(args.durationDays);
+  if (durationDays < 1 || durationDays > 90) {
+    throw new Error("Campaign duration must be between 1 and 90 days");
+  }
+
+  // 5. Geographic validation for map pins
+  if (args.kind === "pin" || args.kind === "job") {
+    if (args.lat !== undefined || args.lng !== undefined) {
+      if (
+        args.lat === undefined ||
+        args.lng === undefined ||
+        args.lat < UTAH_BOUNDS.minLat ||
+        args.lat > UTAH_BOUNDS.maxLat ||
+        args.lng < UTAH_BOUNDS.minLng ||
+        args.lng > UTAH_BOUNDS.maxLng
+      ) {
+        throw new Error(
+          `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
+        );
       }
     }
+  }
 
-    const now = Date.now();
-    const durationMs = durationDays * 24 * 3600 * 1000;
-    const ratePerDay = args.kind === "featured" ? 1000 : args.kind === "job" ? 700 : 500;
-    const amount = ratePerDay * durationDays;
+  const now = Date.now();
+  const durationMs = durationDays * 24 * 3600 * 1000;
+  const amount = priceCents(args.kind, durationDays);
 
-    const campaignId = await ctx.db.insert("campaigns", {
-      advertiserUserId: userId,
-      kind: args.kind,
-      title,
-      body,
-      url: validUrl,
-      lat: args.lat,
-      lng: args.lng,
-      listingId: args.listingId,
-      cityId: args.cityId,
-      startsAt: now,
-      endsAt: now + durationMs,
-      status: "pending_payment",
-      impressions: 0,
-      clicks: 0,
-      // Phase 3 security rule: isSample is never client-settable on public mutation
-      isSample: false,
-      expectedAmount: amount,
-      expectedCurrency: "USD",
-    });
+  const campaignId = await ctx.db.insert("campaigns", {
+    advertiserUserId: userId,
+    kind: args.kind,
+    title,
+    body,
+    url: validUrl,
+    lat: args.lat,
+    lng: args.lng,
+    listingId: args.listingId,
+    cityId: args.cityId,
+    startsAt: now,
+    endsAt: now + durationMs,
+    status: "pending_payment",
+    impressions: 0,
+    clicks: 0,
+    // Phase 3 security rule: isSample is never client-settable on public mutation
+    isSample: false,
+    expectedAmount: amount,
+    expectedCurrency: "USD",
+  });
+
+  return { campaignId, amount, title, durationDays };
+}
+
+const siteUrl = () => (process?.env?.SITE_URL || "https://cmascope.com").replace(/\/+$/, "");
+
+/** REDO sandbox path (kept as the alternate provider). */
+export const createCampaign = mutation({
+  args: campaignArgs,
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const { campaignId, amount, title, durationDays } = await insertPendingCampaign(ctx, userId, args);
 
     const session = await redoClient.createCheckoutSession({
       campaignId: String(campaignId),
@@ -176,8 +202,8 @@ export const createCampaign = mutation({
       currency: "USD",
       title: `${args.kind.toUpperCase()} Campaign: ${title}`,
       description: `Utah Fit advertising sponsorship (${durationDays} days)`,
-      successUrl: `${process?.env?.SITE_URL || "https://cmascope.com"}/ads/success`,
-      cancelUrl: `${process?.env?.SITE_URL || "https://cmascope.com"}/ads/cancel`,
+      successUrl: `${siteUrl()}/ads/success`,
+      cancelUrl: `${siteUrl()}/ads/cancel`,
     });
 
     return {
@@ -185,6 +211,156 @@ export const createCampaign = mutation({
       checkoutUrl: session.checkoutUrl,
       amount,
     };
+  },
+});
+
+export const createPendingCampaign = internalMutation({
+  args: { userId: v.id("users"), ...campaignArgs },
+  handler: async (ctx, { userId, ...args }) => {
+    const r = await insertPendingCampaign(ctx, userId, args);
+    return { campaignId: r.campaignId, amount: r.amount, title: r.title, durationDays: r.durationDays };
+  },
+});
+
+export const recordCheckoutSession = internalMutation({
+  args: {
+    campaignId: v.id("campaigns"),
+    provider: v.string(),
+    sessionId: v.string(),
+    amount: v.number(),
+    currency: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("payments", {
+      campaignId: args.campaignId,
+      provider: args.provider,
+      stripeSessionId: args.provider === "stripe" ? args.sessionId : undefined,
+      amount: args.amount,
+      currency: args.currency,
+      status: "pending",
+      rawEventId: `pending:${args.sessionId}`,
+    });
+  },
+});
+
+/**
+ * Checkout entry point. Stripe when STRIPE_SECRET_KEY is set, else the labeled sandbox.
+ * The amount is always computed server-side from kind and duration.
+ */
+export const createCheckout = action({
+  args: campaignArgs,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ campaignId: string; checkoutUrl: string; amount: number; provider: "redo" | "stripe" }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Sign in required");
+
+    const created: { campaignId: Id<"campaigns">; amount: number; title: string; durationDays: number } =
+      await ctx.runMutation(internal.ads.createPendingCampaign, { userId, ...args });
+
+    const client = selectPaymentClient();
+    const session = await client.createCheckoutSession({
+      campaignId: String(created.campaignId),
+      amount: created.amount,
+      currency: "USD",
+      title: `${created.title}, ${args.kind}`,
+      description: `Utah Fit advertising sponsorship (${created.durationDays} days)`,
+      successUrl: `${siteUrl()}/#ads?paid={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${siteUrl()}/#ads?canceled=1`,
+    });
+
+    if (client.provider === "stripe") {
+      await ctx.runMutation(internal.ads.recordCheckoutSession, {
+        campaignId: created.campaignId,
+        provider: "stripe",
+        sessionId: session.sessionId,
+        amount: created.amount,
+        currency: "USD",
+      });
+    }
+
+    return {
+      campaignId: String(created.campaignId),
+      checkoutUrl: session.checkoutUrl,
+      amount: created.amount,
+      provider: client.provider,
+    };
+  },
+});
+
+/** Public flag so the UI can show the Stripe test-mode note. */
+export const paymentProvider = query({
+  args: {},
+  handler: async () => ({
+    provider: process?.env?.STRIPE_SECRET_KEY?.trim() ? ("stripe" as const) : ("redo" as const),
+  }),
+});
+
+/**
+ * Internal mutation called only from the signature-verified /webhooks/stripe route.
+ * Idempotent on the Stripe event id.
+ */
+export const fulfillStripePayment = internalMutation({
+  args: {
+    eventId: v.string(),
+    sessionId: v.string(),
+    campaignId: v.string(),
+    amountTotal: v.number(),
+    currency: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const seen = await ctx.db
+      .query("payments")
+      .withIndex("by_rawEventId", (q) => q.eq("rawEventId", args.eventId))
+      .first();
+    if (seen) return { status: "already_processed" as const };
+
+    const campaignId = ctx.db.normalizeId("campaigns", args.campaignId);
+    const campaign = campaignId ? await ctx.db.get(campaignId) : null;
+    if (!campaignId || !campaign) return { status: "campaign_not_found" as const };
+
+    if (campaign.expectedAmount && args.amountTotal < campaign.expectedAmount) {
+      return { status: "amount_mismatch" as const };
+    }
+    if (campaign.expectedCurrency && args.currency.toUpperCase() !== campaign.expectedCurrency.toUpperCase()) {
+      return { status: "currency_mismatch" as const };
+    }
+
+    const row = await ctx.db
+      .query("payments")
+      .withIndex("by_stripeSessionId", (q) => q.eq("stripeSessionId", args.sessionId))
+      .first();
+    if (row && row.status === "paid") return { status: "already_processed" as const };
+
+    if (row) {
+      await ctx.db.patch(row._id, {
+        status: "paid",
+        rawEventId: args.eventId,
+        amount: args.amountTotal,
+        currency: args.currency.toUpperCase(),
+      });
+    } else {
+      await ctx.db.insert("payments", {
+        campaignId,
+        provider: "stripe",
+        stripeSessionId: args.sessionId,
+        amount: args.amountTotal,
+        currency: args.currency.toUpperCase(),
+        status: "paid",
+        rawEventId: args.eventId,
+      });
+    }
+
+    // Start the clock at payment time, preserving the purchased duration.
+    const duration = Math.max(campaign.endsAt - campaign.startsAt, 0);
+    const now = Date.now();
+    await ctx.db.patch(campaignId, {
+      status: "active",
+      startsAt: now,
+      endsAt: now + duration,
+    });
+    return { status: "activated" as const };
   },
 });
 

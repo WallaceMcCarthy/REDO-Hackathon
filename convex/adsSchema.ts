@@ -45,7 +45,9 @@ export const adsTables = {
 
   payments: defineTable({
     campaignId: v.id("campaigns"),
-    redoPaymentId: v.string(),
+    redoPaymentId: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    stripeSessionId: v.optional(v.string()),
     amount: v.number(),
     currency: v.string(),
     status: v.string(),
@@ -53,5 +55,6 @@ export const adsTables = {
   })
     .index("by_campaignId", ["campaignId"])
     .index("by_redoPaymentId", ["redoPaymentId"])
-    .index("by_rawEventId", ["rawEventId"]),
+    .index("by_rawEventId", ["rawEventId"])
+    .index("by_stripeSessionId", ["stripeSessionId"]),
 };

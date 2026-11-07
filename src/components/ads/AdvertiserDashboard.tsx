@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCreateCampaign, useMyCampaigns } from '../../data/adsHooks';
+import { useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
 import type { City } from '../../types';
 
 interface AdvertiserDashboardProps {
@@ -9,7 +9,12 @@ interface AdvertiserDashboardProps {
 
 export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashboardProps) {
   const campaigns = useMyCampaigns();
-  const createCampaign = useCreateCampaign();
+  const createCheckout = useCreateCheckout();
+  const provider = usePaymentProvider();
+  const isStripe = provider === 'stripe';
+  const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const returnedPaid = hashParams.has('paid');
+  const returnedCanceled = hashParams.has('canceled');
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
   const [title, setTitle] = useState('');
@@ -35,7 +40,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
     setPendingCheckoutUrl(null);
 
     try {
-      const res = await createCampaign({
+      const res = await createCheckout({
         kind,
         title: title.trim(),
         body: body.trim(),
@@ -46,6 +51,10 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         durationDays,
       });
 
+      if (res?.provider === 'stripe' && res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
       if (res?.checkoutUrl) {
         setPendingCheckoutUrl(res.checkoutUrl);
         setCheckoutNotice(
@@ -80,11 +89,28 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
             Self-serve local advertising for Utah businesses and employers.
           </p>
         </div>
-        <div className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 border border-amber-200 flex items-center gap-1.5">
-          <span>⚠️</span>
-          <span>SANDBOX: REDO payments not connected yet</span>
-        </div>
+        {isStripe ? (
+          <div className="rounded-xl bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-900 border border-sky-200">
+            Test mode: use card 4242 4242 4242 4242
+          </div>
+        ) : (
+          <div className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 border border-amber-200 flex items-center gap-1.5">
+            <span>⚠️</span>
+            <span>SANDBOX: REDO payments not connected yet</span>
+          </div>
+        )}
       </div>
+
+      {returnedPaid && (
+        <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
+          Payment received — your ad goes live when Stripe confirms
+        </div>
+      )}
+      {returnedCanceled && (
+        <div role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Checkout canceled. Your campaign stays pending until paid.
+        </div>
+      )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_22rem]">
         {/* Active & Past Campaigns */}
@@ -144,7 +170,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                         </span>
                         {c.status === 'pending_payment' && (
                           <span className="text-[10px] text-dusk italic">
-                            Awaiting REDO webhook confirmation
+                            Awaiting payment confirmation
                           </span>
                         )}
                       </div>
@@ -297,7 +323,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                 <span>${totalCost}.00 USD</span>
               </div>
               <p className="mt-1 text-[10px] text-dusk">
-                Billed securely via REDO Payments Gateway.
+                {isStripe ? 'Billed securely via Stripe (test mode).' : 'Billed securely via REDO Payments Gateway.'}
               </p>
             </div>
 
@@ -324,7 +350,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               disabled={submitting}
               className="w-full inline-flex min-h-[48px] items-center justify-center cursor-pointer rounded-full bg-purple-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-purple-500 disabled:opacity-50"
             >
-              {submitting ? 'Creating...' : `Pay $${totalCost} with REDO`}
+              {submitting ? 'Creating...' : `Pay $${totalCost} with ${isStripe ? 'Stripe' : 'REDO'}`}
             </button>
           </form>
         </section>

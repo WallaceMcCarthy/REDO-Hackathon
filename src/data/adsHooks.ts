@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 export interface CampaignRecord {
@@ -62,6 +62,35 @@ export function useCreateCampaign() {
     },
     [mutate, mutationFn],
   );
+}
+
+export function useCreateCheckout() {
+  const actionFn = (api as any).ads?.createCheckout;
+  const run = useAction(actionFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0, provider: 'redo' })));
+
+  return useCallback(
+    async (params: {
+      kind: 'pin' | 'featured' | 'job';
+      title: string;
+      body: string;
+      url: string;
+      lat?: number;
+      lng?: number;
+      listingId?: string;
+      cityId?: string;
+      durationDays: number;
+    }) => {
+      if (!actionFn) return null;
+      return (await run(params)) as { campaignId: string; checkoutUrl: string; amount: number; provider: 'redo' | 'stripe' };
+    },
+    [run, actionFn],
+  );
+}
+
+export function usePaymentProvider(): 'redo' | 'stripe' | undefined {
+  const queryFn = (api as any).ads?.paymentProvider;
+  const result = useQuery(queryFn, queryFn ? {} : 'skip') as { provider: 'redo' | 'stripe' } | undefined;
+  return result?.provider;
 }
 
 export function useRecordImpression() {

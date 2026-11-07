@@ -22,6 +22,7 @@ export default function App() {
   }, []);
 
   const town = route.match(/^town\/(.+)$/)?.[1];
+  const isAdsReturn = /^ads(\?|$)/.test(route);
   const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
 
   return (
@@ -33,8 +34,8 @@ export default function App() {
         <AdsSandboxCheckout onDone={() => go('results')} />
       ) : route === 'roommates' ? (
         <Roommates onSignIn={openSignIn} />
-      ) : route === 'results' ? (
-        <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} />
+      ) : route === 'results' || isAdsReturn ? (
+        <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} initialView={isAdsReturn ? 'ads' : 'main'} />
       ) : (
         <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go('results')} />
       )}

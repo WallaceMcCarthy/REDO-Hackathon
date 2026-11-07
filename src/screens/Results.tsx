@@ -21,7 +21,7 @@ import { openSignIn } from '../components/auth/AccountMenu';
 import { useMessagesActions } from '../data/messagesHooks';
 import ConversationView from '../components/messages/ConversationView';
 
-type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void };
+type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; initialView?: 'main' | 'saved' | 'ads' };
 
 const NONE: never[] = [];
 const WIDE = '(min-width: 1024px)';
@@ -38,7 +38,7 @@ function useWide() {
   return wide;
 }
 
-export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Props) {
+export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initialView = 'main' }: Props) {
   const cities = useCities();
   const metrics = useMetrics();
   const weights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
@@ -48,7 +48,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const { startConversation } = useMessagesActions();
 
   const [view, setView] = useState<View>('homes');
-  const [viewMode, setViewMode] = useState<'main' | 'saved' | 'ads'>('main');
+  const [viewMode, setViewMode] = useState<'main' | 'saved' | 'ads'>(initialView);
   const [sort, setSort] = useState<Sort>('fit');
   const [rentMax, setRentMax] = useState<number | undefined>();
   const [townFilter, setTownFilter] = useState<string | null>(null);
@@ -192,7 +192,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
     </>
   );
 
-  if (viewMode === 'ads') return <AdvertiserDashboard cities={cities ?? []} onBack={() => setViewMode('main')} />;
+  if (viewMode === 'ads') return <AdvertiserDashboard cities={cities ?? []} onBack={() => { setViewMode('main'); if (/^#\/?ads/.test(window.location.hash)) window.location.hash = '/results'; }} />;
   if (viewMode === 'saved') return <SavedPlaces onBack={() => setViewMode('main')} onOpenTown={openFromPin} />;
 
   return (
