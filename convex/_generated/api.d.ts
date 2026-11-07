@@ -11,6 +11,8 @@
 import type * as account from "../account.js";
 import type * as ads from "../ads.js";
 import type * as adsSchema from "../adsSchema.js";
+import type * as assessor from "../assessor.js";
+import type * as assessorSchema from "../assessorSchema.js";
 import type * as auth from "../auth.js";
 import type * as cities from "../cities.js";
 import type * as cleanup from "../cleanup.js";
@@ -21,6 +23,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_feed from "../lib/feed.js";
 import type * as lib_listingSearch from "../lib/listingSearch.js";
+import type * as lib_assessor from "../lib/assessor.js";
 import type * as lib_listings from "../lib/listings.js";
 import type * as lib_market from "../lib/market.js";
 import type * as lib_moderation from "../lib/moderation.js";
@@ -62,6 +65,8 @@ declare const fullApi: ApiFromModules<{
   account: typeof account;
   ads: typeof ads;
   adsSchema: typeof adsSchema;
+  assessor: typeof assessor;
+  assessorSchema: typeof assessorSchema;
   auth: typeof auth;
   cities: typeof cities;
   cleanup: typeof cleanup;
@@ -72,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   "lib/feed": typeof lib_feed;
   "lib/listingSearch": typeof lib_listingSearch;
+  "lib/assessor": typeof lib_assessor;
   "lib/listings": typeof lib_listings;
   "lib/market": typeof lib_market;
   "lib/moderation": typeof lib_moderation;
