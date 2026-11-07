@@ -36,11 +36,12 @@ function SignedIn() {
   const connections = useRoommateConnections();
   const act = useRoommateActions();
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
   const towns = useMemo(() => new Map((cities ?? []).map((c) => [c.id, c.name])), [cities]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setError(null);
+    setNotice(null);
     try { await fn(); } catch (e) { setError(e instanceof Error ? e.message.replace(/^.*Uncaught Error:\s*/s, '').split('\n')[0] : 'Something went wrong.'); }
   };
 
@@ -63,14 +64,15 @@ function SignedIn() {
           <ConnectionList connections={connections ?? []} towns={towns} />
           <section aria-labelledby="match-h" className="space-y-3">
             <h2 id="match-h" className="font-display text-2xl font-bold text-ink">Your matches</h2>
+            {notice && <p role="status" className="text-sm font-semibold text-alpine-700">{notice}</p>}
             {!mine.active ? <p className="text-sm text-dusk">Your profile is paused. Resume it to see matches.</p>
               : matches === undefined ? <p className="text-sm text-dusk">Loading...</p>
               : matches.length === 0 ? <p className="text-sm text-dusk">No matches yet. Try more towns or a wider budget.</p>
               : (
                 <ul className="space-y-3">
                   {matches.map((m) => (
-                    <MatchCard key={m.profileId} match={m} towns={towns} sent={sent.has(m.profileId)}
-                      onRequest={(id) => run(async () => { await act.sendRequest({ profileId: id as never }); setSent((s) => new Set(s).add(id)); })} />
+                    <MatchCard key={m.profileId} match={m} towns={towns}
+                      onRequest={(id) => run(async () => { await act.sendRequest({ profileId: id as never }); setNotice('Request sent. Their contact appears under Connected if they accept.'); })} />
                   ))}
                 </ul>
               )}
