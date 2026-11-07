@@ -39,7 +39,7 @@ const GROUPED_LAYERS = ['listings-clusters', 'listings-cluster-count', 'listings
 // Ungrouped: one unclustered source, every listing a plain circle layer (no DOM markers).
 const FLAT_LAYERS = ['flat-circle', 'flat-selected', 'flat-price'];
 const GROUP_KEY = 'results-map-group-pins';
-const readGrouped = () => { try { return localStorage.getItem(GROUP_KEY) !== 'off'; } catch { return true; } };
+const readGrouped = () => { try { return localStorage.getItem(GROUP_KEY) === 'on'; } catch { return false; } };
 const ALPINE_500_DOT = ALPINE_500;
 // Topmost first, so a listing wins over the town dot beneath it.
 const HIT_LAYERS = ['listings-clusters', 'listings-circle', 'flat-circle', 'towns-circle', 'towns-dots'];
