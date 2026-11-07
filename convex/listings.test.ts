@@ -28,3 +28,21 @@ it("serves public search pages, real dataset medians, and rejects malformed requ
   await expect(t.query(search, { weights: {}, kind: "home", limit: -1 })).rejects.toThrow();
   await expect(t.query(search, { weights: {}, kind: "home", sort: "untrusted" })).rejects.toThrow();
 });
+
+it("gets one public listing by id, and null for an id it does not know", async () => {
+  const t = convexTest(schema, {
+    "./listings.ts": () => import("./listings"),
+    "./_generated/server.js": () => import("./_generated/server.js"),
+  });
+  const market = { address: "1 Main St", city: "Town", zip: "84000", lat: 40, lng: -111, price: 400000, beds: 3, baths: 2, sqft: 1500, yearBuilt: 2000, propertyType: "Single Family", listedDate: null, daysOnMarket: null };
+  await t.run(async ctx => {
+    await ctx.db.insert("listings", { cityId: "town", name: null, address: null, lat: 40, lng: -111, value: null, rent: 1500, beds: 2, sqft: null, yearBuilt: null, units: null, propertyType: null, source: "Fixture", sourceUrl: "https://example.com", year: 2026, id: "a1", kind: "apartment" });
+    await ctx.db.insert("marketListings", { ...market, rcId: "sale-1", market: "for_sale", cityId: "town", residential: true, sortYearBuilt: 2000, importedAt: 0 });
+    await ctx.db.insert("marketListings", { ...market, rcId: "lot-1", market: "for_sale", cityId: "town", residential: false, sortYearBuilt: 2000, importedAt: 0 });
+  });
+  const get = makeFunctionReference<"query">("listings:get");
+  expect(await t.query(get, { id: "market:for_sale:sale-1" })).toMatchObject({ id: "market:for_sale:sale-1", kind: "home", value: 400000, address: "1 Main St" });
+  expect(await t.query(get, { id: "a1" })).toMatchObject({ id: "a1", rentKind: "area_benchmark", beds: null });
+  expect(await t.query(get, { id: "market:for_sale:lot-1" })).toBeNull();
+  expect(await t.query(get, { id: "missing" })).toBeNull();
+});

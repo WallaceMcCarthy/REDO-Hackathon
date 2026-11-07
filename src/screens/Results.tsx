@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
-import { useConvexAuth } from 'convex/react';
+import { useConvex, useConvexAuth } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import ResultsFeatured from '../components/ads/ResultsFeatured';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
@@ -15,6 +16,7 @@ import PrioritiesPopover from '../components/homes/PrioritiesPopover';
 import Segmented, { type View } from '../components/homes/Segmented';
 import { BTN_PRIMARY, FOCUS } from '../components/homes/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
+import { mapPins, useMapPoints, type MapPin } from '../data/mapPoints';
 import { toMetricWeights } from '../prefs';
 import type { Prefs } from '../types';
 import { openSignIn } from '../components/auth/AccountMenu';
@@ -46,6 +48,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const ranked = useRank(weights, prefs.filters);
   const wide = useWide();
   const { isAuthenticated } = useConvexAuth();
+  const convex = useConvex();
   const { startConversation } = useMessagesActions();
 
   const [sort, setSort] = useState<Sort>('fit');
@@ -55,6 +58,14 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const [listings, setListings] = useState<Listing[] | undefined>();
   const [recs, setRecs] = useState<Recommendation[] | undefined>();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [pinNote, setPinNote] = useState('');
+  const pinRequest = useRef(0);
+
+  useEffect(() => {
+    if (!pinNote) return;
+    const timer = setTimeout(() => setPinNote(''), 5000);
+    return () => clearTimeout(timer);
+  }, [pinNote]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -105,12 +116,23 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const towns = useMemo(() => new Map((rows ?? []).map(r => [r.city.id, { name: r.city.name, score: r.score.score, rank: r.rank }])), [rows]);
   const median = (id: string, cityId: string) => metrics?.find(m => m.id === id)?.values[cityId];
 
-  const mapListings = useMemo<Listing[] | undefined>(() => {
-    if (view === 'areas') return undefined;
-    const l = [...(listings ?? [])];
-    if (selectedListing && l.length && !l.some(h => h.id === selectedListing.id)) l.push(selectedListing);
-    return l.length ? l : undefined;
-  }, [listings, selectedListing, view]);
+  const showMap = wide || pane === 'map';
+  const points = useMapPoints(showMap && view !== 'areas' ? kind : null);
+  const maxCommute = prefs.filters.maxCommuteMinutes;
+  // The same towns the list searches. Undefined means no limit.
+  const townIds = useMemo(() => {
+    if (!townFilter && maxCommute === undefined) return undefined;
+    return new Set((rows ?? []).map(r => r.city.id).filter(id => !townFilter || id === townFilter));
+  }, [rows, townFilter, maxCommute]);
+  const allPins = useMemo(
+    () => (view === 'areas' ? NONE : mapPins(points ?? NONE, listings ?? NONE, budget, townIds)),
+    [view, points, listings, budget, townIds],
+  );
+  // Selecting must keep the same array when it can: a new one re-clusters every point.
+  const mapListings = useMemo<MapPin[] | undefined>(() => {
+    if (!allPins.length) return undefined;
+    return selectedListing && !allPins.some(p => p.id === selectedListing.id) ? [...allPins, selectedListing] : allPins;
+  }, [allPins, selectedListing]);
 
   const featuredTowns = useMemo(() => {
     if (view === 'areas') return (rows ?? []).map(r => r.city.id);
@@ -127,9 +149,22 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   openRef.current = onOpenTown;
   const openFromPin = useCallback((id: string) => openRef.current(id), []);
   const selectListing = useCallback((l: Listing) => {
+    pinRequest.current++;
+    setPinNote('');
     setSelectedListing(l);
     if (l.cityId) setHovered(l.cityId);
   }, []);
+  /** A pin from the points file has no details yet, so fetch that one listing. */
+  const selectPin = useCallback(async (pin: MapPin) => {
+    if (pin.source !== undefined) { selectListing(pin as Listing); return; }
+    const request = ++pinRequest.current;
+    setPinNote('Opening listing');
+    const listing = await convex.query(api.listings.get, { id: pin.id }).catch(() => undefined);
+    if (request !== pinRequest.current) return;
+    if (listing) selectListing(listing);
+    else setPinNote(listing === null ? 'That listing is no longer available.' : 'Could not open that listing. Try again.');
+  }, [convex, selectListing]);
+  useEffect(() => { pinRequest.current++; setPinNote(''); }, [view]);
 
   const closePanel = useCallback(() => setSelectedListing(null), []);
   const selIndex = selectedListing && recs ? recs.findIndex(r => r.listing.id === selectedListing.id) : -1;
@@ -166,7 +201,6 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     window.location.hash = `/results?town=${encodeURIComponent(id)}`;
   };
 
-  const showMap = wide || pane === 'map';
   const filtered = prefs.filters.maxHomeValue !== undefined || prefs.filters.maxCommuteMinutes !== undefined;
 
   const areas = !rows ? (
@@ -251,12 +285,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
             <SafeSectionBoundary fallback={<p className="p-6 text-sm text-dusk">The map needs WebGL, which this browser has turned off. The list still works.</p>}>
             <ResultsMap
               rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered}
-              onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectListing}
+              onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectPin}
               focus={view === 'areas' ? 'towns' : 'listings'} selectedListingId={selectedListing?.id}
               selectedTown={view === 'areas' ? null : townFilter}
             />
             </SafeSectionBoundary>
           )}
+          <p role="status" className={pinNote ? 'absolute bottom-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white shadow-md' : 'sr-only'}>{pinNote}</p>
           {wide && panel}
         </section>
       </div>
