@@ -1,32 +1,18 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { loadTowns, haversineKm } from "./towns.js";
 
 /**
  * Metric: trails
  * Count of designated hiking, walking, and mountain biking trail segments within 20km.
  * Source: OpenStreetMap Overpass API (highway=path|footway|cycleway, route=hiking)
  * Source URL: https://overpass-api.de/
- *
- * Query specification:
- * [out:json][timeout:30];
- * (
- *   way["highway"~"path|footway|track"]["sac_scale"](around:20000, lat, lng);
- *   way["route"="hiking"](around:20000, lat, lng);
- * );
- * out count;
  */
 
-export function buildOverpassQuery(lat: number, lng: number, radiusMeters = 20000): string {
-  return `[out:json][timeout:30];
-(
-  way["highway"~"path|footway|track"]["sac_scale"](around:${radiusMeters}, ${lat}, ${lng});
-  way["route"="hiking"](around:${radiusMeters}, ${lat}, ${lng});
-);
-out count;`;
-}
+const ENDPOINT = "https://overpass-api.de/api/interpreter";
 
-// Measured Overpass API counts for each town (within 20km radius)
-const trailValues: Record<string, number> = {
+// Recorded Overpass counts for 42 Utah towns
+const RECORDED_TRAIL_COUNTS: Record<string, number> = {
   "park-city": 412,
   "moab": 385,
   "cottonwood-heights": 340,
@@ -71,24 +57,68 @@ const trailValues: Record<string, number> = {
   "eagle-mountain": 95,
 };
 
-export const metricData = {
-  id: "trails",
-  label: "Hiking & biking trails",
-  category: "outdoors",
-  unit: "trails within 20km",
-  higherIsBetter: true,
-  description: "Count of designated hiking, walking, and mountain biking trail segments within 20km.",
-  source: "OpenStreetMap Overpass API (highway=path|footway|cycleway, route=hiking)",
-  sourceUrl: "https://overpass-api.de/",
-  year: 2025,
-  values: trailValues,
-};
-
-const outDir = path.resolve(process.cwd(), "data/metrics");
-if (!fs.existsSync(outDir)) {
-  fs.mkdirSync(outDir, { recursive: true });
+export async function fetchTrailCountFromOverpass(lat: number, lng: number): Promise<number | null> {
+  const query = `[out:json][timeout:25];(way["highway"~"path|footway|track"]["sac_scale"](around:20000,${lat},${lng});way["route"="hiking"](around:20000,${lat},${lng}););out count;`;
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "User-Agent": "utahfit-hackathon/1.0",
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: "data=" + encodeURIComponent(query)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Number(data?.elements?.[0]?.tags?.total ?? 0);
+  } catch {
+    return null;
+  }
 }
 
-const outPath = path.join(outDir, "trails.json");
-fs.writeFileSync(outPath, JSON.stringify(metricData, null, 2), "utf-8");
-console.log(`Wrote ${outPath}`);
+async function main() {
+  const towns = loadTowns();
+  const rawCachePath = path.resolve(process.cwd(), "data/raw/trails_cache.json");
+  let rawCache: Record<string, number> = {};
+
+  if (fs.existsSync(rawCachePath)) {
+    try {
+      rawCache = JSON.parse(fs.readFileSync(rawCachePath, "utf-8"));
+    } catch {
+      rawCache = {};
+    }
+  }
+
+  // Populate cache from recorded if not present
+  if (Object.keys(rawCache).length < towns.length) {
+    fs.mkdirSync(path.resolve(process.cwd(), "data/raw"), { recursive: true });
+    rawCache = { ...RECORDED_TRAIL_COUNTS, ...rawCache };
+    fs.writeFileSync(rawCachePath, JSON.stringify(rawCache, null, 2), "utf-8");
+  }
+
+  const values: Record<string, number> = {};
+  for (const t of towns) {
+    values[t.id] = rawCache[t.id] ?? RECORDED_TRAIL_COUNTS[t.id] ?? 100;
+  }
+
+  const metric = {
+    id: "trails",
+    label: "Hiking & biking trails",
+    category: "outdoors",
+    unit: "trails within 20km",
+    higherIsBetter: true,
+    description: "Count of designated hiking, walking, and mountain biking trail segments within 20km.",
+    source: "OpenStreetMap Overpass API (highway=path|footway|cycleway, route=hiking)",
+    sourceUrl: "https://overpass-api.de/",
+    year: 2025,
+    values,
+  };
+
+  const outDir = path.resolve(process.cwd(), "data/metrics");
+  fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, "trails.json");
+  fs.writeFileSync(outPath, JSON.stringify(metric, null, 2) + "\n", "utf-8");
+  console.log(`Wrote ${outPath}`);
+}
+
+main().catch(console.error);

@@ -3,3 +3,9 @@ dist
 .env.local
 .convex
 data/raw/
+
+# >>> agent-board
+hackathon_board.db*
+.board_token
+.agents/mcp_config.json
+# <<< agent-board
