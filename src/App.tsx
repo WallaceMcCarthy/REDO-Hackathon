@@ -15,6 +15,8 @@ const Messages = lazy(() => import('./screens/Messages'));
 const SavedPlaces = lazy(() => import('./screens/SavedPlaces'));
 const TownDetail = lazy(() => import('./screens/TownDetail'));
 const UiKit = lazy(() => import('./screens/UiKit'));
+const Privacy = lazy(() => import('./screens/Privacy'));
+const Terms = lazy(() => import('./screens/Terms'));
 
 // A deploy removes the old hashed chunks, so a tab left open reloads once to pick up the new ones.
 window.addEventListener('vite:preloadError', () => {
@@ -87,6 +89,10 @@ export default function App() {
           <Account onBack={backToResults} onSignIn={openSignIn} />
         ) : route === 'saved' ? (
           <SavedPlaces onBack={backToResults} onOpenTown={id => go(`town/${id}`)} />
+        ) : route === 'privacy' ? (
+          <Privacy onBack={backToResults} />
+        ) : route === 'terms' ? (
+          <Terms onBack={backToResults} />
         ) : isMessages ? (
           <SafeSectionBoundary key={route} fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button href="#/messages">Back to messages</Button>} />}>
             <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={backToResults} />
@@ -102,6 +108,13 @@ export default function App() {
           <Quiz prefs={prefs} setPrefs={setPrefs} onDone={mode => go(mode === 'rent' ? 'results?view=apartments' : 'results')} />
         )}
       </Suspense>
+      {!(path === 'results' || isMessages) && route !== 'ui' && (
+        <footer className="mt-auto px-gutter py-4 text-center text-small text-text-muted">
+          <a href="#/privacy" className="underline underline-offset-2 hover:text-text">Privacy</a>
+          <span aria-hidden="true" className="px-2">·</span>
+          <a href="#/terms" className="underline underline-offset-2 hover:text-text">Terms</a>
+        </footer>
+      )}
     </div>
   );
 }
