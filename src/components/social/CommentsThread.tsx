@@ -165,6 +165,7 @@ export default function CommentsThread({
 }: CommentsThreadProps) {
   const [newBody, setNewBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const comments = useComments(targetType, targetId);
   const addComment = useAddComment();
@@ -174,12 +175,19 @@ export default function CommentsThread({
     if (!newBody.trim() || submitting) return;
     setSubmitting(true);
     try {
+      setAuthError(null);
       await addComment({
         targetType,
         targetId,
         body: newBody.trim(),
       });
       setNewBody('');
+    } catch (err: any) {
+      if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) {
+        setAuthError('Please sign in to post comments.');
+      } else {
+        setAuthError('Could not post comment. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -197,6 +205,12 @@ export default function CommentsThread({
           </span>
         )}
       </div>
+
+      {authError && (
+        <div className="mt-2 rounded-xl bg-rose-50 p-2 text-xs text-rose-800">
+          {authError}
+        </div>
+      )}
 
       {/* New comment input */}
       <form onSubmit={handlePost} className="mt-3 space-y-2">
