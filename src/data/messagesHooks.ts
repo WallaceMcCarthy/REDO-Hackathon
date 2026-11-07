@@ -58,7 +58,7 @@ export function useThread(conversationId: string | null): ThreadResult | undefin
     isAuthenticated && conversationId ? { conversationId: conversationId as Id<'conversations'> } : 'skip',
     { initialNumItems: 50 },
   );
-  if (status === 'LoadingFirstPage') return undefined;
+  if (!isAuthenticated || status === 'LoadingFirstPage') return undefined;
   // Backend pages arrive newest-first; the UI reads oldest-first.
   return { page: [...results].reverse(), canLoadMore: status === 'CanLoadMore', loadMore: () => loadMore(50) };
 }

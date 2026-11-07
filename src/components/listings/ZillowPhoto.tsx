@@ -12,7 +12,8 @@ interface Props {
 
 /** Zillow's own photo (Open Graph image) in the same 16:10 box as AerialPhoto; falls back to the aerial. */
 export default function ZillowPhoto({ listing, preview, fallbackUrl, rounded = 'rounded-t-xl' }: Props) {
-  const imageUrl = preview?.imageUrl ?? null;
+  // Pages with no photo give Zillow's app icon as their Open Graph image.
+  const imageUrl = preview?.imageUrl?.startsWith('https://photos.zillowstatic.com/') ? preview.imageUrl : null;
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [imageUrl]);
   if (!imageUrl || failed) return <AerialPhoto listing={listing} rounded={rounded} />;
