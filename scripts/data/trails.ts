@@ -48,7 +48,14 @@ const ENDPOINTS: { url: string; timeoutMs: number }[] = [
   // Additional public mirror (see header comment) - the one that actually answered with
   // live data during development; its real queries took 18-50s, so give it more room.
   { url: "https://maps.mail.ru/osm/tools/overpass/api/interpreter", timeoutMs: 65_000 },
+  { url: "https://overpass.private.coffee/api/interpreter", timeoutMs: 65_000 },
+  { url: "https://overpass.osm.jp/api/interpreter", timeoutMs: 65_000 },
 ];
+
+// `npx tsx scripts/data/trails.ts --only draper,x` re-queries just those towns (more retry rounds)
+// and merges them into the existing data/metrics/trails.json instead of re-querying all 42.
+const onlyArg = process.argv.indexOf("--only");
+const ONLY: string[] | null = onlyArg > 0 ? process.argv[onlyArg + 1].split(",") : null;
 
 // How many towns to query concurrently. Kept modest (not 10+) to stay polite to the
 // single public mirror that actually answers in this environment; the two dead
@@ -204,8 +211,12 @@ async function fetchAndCacheTown(
 }
 
 async function main() {
-  const towns = loadTowns();
+  const allTowns = loadTowns();
+  const towns = ONLY ? allTowns.filter((t) => ONLY.includes(t.id)) : allTowns;
+  if (ONLY && towns.length !== ONLY.length) throw new Error(`unknown town id in --only ${ONLY}`);
   fs.mkdirSync(RAW_DIR, { recursive: true });
+  const metricPath = path.join(ROOT, "data", "metrics", "trails.json");
+  const previous = ONLY ? JSON.parse(fs.readFileSync(metricPath, "utf-8")) : null;
 
   const values: Record<string, number> = {};
   const sourceByTown: Record<string, string> = {};
@@ -213,7 +224,7 @@ async function main() {
 
   console.log(`Pass 1: querying ${towns.length} towns with concurrency ${CONCURRENCY} ...`);
   await runPool(towns, CONCURRENCY, async (t) => {
-    const result = await fetchAndCacheTown(t, 2);
+    const result = await fetchAndCacheTown(t, ONLY ? 6 : 2);
     if (result) {
       values[t.id] = result.total;
       sourceByTown[t.id] = result.endpoint;
@@ -259,31 +270,36 @@ async function main() {
     );
   }
 
+  const merged: Record<string, number> = { ...(previous?.values ?? {}), ...values };
+  const omitted = allTowns.filter((t) => merged[t.id] === undefined);
   const endpointsUsed = Array.from(new Set(Object.values(sourceByTown))).filter((e) => e !== "cached");
   const queriedDate = new Date().toISOString().slice(0, 10);
 
+  const baseDescription =
+    "Count of OpenStreetMap ways tagged with sac_scale (the hiking-difficulty tag applied to real trails, " +
+    "not urban sidewalks) whose highway type is path/footway/track/cycleway/bridleway, plus hiking/mountain-biking " +
+    "route relations, within 20km of the town center. Queried live from the Overpass API " +
+    `(Overpass QL: [out:json][timeout:50];(way["highway"~"^(path|footway|track|cycleway|bridleway)$"]` +
+    `["sac_scale"](around:20000,lat,lng);relation["route"~"^(hiking|mtb)$"](around:20000,lat,lng););out count;) `;
+  const queriedNote = `on ${queriedDate}, via ${endpointsUsed.join(" and/or ")} (raw per-town responses cached under data/raw/trails/<town-id>.json).`;
+  // In --only mode keep the earlier run's provenance and add this run's, so each town's date and mirror stay auditable.
+  const description =
+    (previous ? previous.description.replace(/ \d+ town\(s\) could not be queried live.*$/, "") + ` ${towns.map((t) => t.id).join(", ")} re-queried separately ${queriedNote}` : baseDescription + queriedNote) +
+    (omitted.length > 0
+      ? ` ${omitted.length} town(s) could not be queried live after repeated retries across all ` +
+        `endpoints and are omitted here rather than guessed: ${omitted.map((t) => t.id).sort().join(", ")}.`
+      : "");
   const metric = {
     id: "trails",
     label: "Hiking & biking trails",
     category: "outdoors",
     unit: "trails within 20km",
     higherIsBetter: true,
-    description:
-      "Count of OpenStreetMap ways tagged with sac_scale (the hiking-difficulty tag applied to real trails, " +
-      "not urban sidewalks) whose highway type is path/footway/track/cycleway/bridleway, plus hiking/mountain-biking " +
-      "route relations, within 20km of the town center. Queried live from the Overpass API " +
-      `(Overpass QL: [out:json][timeout:50];(way["highway"~"^(path|footway|track|cycleway|bridleway)$"]` +
-      `["sac_scale"](around:20000,lat,lng);relation["route"~"^(hiking|mtb)$"](around:20000,lat,lng););out count;) ` +
-      `on ${queriedDate}, via ${endpointsUsed.join(" and/or ")} (raw per-town responses cached under ` +
-      "data/raw/trails/<town-id>.json)." +
-      (stillFailed.length > 0
-        ? ` ${stillFailed.length} town(s) could not be queried live after repeated retries across all ` +
-          `endpoints and are omitted here rather than guessed: ${stillFailed.map((t) => t.id).sort().join(", ")}.`
-        : ""),
+    description,
     source: "OpenStreetMap contributors, via the Overpass API",
-    sourceUrl: endpointsUsed[0] ?? ENDPOINTS[0].url,
+    sourceUrl: previous?.sourceUrl ?? endpointsUsed[0] ?? ENDPOINTS[0].url,
     year: new Date().getFullYear(),
-    values,
+    values: merged,
   };
 
   const outDir = path.join(ROOT, "data", "metrics");
