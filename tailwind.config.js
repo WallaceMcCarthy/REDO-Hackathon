@@ -6,6 +6,8 @@ const dusk = "#6e625a";
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  // The site has no dark theme; without this, dark: classes follow the OS and turn buttons black.
+  darkMode: 'selector',
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   // The site has no dark theme. The default "media" let dark: classes follow the OS and put ink text on near-black buttons.
   darkMode: "selector",

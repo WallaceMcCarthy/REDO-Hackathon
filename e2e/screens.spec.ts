@@ -40,6 +40,7 @@ for (const size of SIZES) {
         await page.goto(screen.path);
         await expect(screen.ready(page).first()).toBeVisible({ timeout: 20_000 });
         expect(await noSideScroll(page), `${screen.name} overflow px`).toBeLessThanOrEqual(0);
+        if (process.env.VITE_BUILD_ID) await expect(page.getByText(process.env.VITE_BUILD_ID)).toBeVisible();
         await shoot(page, `${screen.name}-${size.name}`, info.project.name, size.name);
       });
     }

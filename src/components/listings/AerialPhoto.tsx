@@ -31,7 +31,7 @@ export default function AerialPhoto({ listing, className = '', rounded = 'rounde
             loading="lazy" draggable={false} onError={() => setFailed(true)} className="size-full object-cover"
           />
           <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
-            <span className="relative block size-6 rotate-[-45deg] rounded-full rounded-br-none border-2 border-white bg-rock-600 shadow-[0_2px_6px_rgba(0,0,0,0.5)]">
+            <span className="relative block size-6 rotate-[45deg] rounded-full rounded-br-none border-2 border-white bg-rock-600 shadow-[0_2px_6px_rgba(0,0,0,0.5)]">
               <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
             </span>
           </span>

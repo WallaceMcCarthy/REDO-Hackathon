@@ -19,6 +19,12 @@ import type { Prefs } from './types';
 const readHash = () => window.location.hash.replace(/^#\/?/, '');
 export const go = (path: string) => { window.location.hash = `/${path}`; };
 
+// Lets anyone see how fresh the live site is. VITE_BUILD_ID is set at deploy time.
+function BuildStamp() {
+  const id = import.meta.env.VITE_BUILD_ID as string | undefined;
+  return id ? <p className="pointer-events-none fixed bottom-1 left-2 z-[1100] text-[10px] text-dusk">{id}</p> : null;
+}
+
 export default function App() {
   const [route, setRoute] = useState(readHash);
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
@@ -67,6 +73,7 @@ export default function App() {
       ) : (
         <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go('results')} />
       )}
+      <BuildStamp />
     </div>
   );
 }
