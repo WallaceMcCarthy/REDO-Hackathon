@@ -20,13 +20,8 @@ test.describe('Utah Fit', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Find a home in Utah');
     await page.getByRole('button', { name: /Skier/ }).click();
     await expect(page.getByRole('button', { name: /Skier/ })).toHaveAttribute('aria-pressed', 'true');
-<<<<<<< HEAD
-    await page.getByRole('button', { name: 'Show my towns' }).click();
-    await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
-=======
     await page.getByRole('button', { name: 'Show my matches' }).click();
-    await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
->>>>>>> redesign-landing
+    await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
     await page.waitForLoadState('networkidle');
     expect(w.errors, 'console errors').toEqual([]);
     expect(w.failed, 'failed requests').toEqual([]);
