@@ -2,6 +2,17 @@ import type { Listing, Recommendation } from '../../../convex/lib/listings';
 import SavedButton from '../social/SavedButton';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
+/** Zillow address search (opens the property page or nearest match). Falls back to the town's Zillow page. */
+function zillowUrl(address: string | null, cityName: string | undefined, kind: string): string {
+  const town = cityName ?? '';
+  if (address && address.trim()) {
+    const full = /\bUT\b/.test(address) ? address : `${address}, ${town}, UT`;
+    return `https://www.zillow.com/homes/${encodeURIComponent(full.replace(/\s+/g, ' ').trim()).replace(/%20/g, '-')}_rb/`;
+  }
+  const slug = town.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return kind === 'apartment' ? `https://www.zillow.com/${slug}-ut/apartments/` : `https://www.zillow.com/${slug}-ut/`;
+}
+
 interface ListingCardProps {
   item: Listing | Recommendation;
   isSelected?: boolean;
@@ -92,11 +103,16 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
       {reason && <p className="mt-2 line-clamp-2 text-xs text-ink"><span className="font-semibold text-alpine-700">Why this place: </span>{reason}</p>}
 
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-rock-100 pt-3">
-        {listing.sourceUrl ? (
-          <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={LINK}>
-            Source
+        <div className="flex items-baseline gap-3">
+          <a href={zillowUrl(listing.address, cityName, listing.kind)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={LINK}>
+            View on Zillow
           </a>
-        ) : <span />}
+          {listing.sourceUrl && (
+            <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-dusk underline-offset-2 hover:underline">
+              Data source
+            </a>
+          )}
+        </div>
         {onOpenTown && cityName && (
           <button type="button" onClick={e => { e.stopPropagation(); onOpenTown(listing.cityId); }} className={LINK}>
             About {cityName}
