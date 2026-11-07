@@ -19,6 +19,7 @@ import type { Prefs } from '../types';
 import { openSignIn } from '../components/auth/AccountMenu';
 import { useMessagesActions } from '../data/messagesHooks';
 import ConversationView from '../components/messages/ConversationView';
+import { Button, EmptyState } from '../components/ui';
 
 type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null };
 
@@ -265,10 +266,16 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           }}
         >
           <div className="relative flex h-[85vh] max-h-[680px] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-rock-100 bg-white shadow-2xl">
-            <ConversationView
-              conversationId={activeConversationId}
-              onBack={() => setActiveConversationId(null)}
-            />
+            {/* Keyed so a conversation that vanishes (the other person deleted their account) resets when another opens. */}
+            <SafeSectionBoundary
+              key={activeConversationId}
+              fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button onClick={() => setActiveConversationId(null)}>Close</Button>} />}
+            >
+              <ConversationView
+                conversationId={activeConversationId}
+                onBack={() => setActiveConversationId(null)}
+              />
+            </SafeSectionBoundary>
           </div>
         </div>
       )}

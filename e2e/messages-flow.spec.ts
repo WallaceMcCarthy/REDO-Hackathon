@@ -234,3 +234,37 @@ test('DM lifecycle: listing comment, unread, outsider, signed-out, block, report
   await a.ctx.close();
   await b.ctx.close();
 });
+
+test('Results message drawer survives the other person deleting their account', async ({ browser }) => {
+  const a = await newUser(browser);
+  const b = await newUser(browser);
+  const TOWN = 'provo';
+  await signUp(a.page, `dra-${RUN}@example.test`, `Ana ${RUN}`);
+  await signUp(b.page, `drb-${RUN}@example.test`, `Ben ${RUN}`);
+
+  const comment = `Drawer check ${RUN}`;
+  const aPanel = await openListingThread(a.page, TOWN);
+  await aPanel.getByPlaceholder(/Looking for roommates/).fill(comment);
+  await aPanel.getByRole('button', { name: 'Post comment' }).click();
+  await expect(aPanel.getByText(comment)).toBeVisible();
+
+  const bPanel = await openListingThread(b.page, TOWN);
+  await bPanel.locator('[data-comment]').filter({ hasText: comment }).first().getByRole('button', { name: 'Message' }).click();
+  const dm = b.page.getByRole('dialog', { name: 'Direct message conversation' });
+  await expect(dm.getByRole('heading', { name: `Ana ${RUN}` })).toBeVisible();
+
+  await a.page.goto('/#/account');
+  await a.page.getByRole('button', { name: 'Delete my account' }).click();
+  await a.page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await a.page.getByRole('button', { name: 'Permanently delete' }).click();
+  await expect(a.page.getByRole('heading', { name: 'Your account has been deleted' })).toBeVisible();
+
+  await expect(dm.getByText('That conversation is not available')).toBeVisible();
+  await expect(b.page.getByText('We couldn’t load the towns')).toHaveCount(0);
+  await expect(messagesLink(b.page)).toBeVisible();
+  await dm.getByRole('button', { name: 'Close' }).click();
+  await expect(dm).toHaveCount(0);
+  await expect(b.page.getByRole('group', { name: 'What to browse' })).toBeVisible();
+  await a.ctx.close();
+  await b.ctx.close();
+});
