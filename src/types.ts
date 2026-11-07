@@ -1,4 +1,3 @@
-// Mirrors CONTRACT.md. Scoring types move to an import from convex/lib/scoring.ts once it lands.
 export const CATEGORIES = ['cost', 'safety', 'environment', 'outdoors', 'transit', 'culture', 'education', 'community'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
@@ -25,15 +24,8 @@ export type Metric = {
   values: Record<string, number>;
 };
 
-export type Weights = Record<string, number>;
-export type Filters = { maxHomeValue?: number; maxCommuteMinutes?: number };
-
-export type TownScore = {
-  cityId: string;
-  score: number;
-  breakdown: { metricId: string; raw: number; normalized: number; weight: number; contribution: number }[];
-  highlights: string[];
-};
+export type { Weights, Filters, TownScore } from '../convex/lib/scoring';
+import type { Filters } from '../convex/lib/scoring';
 
 export type CategoryWeights = Record<Category, number>;
 export type Prefs = { categories: CategoryWeights; filters: Filters };

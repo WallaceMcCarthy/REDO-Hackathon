@@ -1,7 +1,16 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 import App from './App';
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </StrictMode>,
+);
