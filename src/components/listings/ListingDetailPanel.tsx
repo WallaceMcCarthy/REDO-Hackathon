@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Listing, Recommendation } from './types';
+import { formatListingFinancials } from './types';
 import { zillowUrl } from '../../../convex/lib/zillow';
 import ZillowPhoto from './ZillowPhoto';
 import { useZillowPreview } from './useZillowPreview';
 import CommentsThread from '../social/CommentsThread';
 import SavedButton from '../social/SavedButton';
+import { Badge } from '../ui';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
 interface Props {
@@ -30,16 +32,19 @@ const ICON_BTN = `inline-flex size-8 cursor-pointer items-center justify-center 
 
 export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown, onMessageUser }: Props) {
   const apt = listing.kind === 'apartment';
+  const live = !!listing.market;
   const { preview } = useZillowPreview(listing.id, listing.kind === 'home');
   const zUrl = zillowUrl(listing.address, cityName, listing.kind);
   const fit = rec ? Math.max(0, Math.min(100, Math.round(rec.townScore))) : undefined;
-  const amount = apt ? (listing.rent != null ? rentFmt(listing.rent) : 'N/A') : (listing.value != null ? money(listing.value) : 'N/A');
-  const label = apt ? 'HUD 2-bed fair market rent' : 'Est. value';
+  const financials = formatListingFinancials(listing);
+  const amount = live ? financials.amountFormatted : apt ? (listing.rent != null ? rentFmt(listing.rent) : 'N/A') : (listing.value != null ? money(listing.value) : 'N/A');
+  const label = live ? financials.label : apt ? 'Area rent benchmark' : 'Estimated value';
   const address = listing.address || listing.name || 'Address not listed';
   const meta = [
-    cityName,
-    apt ? (listing.units != null ? `${listing.units} units` : null) : (listing.beds != null ? `${listing.beds} bd` : null),
-    !apt && listing.sqft != null ? `${listing.sqft.toLocaleString()} sqft` : null,
+    listing.marketCity || cityName,
+    live || !apt ? (listing.beds != null ? `${listing.beds} bd` : null) : (listing.units != null ? `${listing.units} units` : null),
+    live && listing.baths != null ? `${listing.baths} ba` : null,
+    (live || !apt) && listing.sqft != null ? `${listing.sqft.toLocaleString()} sqft` : null,
     listing.yearBuilt != null ? `Built ${listing.yearBuilt}` : null,
   ].filter(Boolean);
 
@@ -107,10 +112,14 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
+            {live && <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge>{listing.market === 'for_rent' ? 'For rent' : 'For sale'}</Badge>
+              {listing.daysOnMarket != null && <span className="text-xs text-dusk">{listing.daysOnMarket} {listing.daysOnMarket === 1 ? 'day' : 'days'} listed</span>}
+            </div>}
             <p className="font-display text-3xl leading-none text-ink tabular-nums">{amount}</p>
             <p className="mt-1 flex items-center gap-1 text-xs text-dusk">
               {label}
-              {!apt && (
+              {!apt && !live && (
                 <span className="group relative inline-flex">
                   <span
                     tabIndex={0} role="img" aria-label="County assessor estimate, not an asking price"

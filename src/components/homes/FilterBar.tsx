@@ -29,7 +29,7 @@ export default function FilterBar({ view, budget, onBudget, sort, onSort }: Prop
         <span className="hidden font-medium sm:inline">Sort</span>
         <select aria-label="Sort" value={sort} onChange={e => onSort(e.target.value as Sort)} className={selectCls}>
           <option value="fit">Best fit</option>
-          <option value="price_asc">{apt ? 'Lowest area benchmark' : 'Lowest estimated value'}</option>
+          <option value="price_asc">{apt ? 'Lowest rent' : 'Lowest price'}</option>
           <option value="newest">Newest built</option>
         </select>
       </label>
