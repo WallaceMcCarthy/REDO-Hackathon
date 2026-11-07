@@ -22,6 +22,9 @@ const CIRCLE_CENTER = PIN_SIZE / 2;
 // Ads and town lookups wait for this zoom, so the statewide map stays about homes.
 const TOWN_ZOOM = 9;
 
+// REDO is not a campaign row, so it counts no impressions or clicks.
+const REDO_PIN = { _id: 'redo-it', kind: 'job', title: REDO_IT.title, body: REDO_IT.body, url: REDO_IT.url, lat: REDO_IT.lat, lng: REDO_IT.lng } as CampaignRecord;
+
 type Located = CampaignRecord & { lat: number; lng: number };
 const isShowable = (c: CampaignRecord): c is Located => c.lat !== undefined && c.lng !== undefined && !!adLink(c);
 
@@ -33,7 +36,7 @@ export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip
       aria-label={`Sponsored: ${pin.title}`}
       className={`group relative block size-8 rounded-pill ${FOCUS}`}
     >
-      <span aria-hidden className="flex size-8 items-center justify-center rounded-pill border-2 border-white bg-rock-800 text-[13px] font-bold leading-none text-white shadow-raised">★</span>
+      <span aria-hidden className={`flex size-8 items-center justify-center rounded-pill border-2 border-white ${pin.url === REDO_IT.url ? 'bg-black' : 'bg-rock-800'} text-[13px] font-bold leading-none text-white shadow-raised`}>★</span>
       <span className={`pointer-events-none invisible absolute z-10 w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
         <span className="flex flex-col gap-1 rounded-card bg-surface-raised p-3 text-left shadow-raised">
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-text-muted">
@@ -46,19 +49,6 @@ export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip
         </span>
       </span>
       {!pin.listingId && <span className="sr-only">(opens in a new tab)</span>}
-    </a>
-  );
-}
-
-/** REDO's own marker: a black star, shown at every zoom so the statewide map carries it too. */
-export function RedoMapPin() {
-  return (
-    <a
-      href={REDO_IT.url} target="_blank" rel="noopener noreferrer" draggable={false}
-      aria-label={`Sponsored job: ${REDO_IT.title} (opens in a new tab)`}
-      className={`block size-7 ${FOCUS}`} title={`${REDO_IT.title}, sponsored job`}
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="size-full drop-shadow"><path d="M12 2l3 6.6 7.2.8-5.4 4.8 1.5 7.1L12 17.7 5.7 21.3l1.5-7.1L1.8 9.4 9 8.6z" fill="#000" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /></svg>
     </a>
   );
 }
@@ -81,13 +71,6 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
   const [shown, setShown] = useState<{ pin: Located; flip: boolean; below: boolean }[]>([]);
   const markers = useRef(new Map<string, maplibregl.Marker>());
   const seen = useRef(new Set<string>());
-  const [redoElement, setRedoElement] = useState<HTMLElement>();
-
-  useEffect(() => {
-    const marker = new maplibregl.Marker({ element: document.createElement('div'), anchor: 'bottom' }).setLngLat([REDO_IT.lng, REDO_IT.lat]).addTo(map);
-    setRedoElement(marker.getElement());
-    return () => { marker.remove(); };
-  }, [map]);
 
   useEffect(() => {
     const follow = () => {
@@ -101,8 +84,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
 
   // Every impression patches a campaign, so `pins` changes often: diff the markers rather than rebuild them.
   useEffect(() => {
-    // RedoMapPin already marks REDO, so its sample campaign would only double it.
-    const located = pins.filter(isShowable).filter(p => p.url !== REDO_IT.url);
+    // REDO is a normal sponsored pin; its fixed entry replaces any sample campaign for the same url.
+    const located = [...pins.filter(p => p.url !== REDO_IT.url), REDO_PIN].filter(isShowable);
     const sync = () => {
       const bounds = map.getBounds();
       const inView = declutter(map.getZoom() >= TOWN_ZOOM ? located : [], p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
@@ -122,7 +105,7 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
         }
         if (!seen.current.has(pin._id)) {
           seen.current.add(pin._id);
-          void recordImpression(pin._id);
+          if (pin._id !== REDO_PIN._id) void recordImpression(pin._id);
         }
       }
       const mapWidth = map.getContainer().clientWidth;
@@ -147,8 +130,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     markers.current.clear();
   }, [map]);
 
-  return [redoElement && createPortal(<RedoMapPin />, redoElement, 'redo'), ...shown.map(({ pin, flip, below }) => {
+  return shown.map(({ pin, flip, below }) => {
     const element = markers.current.get(pin._id)?.getElement();
-    return element ? createPortal(<MapAd pin={pin} flip={flip} below={below} onClick={() => void recordClick(pin._id)} />, element, pin._id) : null;
-  })];
+    return element ? createPortal(<MapAd pin={pin} flip={flip} below={below} onClick={() => { if (pin._id !== REDO_PIN._id) void recordClick(pin._id); }} />, element, pin._id) : null;
+  });
 }
