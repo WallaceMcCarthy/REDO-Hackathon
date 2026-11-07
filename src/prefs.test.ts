@@ -71,6 +71,10 @@ describe('parsePrefs', () => {
     expect(parsePrefs(raw)).toEqual(defaultPrefs());
   });
 
+  it('ignores an unknown buy or rent mode', () => {
+    expect(parsePrefs(JSON.stringify({ ...stored, budget: { mode: 'lease' } })).budget.mode).toBeUndefined();
+  });
+
   it('drops persona ids that no longer exist', () => {
     expect(parsePrefs(JSON.stringify({ ...stored, personas: ['skier', 'retired'] })).personas).toEqual(['skier']);
   });

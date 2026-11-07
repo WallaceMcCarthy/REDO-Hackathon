@@ -37,7 +37,8 @@ export function parsePrefs(raw: string | null): Prefs {
     const { categories, filters, budget, personas } = p;
     const valid = CATEGORIES.every(c => typeof categories[c] === 'number' && categories[c] >= 0 && categories[c] <= 5);
     const picked = Array.isArray(personas) ? personas.filter(id => PERSONAS.some(x => x.id === id)) : [];
-    return valid ? ({ categories, filters, budget, personas: picked } as Prefs) : defaultPrefs();
+    const mode = budget.mode === 'buy' || budget.mode === 'rent' ? budget.mode : undefined;
+    return valid ? ({ categories, filters, budget: { ...budget, mode }, personas: picked } as Prefs) : defaultPrefs();
   } catch {
     return defaultPrefs();
   }

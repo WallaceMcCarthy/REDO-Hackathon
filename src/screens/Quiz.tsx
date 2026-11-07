@@ -21,7 +21,7 @@ const MODES = [
 export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPrefs: (p: Prefs) => void; onDone: (mode: Mode) => void }) {
   const picked = prefs.personas ?? [];
   const [draft, setDraft] = useState<string | null>(null);
-  const [mode, setMode] = useState<Mode>(prefs.budget.maxRent !== undefined ? 'rent' : 'buy');
+  const [mode, setMode] = useState<Mode>(prefs.budget.mode ?? (prefs.budget.maxRent !== undefined ? 'rent' : 'buy'));
   const amount = (mode === 'buy' ? prefs.budget.maxValue : prefs.budget.maxRent) ?? '';
 
   const toggle = (id: string) => {
@@ -32,7 +32,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
   // The two caps never coexist: switching mode drops the other one, since the scales differ.
   const setBudget = (m: Mode, raw: string) => {
     const n = parseBudget(raw);
-    setPrefs({ ...prefs, budget: n === undefined ? {} : m === 'buy' ? { maxValue: n } : { maxRent: n } });
+    setPrefs({ ...prefs, budget: n === undefined ? { mode: m } : m === 'buy' ? { mode: m, maxValue: n } : { mode: m, maxRent: n } });
   };
 
   return (
