@@ -8,17 +8,17 @@ const MIN_PASSWORD = 8;
 
 const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold transition-colors';
 
+const SIGN_IN_FAILED = 'Wrong email or password. Check both and try again. After several failed tries, sign-in pauses for a while.';
+
 /** Convex Auth throws "Invalid credentials" (bad sign in), "Invalid password" (under 8 chars) and "Account X already exists" (sign up). Production may redact the text, so fall back by mode. */
-function plainError(err: unknown, mode: Mode): string {
+export function plainError(err: unknown, mode: Mode): string {
   const text = err instanceof Error ? err.message : '';
   if (/valid email/i.test(text)) return 'Enter a valid email address.';
   if (/invalid password/i.test(text)) return `Use at least ${MIN_PASSWORD} characters for your password.`;
   if (/already exists/i.test(text)) return 'That email already has an account. Try signing in instead.';
-  if (/invalid credentials|invalidsecret|invalidaccountid/i.test(text)) return 'Wrong email or password. Check both and try again.';
+  if (mode === 'signIn' && /invalid credentials|invalidsecret|invalidaccountid|server error/i.test(text)) return SIGN_IN_FAILED;
   if (/server error/i.test(text)) {
-    return mode === 'signIn'
-      ? 'Wrong email or password. Check both and try again.'
-      : 'That email already has an account. Try signing in instead.';
+    return 'We could not create that account. If you already have one, try signing in. Otherwise try again in a moment.';
   }
   return 'Something went wrong. Check your connection and try again.';
 }

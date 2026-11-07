@@ -46,11 +46,7 @@ export default function TownFeed({ cityId, cityName, onSignIn, renderComments }:
         <Composer
           cityName={cityName}
           onSubmit={async (body) => {
-            try {
-              await create({ cityId, body });
-            } catch (e) {
-              throw new Error(errText(e));
-            }
+            await create({ cityId, body });
           }}
         />
       ) : (
@@ -84,7 +80,9 @@ export default function TownFeed({ cityId, cityName, onSignIn, renderComments }:
                   canAct={isAuthenticated}
                   onLike={run(() => toggleLike({ postId: id }))}
                   onReport={run(() => report({ postId: id }), 'Thanks. We will review this post.')}
-                  onDelete={run(() => remove({ postId: id }))}
+                  onDelete={() => {
+                    if (window.confirm('Delete this post? Replies to it will be deleted too.')) void run(() => remove({ postId: id }))();
+                  }}
                   comments={renderComments?.(p._id)}
                 />
               </li>

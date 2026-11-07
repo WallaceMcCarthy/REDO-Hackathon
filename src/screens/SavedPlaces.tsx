@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useConvexAuth } from 'convex/react';
+import { useCities } from '../data/hooks';
 import { useListingCommentCounts, useMySaved } from '../data/socialHooks';
 import type { ListingKind } from '../../convex/lib/listings';
 import { openSignIn } from '../components/auth/AccountMenu';
@@ -21,6 +22,7 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
   const [filter, setFilter] = useState<'all' | ListingKind>('all');
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const savedItems = useMySaved();
+  const cityNames = new Map((useCities() ?? []).map((c) => [c.id, c.name]));
   const counts = useListingCommentCounts((savedItems || []).map((i) => i.listingId));
 
   const all = (savedItems || []).filter((item) => item.listing);
@@ -76,7 +78,7 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
               <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((item) => (
                   <li key={item.listingId}>
-                    <ListingCard item={item.listing!} commentCount={counts[item.listingId]} onSelect={(l) => l.cityId && onOpenTown?.(l.cityId)} />
+                    <ListingCard item={item.listing!} commentCount={counts[item.listingId]} cityName={cityNames.get(item.listing!.cityId)} onSelect={(l) => l.cityId && onOpenTown?.(l.cityId)} />
                   </li>
                 ))}
               </ul>

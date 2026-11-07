@@ -10,6 +10,18 @@ interface SavedButtonProps {
   className?: string;
 }
 
+const PENDING_MS = 5 * 60_000;
+let pending: { id: string; at: number } | null = null;
+
+/** Remembers a heart tapped while signed out. Returns true once, only if this home is not already saved. */
+export function claimPendingSave(listingId: string, serverSaved: boolean, now = Date.now()): boolean {
+  if (pending?.id !== listingId) return false;
+  const fresh = now - pending.at < PENDING_MS;
+  pending = null;
+  return fresh && !serverSaved;
+}
+export const rememberPendingSave = (id: string, now = Date.now()) => { pending = { id, at: now }; };
+
 export default function SavedButton({
   listingId,
   initialSaved = false,
@@ -28,10 +40,21 @@ export default function SavedButton({
     }
   }, [isSavedFromServer]);
 
+  useEffect(() => {
+    if (!isAuthenticated || typeof isSavedFromServer !== 'boolean') return;
+    if (!claimPendingSave(listingId, isSavedFromServer)) return;
+    setSaved(true);
+    onToggle?.(true);
+    toggleSaved(listingId).catch(() => setSaved(false));
+  }, [isAuthenticated, isSavedFromServer, listingId]);
+
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (busy) return;
-    if (!isLoading && !isAuthenticated) return openSignIn();
+    if (!isLoading && !isAuthenticated) {
+      rememberPendingSave(listingId);
+      return openSignIn();
+    }
 
     const nextSaved = !saved;
     setSaved(nextSaved);

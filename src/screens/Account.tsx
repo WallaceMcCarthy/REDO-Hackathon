@@ -211,7 +211,7 @@ export default function Account({ onBack, onSignIn }: AccountProps) {
               </Field>
             </Section>
 
-            <Section title="Budget and household" description="Used to size up homes and rent. It stays on your profile.">
+            <Section title="Budget and household" description="Optional. It stays on your profile.">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Target Budget ($/mo)" error={errors.budget}>
                   <Input type="number" inputMode="numeric" min={0} step={50} placeholder="e.g. 2400" value={form.budget} onChange={set('budget')} />
