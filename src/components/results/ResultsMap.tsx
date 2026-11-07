@@ -82,11 +82,13 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
+// MapLibre allows one zoom curve per paint value, and only at the top, so hover scales each stop.
+const hoverScale = hoverCase(1.25, 1);
 const townPinRadius: maplibregl.ExpressionSpecification = [
   'interpolate', ['linear'], ['zoom'],
-  5, ['case', ['<=', ['get', 'rank'], 3], 4.5, 3.5],
-  8, ['case', ['<=', ['get', 'rank'], 3], 14, 10],
-  10, ['get', 'r'],
+  5, ['*', hoverScale, ['case', ['<=', ['get', 'rank'], 3], 4.5, 3.5]],
+  8, ['*', hoverScale, ['case', ['<=', ['get', 'rank'], 3], 14, 10]],
+  10, ['*', hoverScale, ['get', 'r']],
 ];
 
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
@@ -169,7 +171,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         paint: {
           // At the Utah-wide zoom the Wasatch Front towns are only pixels apart. Start compact,
           // then grow to the full pin size as geographic separation becomes visible.
-          'circle-radius': hoverCase(['*', townPinRadius, 1.25], townPinRadius),
+          'circle-radius': townPinRadius,
           'circle-color': ['case', ['<=', ['get', 'rank'], 3], ROCK_500, ALPINE_700],
           'circle-stroke-color': hoverCase(INK, SAND), 'circle-stroke-width': hoverCase(3, 2),
         },
