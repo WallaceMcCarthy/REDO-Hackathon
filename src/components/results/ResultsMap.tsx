@@ -1,6 +1,9 @@
 import L from 'leaflet';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from 'react-leaflet';
+import type { City, Metric } from '../../types';
+import HeatmapLayer from './HeatmapLayer';
+import LayerPicker from './LayerPicker';
 import type { Row } from './types';
 
 const UTAH_BOUNDS: L.LatLngBoundsExpression = [[37, -114], [42, -109]];
@@ -30,7 +33,7 @@ function pinIcon(rank: number) {
   return icon;
 }
 
-type Props = { rows: Row[]; hovered: string | null; onHover: (id: string | null) => void; onOpen: (id: string) => void };
+type Props = { rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null; onHover: (id: string | null) => void; onOpen: (id: string) => void };
 
 /** Tracks whether a zoom is in flight so pins sliding under a still cursor do not fire hover. */
 function ZoomGate({ zooming }: { zooming: { current: boolean } }) {
@@ -79,11 +82,14 @@ const Pin = memo(function Pin({ id, name, lat, lng, rank, active, zooming, onHov
 const TOOLTIP_OFFSET: L.PointTuple = [0, -14];
 const BOUNDS_OPTIONS = { padding: [10, 10] } as L.FitBoundsOptions;
 
-export default memo(function ResultsMap({ rows, hovered, onHover, onOpen }: Props) {
+export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen }: Props) {
+  const [layerId, setLayerId] = useState('');
+  const layer = metrics.find(m => m.id === layerId);
   const zooming = useRef(false);
   const open = useCallback((id: string) => onOpen(id), [onOpen]);
 
   return (
+    <div className="relative size-full">
     <MapContainer
       bounds={UTAH_BOUNDS} boundsOptions={BOUNDS_OPTIONS} minZoom={5}
       zoomSnap={0.25} zoomDelta={1}
@@ -100,6 +106,7 @@ export default memo(function ResultsMap({ rows, hovered, onHover, onOpen }: Prop
         url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
         maxNativeZoom={16}
       />
+      {layer && <HeatmapLayer metric={layer} cities={cities} />}
       {rows.map(({ city, rank }) => (
         <Pin
           key={city.id} id={city.id} name={city.name} lat={city.lat} lng={city.lng} rank={rank}
@@ -107,5 +114,7 @@ export default memo(function ResultsMap({ rows, hovered, onHover, onOpen }: Prop
         />
       ))}
     </MapContainer>
+    <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+    </div>
   );
 });
