@@ -16,6 +16,18 @@ function HouseIcon({ className = '' }: { className?: string }) {
   );
 }
 
+function MapPinIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 30" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M12 0.75C6.89 0.75 2.75 4.89 2.75 10c0 6.5 8.25 17.5 9.25 18.8a0.5 0.5 0 0 0 .8 0c1-1.3 9.25-12.3 9.25-18.8 0-5.11-4.14-9.25-9.25-9.25Z"
+        className="fill-rock-700 stroke-white stroke-[1.5]"
+      />
+      <circle cx="12" cy="10" r="3.2" className="fill-white" />
+    </svg>
+  );
+}
+
 export default function AerialPhoto({ listing, className = '', rounded = 'rounded-t-xl' }: { listing: Listing; className?: string; rounded?: string }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -31,9 +43,7 @@ export default function AerialPhoto({ listing, className = '', rounded = 'rounde
             loading="lazy" draggable={false} onError={() => setFailed(true)} className="size-full object-cover"
           />
           <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
-            <span className="relative block size-6 rotate-[45deg] rounded-full rounded-br-none border-2 border-white bg-rock-600 shadow-[0_2px_6px_rgba(0,0,0,0.5)]">
-              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
-            </span>
+            <MapPinIcon className="h-7 w-[22px] drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]" />
           </span>
           <span className="absolute left-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">Aerial view</span>
           <span className="absolute bottom-1 right-1.5 text-[9px] leading-none text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">

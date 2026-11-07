@@ -1,4 +1,4 @@
-const rock = { 50: "#fbf3ee", 100: "#f5e1d5", 300: "#e2a585", 500: "#c4623a", 600: "#a94c28", 800: "#6b2f1a" };
+const rock = { 50: "#fbf3ee", 100: "#f5e1d5", 200: "#ecc4ae", 300: "#e2a585", 500: "#c4623a", 600: "#a94c28", 800: "#6b2f1a" };
 const alpine = { 50: "#eef5f4", 100: "#d5e7e4", 300: "#86b8b0", 500: "#2f7f76", 700: "#1d544f", 900: "#12332f" };
 const sand = "#f7f1e8";
 const ink = "#231a15";
@@ -10,7 +10,6 @@ export default {
   darkMode: 'selector',
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   // The site has no dark theme. The default "media" let dark: classes follow the OS and put ink text on near-black buttons.
-  darkMode: "selector",
   theme: {
     extend: {
       colors: {
