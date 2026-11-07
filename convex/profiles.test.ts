@@ -56,4 +56,20 @@ describe("profiles.updateProfile", () => {
     await expect(alice.mutation(refs.update, { budget: 1e9 })).rejects.toThrow("Budget");
     await expect(alice.mutation(refs.update, { household: 21 })).rejects.toThrow("Household");
   });
+
+  it("preserves omitted fields, clears every nullable field, and forbids client ownership/sample flags", async () => {
+    const { t, alice } = await setup();
+    const otherId = await t.run(ctx => ctx.db.insert("users", { email: "other@example.test" }));
+    const other = t.withIdentity({ subject: `${otherId}|fixture` });
+    await alice.mutation(refs.update, { displayName: "Alice", cityId: "provo", moveBy: "2027-01-15", budget: 1500, household: 2 });
+    await expect(alice.mutation(refs.update, { displayName: "Invalid", budget: -1 })).rejects.toThrow();
+    expect(await alice.query(refs.getMe, {})).toMatchObject({ displayName: "Alice", budget: 1500 });
+    await alice.mutation(refs.update, { displayName: "Updated" });
+    expect(await alice.query(refs.getMe, {})).toMatchObject({ cityId: "provo", moveBy: "2027-01-15", budget: 1500, household: 2 });
+    await alice.mutation(refs.update, { cityId: null, moveBy: null, budget: null, household: null });
+    expect(await alice.query(refs.getMe, {})).toMatchObject({ displayName: "Updated", cityId: null, moveBy: null, budget: null, household: null });
+    expect(await other.query(refs.getMe, {})).toMatchObject({ displayName: "other", budget: null });
+    await expect(alice.mutation(refs.update, { userId: otherId, displayName: "Spoof" })).rejects.toThrow();
+    await expect(alice.mutation(refs.update, { isSample: true })).rejects.toThrow();
+  });
 });
