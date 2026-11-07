@@ -89,35 +89,35 @@ test('hero leads with the headline and an obvious primary action', async ({ page
 test('budget submits with Enter', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Max price').fill('500000');
-  await expect(page.getByLabel('Max price')).toHaveValue('$500,000');
-  await page.getByLabel('Max price').press('Enter');
+  await expect(page.getByLabel('Max price')).toHaveAttribute('aria-valuetext', 'Up to $500,000');
+  await page.getByRole('button', { name: 'Show my matches' }).click();
   await expect(page).toHaveURL(/#\/results$/);
 });
 
 test('quiz budget reaches Results filters and updates with FilterBar', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Max price').fill('500000');
-  await page.getByLabel('Max price').press('Enter');
+  await page.getByRole('button', { name: 'Show my matches' }).click();
   await expect(page).toHaveURL(/#\/results$/);
 
-  const priceSelect = page.getByRole('combobox', { name: 'Max price' });
+  const priceSelect = page.getByRole('slider', { name: 'Max price' });
   await expect(priceSelect).toHaveValue('500000');
 
-  await priceSelect.selectOption('650000');
+  await priceSelect.fill('650000');
   await expect(priceSelect).toHaveValue('650000');
 
-  await priceSelect.selectOption('');
-  await expect(priceSelect).toHaveValue('');
+  await priceSelect.fill('2025000');
+  await expect(priceSelect).toHaveAttribute('aria-valuetext', 'Any price');
 });
 
 test('quiz rent budget navigates to apartments view and sets Max rent filter', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('radio', { name: 'Rent' }).click();
   await page.getByLabel('Max rent per month').fill('2000');
-  await page.getByLabel('Max rent per month').press('Enter');
+  await page.getByRole('button', { name: 'Show my matches' }).click();
   await expect(page).toHaveURL(/#\/results\?view=apartments$/);
 
-  const rentSelect = page.getByRole('combobox', { name: 'Max rent' });
+  const rentSelect = page.getByRole('slider', { name: 'Max rent' });
   await expect(rentSelect).toHaveValue('2000');
 });
 

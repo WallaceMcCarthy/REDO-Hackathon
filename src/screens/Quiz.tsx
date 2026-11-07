@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react';
 import CategorySliders from '../components/CategorySliders';
 import PreferenceAssistant from '../components/PreferenceAssistant';
 import { UtahScene } from '../components/landing/UtahScene';
-import { Button, Card, Field, Input, Segmented } from '../components/ui';
+import PriceSlider from '../components/PriceSlider';
+import { Button, Card, Segmented } from '../components/ui';
 import { applyPersonas, parseBudget, PERSONAS } from '../prefs';
 import type { Prefs } from '../types';
 
@@ -21,9 +22,8 @@ const MODES = [
 
 export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPrefs: (p: Prefs) => void; onDone: (mode: Mode) => void }) {
   const picked = prefs.personas ?? [];
-  const [draft, setDraft] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(prefs.budget.mode ?? (prefs.budget.maxRent !== undefined ? 'rent' : 'buy'));
-  const amount = (mode === 'buy' ? prefs.budget.maxValue : prefs.budget.maxRent) ?? '';
+  const amount = (mode === 'buy' ? prefs.budget.maxValue : prefs.budget.maxRent);
 
   const toggle = (id: string) => {
     const next = picked.includes(id) ? picked.filter(p => p !== id) : [...picked, id];
@@ -54,23 +54,15 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
                   label="Buying or renting"
                   options={MODES}
                   value={mode}
-                  onChange={m => { setMode(m); setDraft(null); setBudget(m, ''); }}
+                  onChange={m => { setMode(m); setBudget(m, ''); }}
                 />
-                <Field label={mode === 'buy' ? 'Max price' : 'Max rent per month'}>
-                  <Input
-                    inputMode="numeric"
-                    autoComplete="off"
-                    aria-describedby="budget-hint"
-                    placeholder={mode === 'buy' ? 'e.g. 500k' : 'e.g. 2000'}
-                    value={draft ?? (amount === '' ? '' : `$${amount.toLocaleString('en-US')}`)}
-                    onChange={e => { setDraft(e.target.value); setBudget(mode, e.target.value); }}
-                    onBlur={() => setDraft(null)}
-                  />
-                </Field>
+                <div>
+                  <span className="text-small font-medium text-text">{mode === 'buy' ? 'Max price' : 'Max rent per month'}</span>
+                  <PriceSlider mode={mode} label={mode === 'buy' ? 'Max price' : 'Max rent per month'} value={amount} onChange={n => setPrefs({ ...prefs, budget: n === undefined ? { mode } : mode === 'buy' ? { mode, maxValue: n } : { mode, maxRent: n } })} />
+                </div>
                 <Button type="submit" size="lg">Show my matches</Button>
               </div>
               <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4">
-                <p id="budget-hint" className="text-caption text-text-muted lg:pl-[17rem]">Leave blank for no limit.</p>
                 <Button href="#/results?view=areas" variant="ghost" size="sm" className="-mr-4">Browse areas instead</Button>
               </div>
             </form>
@@ -82,7 +74,6 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
         <PreferenceAssistant prefs={prefs} setPrefs={next => {
           setPrefs({ ...next, personas: [] });
           setMode(next.budget.mode ?? (next.budget.maxRent !== undefined ? 'rent' : 'buy'));
-          setDraft(null);
         }} onGo={m => onDone(m)} />
         <section aria-labelledby="who" className="mt-stack">
           <h2 id="who" className="font-display text-heading text-text">Who is moving?</h2>

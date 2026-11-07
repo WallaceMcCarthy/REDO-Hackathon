@@ -145,7 +145,7 @@ test.describe('Utah Fit', () => {
 
   test('5b. homes budget filters homes; empty state offers a way out', async ({ page }) => {
     await gotoResults(page);
-    await page.getByRole('combobox', { name: 'Max price' }).selectOption({ index: 2 });
+    await page.getByRole('slider', { name: 'Max price' }).fill('500000');
     await expect(page.getByText(/Showing \d+ homes|No homes under/)).toBeVisible();
     await page.getByRole('combobox', { name: 'Sort' }).selectOption('price_asc');
     const amounts = await page.locator('article p.font-display').allTextContents();
