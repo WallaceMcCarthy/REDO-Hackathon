@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { usePaginatedQuery, type PaginationStatus } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import type { Listing, ListingKind } from '../../../convex/lib/listings';
 import { useTownListings } from '../../data/listingsHooks';
 import ListingCard from './ListingCard';
@@ -15,6 +17,20 @@ const FILTERS = [
   { value: 'apartment', label: 'Apartments' },
   { value: 'home', label: 'Homes' },
 ] as const;
+const PAGE = 12;
+
+/** Towns without loaded parcels keep the sampled `listings` homes. A skipped paginated query reports LoadingFirstPage forever, so only the Homes tab may wait on it. */
+export function townListingsView(filter: 'all' | ListingKind, parcels: { results: Listing[]; status: PaginationStatus }, listings: Listing[] | undefined, limit: number) {
+  const paged = parcels.results.length > 0;
+  const remaining = (listings?.length ?? 0) - limit;
+  return {
+    paged,
+    remaining,
+    isLoading: listings === undefined || (filter === 'home' && parcels.status === 'LoadingFirstPage'),
+    visibleListings: paged ? parcels.results : listings?.slice(0, limit) ?? [],
+    hasMore: paged ? parcels.status === 'CanLoadMore' : remaining > 0,
+  };
+}
 
 export default function TownListings({ cityId, cityName }: TownListingsProps) {
   const [filter, setFilter] = useState<'all' | ListingKind>('all');
@@ -23,10 +39,9 @@ export default function TownListings({ cityId, cityName }: TownListingsProps) {
   const kind = filter === 'all' ? undefined : filter;
   const listings = useTownListings({ cityId, kind });
 
-  const isLoading = listings === undefined;
-  const visibleListings = listings?.slice(0, limit) ?? [];
+  const parcels = usePaginatedQuery(api.assessor.townHomes, filter === 'home' ? { cityId } : 'skip', { initialNumItems: PAGE });
+  const { paged, isLoading, visibleListings, remaining, hasMore } = townListingsView(filter, parcels, listings, limit);
   const counts = useListingCommentCounts(visibleListings.map((l) => l.id));
-  const hasMore = (listings?.length ?? 0) > limit;
 
   return (
     <section aria-labelledby="town-listings-heading" className="mt-section">
@@ -65,8 +80,8 @@ export default function TownListings({ cityId, cityName }: TownListingsProps) {
           </div>
           {hasMore && (
             <div className="mt-stack text-center">
-              <Button variant="secondary" onClick={() => setLimit((prev) => prev + 6)}>
-                Show more properties ({listings!.length - limit} remaining)
+              <Button variant="secondary" onClick={() => (paged ? parcels.loadMore(PAGE) : setLimit((prev) => prev + 6))}>
+                {paged ? 'Show more homes' : `Show more properties (${remaining} remaining)`}
               </Button>
             </div>
           )}

@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AD_CATEGORY_IDS } from "./lib/adCategories";
 import schema from "./schema";
 
@@ -14,7 +14,9 @@ const modules = {
 
 const refs = {
   createCampaign: makeFunctionReference<"mutation">("ads:createCampaign"),
+  resumeCheckout: makeFunctionReference<"action">("ads:resumeCheckout"),
   listMyCampaigns: makeFunctionReference<"query">("ads:listMyCampaigns"),
+  listMyCampaignStats: makeFunctionReference<"query">("ads:listMyCampaignStats"),
   getActivePins: makeFunctionReference<"query">("ads:getActivePins"),
   getActiveFeatured: makeFunctionReference<"query">("ads:getActiveFeatured"),
   recordImpression: makeFunctionReference<"mutation">("ads:recordImpression"),
@@ -23,6 +25,11 @@ const refs = {
   rank: makeFunctionReference<"query">("search:rank"),
   seedSample: makeFunctionReference<"mutation">("sampleData:seedSampleContent"),
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 async function setup() {
   const t = convexTest(schema, modules);
@@ -86,6 +93,7 @@ describe("ads security & exploit resistance", () => {
       url: "https://example.com/bakery",
       durationDays: 7,
       lat: 40.7608,
+      imageUrl: "https://example.com/i.png",
       lng: -111.891,
     });
 
@@ -161,6 +169,9 @@ describe("ads security & exploit resistance", () => {
       body: "Downtown living at its finest",
       url: "https://example.com/condo",
       durationDays: 14,
+      lat: 40.76,
+      lng: -111.89,
+      imageUrl: "https://example.com/i.png",
     });
 
     // Activate via webhook
@@ -192,7 +203,7 @@ describe("ads security & exploit resistance", () => {
   it("dedupes per viewer per hour, counts other viewers, skips inactive, and ignores client key when signed in", async () => {
     const { t, advertiser, attacker } = await setup();
     const mk = async () => {
-      const c = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Test Ad", body: "Body text", url: "https://example.com/x", durationDays: 7 });
+      const c = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Test Ad", body: "Body text", url: "https://example.com/x", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" });
       return c;
     };
     const created = await mk();
@@ -221,6 +232,20 @@ describe("ads security & exploit resistance", () => {
     await expect(t.mutation(refs.recordClick, { campaignId: id, viewerKey: "bad key!" })).rejects.toThrow();
   });
 
+  it("aggregates accepted events by day, surface, and page town", async () => {
+    const { t, advertiser } = await setup();
+    const created = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Stats", body: "Body text", url: "https://example.com", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" });
+    await t.mutation(refs.fulfillRedoPayment, { campaignId: created.campaignId, redoPaymentId: "pay_stats", amount: created.amount, currency: "USD", rawEventId: "evt_stats" });
+    await t.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "statskey_111", surface: "town_highlights", pageTownId: "provo" });
+    await t.mutation(refs.recordClick, { campaignId: created.campaignId, viewerKey: "statskey_111", surface: "town_highlights", pageTownId: "provo" });
+    await t.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "statskey_222", surface: "results_featured", pageTownId: "provo" });
+    const rows = await advertiser.query(refs.listMyCampaignStats, {});
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ surface: "town_highlights", pageTownId: "provo", impressions: 1, clicks: 1 }),
+      expect.objectContaining({ surface: "results_featured", pageTownId: "provo", impressions: 1, clicks: 0 }),
+    ]));
+  });
+
   it("caps public ads and prioritizes the requested town over statewide campaigns", async () => {
     const { t, userId } = await setup();
     const now = Date.now();
@@ -246,11 +271,32 @@ describe("ads security & exploit resistance", () => {
     expect(pins.slice(0, 2).every((campaign: any) => campaign.cityId === "provo")).toBe(true);
     expect(featured).toHaveLength(3);
   });
+
+  it("resumes Stripe checkout for an owned pending campaign without inserting a duplicate", async () => {
+    const { t, advertiser, attacker } = await setup();
+    const created = await advertiser.mutation(refs.createCampaign, {
+      kind: "featured", title: "Resume me", body: "Pending campaign", url: "https://example.com", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png",
+    });
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_resume");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "cs_test_resumed", url: "https://checkout.stripe.test/resumed", expires_at: 9999999999 }),
+    }));
+
+    await expect(attacker.action(refs.resumeCheckout, { campaignId: created.campaignId })).rejects.toThrow("cannot resume");
+    const result = await advertiser.action(refs.resumeCheckout, { campaignId: created.campaignId });
+    expect(result.checkoutUrl).toBe("https://checkout.stripe.test/resumed");
+    const rows = await t.run(async (ctx: any) => ctx.db.query("campaigns").collect());
+    const payments = await t.run(async (ctx: any) => ctx.db.query("payments").collect());
+    expect(rows).toHaveLength(1);
+    expect(payments).toHaveLength(1);
+    expect(payments[0].campaignId).toBe(created.campaignId);
+  });
 });
 
 describe("ad categories and placement", () => {
   const cities: any[] = JSON.parse(readFileSync("data/cities.json", "utf8"));
-  const draft = { kind: "pin", title: "Corner Shop", body: "A short pitch", url: "https://example.com/a", durationDays: 7 };
+  const draft = { kind: "pin", title: "Corner Shop", body: "A short pitch", url: "https://example.com/a", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" };
   const seedCities = (t: any) => t.run(async (ctx: any) => { for (const c of cities) await ctx.db.insert("cities", c); });
   const campaign = { kind: "featured", title: "Paid slot", body: "A short pitch", url: "https://example.com/a", startsAt: 0, impressions: 0, clicks: 0, isSample: false };
 

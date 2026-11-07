@@ -14,6 +14,9 @@ export const campaignStatusValidator = v.union(
   v.literal("pending_payment"),
   v.literal("active"),
   v.literal("expired"),
+  // Set only by async Jev moderation (#99), gated behind JEV_MODERATION_ENABLED
+  // (off by default): a free ad held or rejected before going public.
+  v.literal("pending_review"),
 );
 
 /**
@@ -44,6 +47,13 @@ export const adsTables = {
     isSample: v.boolean(),
     expectedAmount: v.optional(v.number()),
     expectedCurrency: v.optional(v.string()),
+    // Populated only by async Jev moderation (#99); absent when moderation is
+    // disabled or hasn't run yet.
+    moderationReasons: v.optional(v.array(v.string())),
+    // Set when the moderation call itself failed (provider error/timeout), not
+    // when content was judged. Existing behaviour (status) is left unchanged;
+    // this just surfaces the row for a human to double check.
+    moderationFlag: v.optional(v.literal("review")),
   })
     .index("by_advertiser", ["advertiserUserId"])
     .index("by_status", ["status"])
@@ -74,4 +84,16 @@ export const adsTables = {
   })
     .index("by_campaign_kind_viewer_bucket", ["campaignId", "kind", "viewerKey", "bucket"])
     .index("by_campaign_kind_bucket", ["campaignId", "kind", "bucket"]),
+
+  /** Aggregate-only reporting; no viewer identity or browser location is stored here. */
+  campaignDailyStats: defineTable({
+    campaignId: v.id("campaigns"),
+    day: v.number(),
+    surface: v.union(v.literal("results_featured"), v.literal("town_highlights"), v.literal("unknown")),
+    pageTownId: v.optional(v.string()),
+    impressions: v.number(),
+    clicks: v.number(),
+  })
+    .index("by_campaign_day_surface_town", ["campaignId", "day", "surface", "pageTownId"])
+    .index("by_campaign_day", ["campaignId", "day"]),
 };

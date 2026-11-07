@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import CategorySliders from '../components/CategorySliders';
+import PreferenceAssistant from '../components/PreferenceAssistant';
 import { UtahScene } from '../components/landing/UtahScene';
 import { Button, Card, Field, Input, Segmented } from '../components/ui';
 import { applyPersonas, parseBudget, PERSONAS } from '../prefs';
@@ -78,6 +79,11 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
       </section>
 
       <div className="mx-auto max-w-6xl px-gutter">
+        <PreferenceAssistant prefs={prefs} setPrefs={next => {
+          setPrefs({ ...next, personas: [] });
+          setMode(next.budget.mode ?? (next.budget.maxRent !== undefined ? 'rent' : 'buy'));
+          setDraft(null);
+        }} />
         <section aria-labelledby="who" className="mt-stack">
           <h2 id="who" className="font-display text-heading text-text">Who is moving?</h2>
           <p className="mt-1 text-body text-text-muted">Pick one or more. They stack, and you can fine tune below.</p>

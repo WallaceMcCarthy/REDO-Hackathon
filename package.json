@@ -9,6 +9,8 @@
     "seed": "tsx scripts/seed.ts",
     "test": "vitest run",
     "seed:prod": "tsx scripts/seed.ts --prod",
+    "seed:assessor": "tsx scripts/data/assessor_homes.ts",
+    "seed:assessor:prod": "tsx scripts/data/assessor_homes.ts --prod",
     "test:e2e": "playwright test",
     "test:e2e:cross": "playwright test -c playwright.cross.config.ts",
     "test:e2e:prod": "E2E_BASE_URL=https://cmascope.com playwright test"
