@@ -18,8 +18,14 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
   const [dialOpen, setDialOpen] = useState(aboutOpen);
   const nums = selected ? Object.values(selected.values) : [];
   const dialRef = useRef<HTMLDivElement>(null);
-  const options = useMemo(() => [{ id: '', label: 'No heatmap', category: '' }, ...metrics.map(metric => ({ id: metric.id, label: metric.label, category: metric.category }))], [metrics]);
-  const ids = options.map(option => option.id);
+  const groups = useMemo(() => {
+    const byCategory = new Map<string, { id: string; label: string }[]>();
+    for (const metric of metrics) byCategory.set(metric.category, [...(byCategory.get(metric.category) ?? []), { id: metric.id, label: metric.label }]);
+    return [{ category: '', items: [{ id: '', label: 'No heatmap' }] }, ...[...byCategory].map(([category, items]) => ({ category, items }))];
+  }, [metrics]);
+  // Keyboard order follows the grouped, on-screen order.
+  const ids = groups.flatMap(group => group.items.map(item => item.id));
+  const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 
   useEffect(() => {
     dialRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'center' });
@@ -53,22 +59,26 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
           onKeyDown={onKeyDown}
           className="max-h-28 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-lg bg-white/70 px-1 py-8 [scrollbar-width:thin] sm:max-h-40"
         >
-          {options.map(option => {
-            const active = option.id === (selected?.id ?? '');
-            return (
-              <button
-                key={option.id || 'none'}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => onSelect(option.id)}
-                className={`my-1 flex min-h-9 w-full snap-center items-center justify-between rounded-lg px-2 text-left text-xs transition ${active ? 'bg-alpine-700 font-semibold text-white shadow' : 'text-ink hover:bg-rock-100'}`}
-              >
-                <span className="truncate">{option.label}</span>
-                {option.category && <span className={`ml-2 text-[9px] uppercase ${active ? 'text-white/75' : 'text-dusk'}`}>{option.category}</span>}
-              </button>
-            );
-          })}
+          {groups.map(group => (
+            <div key={group.category || 'none'} role="group" aria-label={group.category ? sentence(group.category) : undefined}>
+              {group.category && <p aria-hidden="true" className="px-2 pt-1 text-[10px] font-normal text-dusk">{sentence(group.category)}</p>}
+              {group.items.map(option => {
+                const active = option.id === (selected?.id ?? '');
+                return (
+                  <button
+                    key={option.id || 'none'}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => onSelect(option.id)}
+                    className={`my-1 flex min-h-9 w-full snap-center items-center rounded-lg px-2 py-1 text-left text-xs leading-tight transition ${active ? 'bg-alpine-700 font-semibold text-white shadow' : 'text-ink hover:bg-rock-100'}`}
+                  >
+                    <span className="line-clamp-2 break-words">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
       {selected && nums.length > 0 && (
