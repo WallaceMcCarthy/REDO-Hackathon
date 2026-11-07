@@ -8,6 +8,8 @@ Users customize their personal priorities—such as ski access, air quality, out
 
 ## ⚡ Quickstart / Local Development
 
+Requires Node 20.19+ or 22.12+. On older versions the build fails with `Cannot find native binding`.
+
 No Convex account or cloud login is required. You can run the entire stack locally with anonymous Convex dev mode:
 
 ```bash
