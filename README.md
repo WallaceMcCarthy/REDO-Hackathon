@@ -137,6 +137,7 @@ Every metric cites a public dataset. To regenerate this table from `data/metrics
 | **Arts & culture venues nearby** (`venues`) | `culture` | [OpenStreetMap contributors via Overpass](https://overpass-api.de/api/interpreter) | 2026 | mapped venues within 15 km | 42/42 towns |
 | **Drinking water quality** (`water_quality`) | `environment` | [EPA SDWIS via Envirofacts (data.epa.gov/efservice VIOLATION table)](https://www.epa.gov/enviro/sdwis-model) | 2026 | health-based violations, last 5 years | 42/42 towns |
 | **Residential water use** (`water_usage`) | `environment` | [Utah Division of Water Resources, Municipal & Industrial Water Use 2022](https://dwre-utahdnr.opendata.arcgis.com/pages/municipal-and-industrial) | 2022 | gallons per capita per day (residential potable) | 42/42 towns |
+| **Wildfire risk** (`wildfire_risk`) | `environment` | [FEMA National Risk Index, census tract layer (Wildfire, WFIR_RISKS)](https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Census_Tracts/FeatureServer/0) | 2025 | FEMA NRI wildfire risk index score (0-100, higher is riskier) | 42/42 towns |
 
 <!-- sources:end -->
 
