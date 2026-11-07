@@ -36,6 +36,7 @@ export default function PrioritiesPopover({ prefs, setPrefs, metrics }: { prefs:
             <button type="button" onClick={() => setOpen(false)} className={`-my-2 -mr-2 min-h-11 min-w-11 rounded px-2 text-sm font-semibold text-alpine-700 ${FOCUS}`}>Done</button>
           </div>
           <CategorySliders value={prefs.categories} onChange={categories => setPrefs({ ...prefs, categories })} />
+          <a href="#/" className={`mt-3 inline-flex min-h-11 items-center rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:hidden ${FOCUS}`}>Change my answers</a>
           {cMax > cMin && (
             <label className="mt-4 block">
               <span className="flex justify-between text-sm text-ink"><span>Max commute</span><span className="tabular-nums text-dusk">{shown}</span></span>

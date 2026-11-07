@@ -17,7 +17,7 @@ import Segmented, { type View } from '../components/homes/Segmented';
 import { BTN_PRIMARY, FOCUS } from '../components/homes/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
 import { mapPins, useMapPoints, type MapPin } from '../data/mapPoints';
-import { toMetricWeights } from '../prefs';
+import { isRenting, toMetricWeights } from '../prefs';
 import type { Prefs } from '../types';
 import { openSignIn } from '../components/auth/AccountMenu';
 import { useMessagesActions } from '../data/messagesHooks';
@@ -167,6 +167,18 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   useEffect(() => { pinRequest.current++; setPinNote(''); }, [view]);
 
   const closePanel = useCallback(() => setSelectedListing(null), []);
+  // An open listing gets its own history entry, so Back closes it instead of leaving Results.
+  const panelOpen = selectedListing !== null;
+  useEffect(() => {
+    if (!panelOpen) return;
+    window.history.pushState({ listingPanel: true }, '');
+    const onPop = () => setSelectedListing(null);
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (window.history.state?.listingPanel) window.history.back();
+    };
+  }, [panelOpen]);
   const selIndex = selectedListing && recs ? recs.findIndex(r => r.listing.id === selectedListing.id) : -1;
   const step = (d: number) => {
     if (!recs?.length) return;
@@ -198,7 +210,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const seeHomes = (id: string) => {
     setSelectedListing(null);
     setPane('list');
-    window.location.hash = `/results?town=${encodeURIComponent(id)}`;
+    window.location.hash = `/results?town=${encodeURIComponent(id)}${isRenting(prefs) ? '&view=apartments' : ''}`;
   };
 
   const filtered = prefs.filters.maxHomeValue !== undefined || prefs.filters.maxCommuteMinutes !== undefined;
@@ -271,7 +283,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
             <ListErrorBoundary key={view}>
               <HomesForYou
                 kind={kind} weights={weights} filters={prefs.filters} maxPrice={budget} sort={sort}
-                towns={towns} townFilter={townFilter} onClearTown={() => changeView('homes')}
+                towns={towns} townFilter={townFilter} onClearTown={() => changeView(view)}
                 onBrowseAreas={() => changeView('areas')} onRaiseBudget={() => setBudget(undefined)}
                 selectedId={selectedListing?.id} onSelect={selectListing} onHoverCity={setHovered}
                 onOpenTown={onOpenTown} onListings={setListings} onRecs={setRecs}

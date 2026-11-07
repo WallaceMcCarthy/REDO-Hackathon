@@ -14,6 +14,8 @@ export const stepLayer = (ids: string[], current: string, delta: -1 | 1) => {
 export default function LayerPicker({ metrics, selected, onSelect }: Props) {
   // Phone maps are short, so the long note starts folded there. The same pattern as the controls on the Results screen.
   const [aboutOpen] = useState(() => window.matchMedia('(min-width: 640px)').matches);
+  // The dial covers about half a phone map, so it starts as one small button there.
+  const [dialOpen, setDialOpen] = useState(aboutOpen);
   const nums = selected ? Object.values(selected.values) : [];
   const dialRef = useRef<HTMLDivElement>(null);
   const options = useMemo(() => [{ id: '', label: 'No heatmap', category: '' }, ...metrics.map(metric => ({ id: metric.id, label: metric.label, category: metric.category }))], [metrics]);
@@ -29,13 +31,21 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
     onSelect(stepLayer(ids, selected?.id ?? '', event.key === 'ArrowDown' ? 1 : -1));
   };
   return (
-    <div className="absolute right-2 top-14 z-[1000] w-44 sm:w-60 space-y-1.5 text-ink">
+    <div className={`absolute right-2 top-14 z-[1000] space-y-1.5 text-ink ${dialOpen ? 'w-44 sm:w-60' : 'w-36'}`}>
       <div className="rounded-xl border border-rock-100 bg-sand/95 p-1.5 shadow-sm">
-        <div className="flex items-center justify-between px-1 pb-1">
+        <button
+          type="button" aria-expanded={dialOpen} onClick={() => setDialOpen(open => !open)}
+          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 px-1 text-left sm:hidden"
+        >
+          <span className="truncate text-xs font-semibold text-ink">{selected?.label ?? 'Map layer'}</span>
+          <span aria-hidden="true" className="text-[10px] text-dusk">{dialOpen ? '▲' : '▼'}</span>
+        </button>
+        <div className="hidden items-center justify-between px-1 pb-1 sm:flex">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-dusk">Map layer</span>
           <span className="text-[10px] text-dusk">Scroll to choose</span>
         </div>
         <div
+          hidden={!dialOpen}
           ref={dialRef}
           role="listbox"
           aria-label="Map heatmap layer"
