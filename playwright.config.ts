@@ -16,7 +16,7 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium' } },
   ],
   webServer: external ? undefined : {
-    command: 'npm run build && npx vite preview --port 4173 --strictPort',
+    command: 'VITE_EXPOSE_MAP=1 npm run build && npx vite preview --port 4173 --strictPort',
     url: baseURL,
     reuseExistingServer: true,
     timeout: 240_000,

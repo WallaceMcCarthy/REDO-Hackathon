@@ -1,135 +1,310 @@
-import L from 'leaflet';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from 'react-leaflet';
+import * as maplibregl from 'maplibre-gl';
+import type { FeatureCollection, Point } from 'geojson';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { City, Metric } from '../../types';
-import HeatmapLayer from './HeatmapLayer';
+import { BOUNDS, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
-import ListingMarker from '../listings/ListingMarker';
-import SponsoredPin from '../ads/SponsoredPin';
-import { useActivePins } from '../../data/adsHooks';
+import ListingCard from '../listings/ListingCard';
 import type { Listing } from '../listings/types';
 import type { Row } from './types';
 
-const UTAH_BOUNDS: L.LatLngBoundsExpression = [[37, -114], [42, -109]];
-// Most towns sit on the Wasatch Front, so numbering all 42 pins buries the top results. The rest are dots with a touch-sized target.
+declare global {
+  interface Window { __utahMap?: maplibregl.Map }
+}
+
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+const UTAH_BOUNDS: [[number, number], [number, number]] = [[-114, 37], [-109, 42]];
+// Homes first: listings are the primary layer, towns are small muted dots underneath.
+// Tailwind palette (tailwind.config.js).
+const ROCK_500 = '#c4623a', ALPINE_700 = '#1d544f', ALPINE_500 = '#2f7f76', SAND = '#f7f1e8', INK = '#231a15';
+const HOME_COLOR = '#0d9488', APARTMENT_COLOR = '#7c3aed';
 const NUMBERED_PINS = 10;
+const PIN_LAYERS = ['towns-circle', 'towns-dots'];
+const LISTING_LAYERS = ['listings-clusters', 'listings-cluster-count', 'listings-circle', 'listings-selected', 'listings-price'];
+const ALPINE_500_DOT = ALPINE_500;
+// Topmost first, so a listing wins over the town dot beneath it.
+const HIT_LAYERS = ['listings-clusters', 'listings-circle', 'towns-circle', 'towns-dots'];
+const TOWN_MUTED = '#6e625a';
 
-// Cached per rank so hover never replaces a marker's DOM; highlight is the `active` class on the icon root, styled via group-[.active].
-const icons = new Map<number, L.DivIcon>();
-function pinIcon(rank: number) {
-  let icon = icons.get(rank);
-  if (!icon) {
-    const top = rank <= 3;
-    const numbered = rank <= NUMBERED_PINS;
-    const size = top ? 40 : numbered ? 30 : 24;
-    icon = L.divIcon({
-      className: 'group',
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-      html: numbered
-        ? `<div class="flex size-full items-center justify-center rounded-full border-2 border-sand font-bold transition-transform duration-200 group-[.active]:scale-125 group-[.active]:border-ink ${
-          top ? 'bg-rock-500 text-base text-white' : 'bg-alpine-700 text-xs text-white'
-        }">${rank}</div>`
-        : '<div class="flex size-full items-center justify-center"><div class="size-3 rounded-full border border-sand bg-alpine-500 transition-transform duration-200 group-[.active]:scale-150 group-[.active]:border-ink"></div></div>',
-    });
-    icons.set(rank, icon);
+function priceLabel(l: Listing): string {
+  if (l.kind === 'home') {
+    const v = l.value;
+    return v == null ? '' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
   }
-  return icon;
+  const r = l.rent;
+  return r == null ? '' : r >= 1000 ? `$${(r / 1000).toFixed(1)}k/mo` : `$${r}/mo`;
 }
+const HEAT_OPACITY = 0.65;
 
-type Props = { rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null; onHover: (id: string | null) => void; onOpen: (id: string) => void; listings?: Listing[]; onSelectListing?: (l: Listing) => void };
-
-/** Tracks whether a zoom is in flight so pins sliding under a still cursor do not fire hover. */
-function ZoomGate({ zooming }: { zooming: { current: boolean } }) {
-  const map = useMapEvents({
-    zoomstart: () => { zooming.current = true; },
-    zoomend: () => { zooming.current = false; },
-  });
-  // The opening fit stays fractional so Utah fills the frame. After that a pinch moves whole levels: at 0.25 steps the same pinch took 6x longer.
-  useEffect(() => { map.options.zoomSnap = 1; }, [map]);
-  return null;
-}
-
-type PinProps = {
-  id: string; name: string; lat: number; lng: number; rank: number; active: boolean;
-  zooming: { current: boolean }; onHover: (id: string | null) => void; onOpen: (id: string) => void;
+type Props = {
+  rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null;
+  onHover: (id: string | null) => void; onOpen: (id: string) => void;
+  listings?: Listing[]; onSelectListing?: (l: Listing) => void; selectedListingId?: string;
+  /** Which pins are primary. 'listings' (default): homes with prices and clusters, towns as muted dots. 'towns': numbered town pins, listings hidden. */
+  focus?: 'listings' | 'towns';
 };
 
-const Pin = memo(function Pin({ id, name, lat, lng, rank, active, zooming, onHover, onOpen }: PinProps) {
-  const marker = useRef<L.Marker | null>(null);
-  const title = `${rank}. ${name}`;
+/** Switch paint, filters and visibility between the two modes. The map and its sources are never recreated. */
+function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
+  const towns = focus === 'towns';
+  for (const id of LISTING_LAYERS) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', towns ? 'none' : 'visible');
+  map.setLayoutProperty('towns-circle', 'visibility', towns ? 'visible' : 'none');
+  map.setLayoutProperty('towns-rank', 'visibility', towns ? 'visible' : 'none');
+  // Towns focus: ranks 1-10 are the numbered circles, the rest are alpine dots. Listings focus: every town is a small muted dot.
+  map.setFilter('towns-dots', towns ? ['>', ['get', 'rank'], NUMBERED_PINS] : null);
+  map.setPaintProperty('towns-dots', 'circle-color', towns ? ALPINE_500_DOT : TOWN_MUTED);
+  map.setPaintProperty('towns-dots', 'circle-opacity', towns ? 1 : 0.8);
+  map.setPaintProperty('towns-dots', 'circle-radius', hoverCase(towns ? 9 : 7, towns ? 6 : 4.5));
+  map.setPaintProperty('towns-label', 'text-color', towns ? INK : TOWN_MUTED);
+}
 
-  useEffect(() => {
-    // react-leaflet does not refresh a marker's title when it changes, so keep the accessible name in step with the rank.
-    marker.current?.getElement()?.setAttribute('title', title);
-  }, [title]);
+const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
+const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
 
-  useEffect(() => {
-    marker.current?.getElement()?.classList.toggle('active', active);
-  }, [active]);
-
-  const handlers = useMemo(() => ({
-    mouseover: () => { if (!zooming.current) onHover(id); },
-    mouseout: () => { if (!zooming.current) onHover(null); },
-    click: () => onOpen(id),
-  }), [id, zooming, onHover, onOpen]);
-
-  const position = useMemo<L.LatLngTuple>(() => [lat, lng], [lat, lng]);
-
-  return (
-    <Marker ref={marker} position={position} icon={pinIcon(rank)} title={title} zIndexOffset={active ? 1000 : 100 - rank} eventHandlers={handlers}>
-      <Tooltip direction="top" offset={TOOLTIP_OFFSET}>{name}</Tooltip>
-    </Marker>
-  );
-});
-
-const TOOLTIP_OFFSET: L.PointTuple = [0, -14];
-const BOUNDS_OPTIONS = { padding: [10, 10] } as L.FitBoundsOptions;
-
-export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing }: Props) {
+export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings' }: Props) {
   const [layerId, setLayerId] = useState('');
-  const sponsoredPins = useActivePins();
+  const [ready, setReady] = useState(false);
+  const [popup, setPopup] = useState<{ listing: Listing; el: HTMLElement } | null>(null);
   const layer = metrics.find(m => m.id === layerId);
-  const zooming = useRef(false);
-  const open = useCallback((id: string) => onOpen(id), [onOpen]);
+
+  const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const hoveredRef = useRef<string | null>(null);
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const listingsRef = useRef<Listing[]>([]);
+  const handlers = useRef({ onHover, onOpen, onSelectListing });
+  handlers.current = { onHover, onOpen, onSelectListing };
+
+  const townData = useMemo<FeatureCollection>(() => ({
+    type: 'FeatureCollection',
+    features: rows.map(({ city, rank }) => ({
+      type: 'Feature',
+      id: city.id,
+      geometry: { type: 'Point', coordinates: [city.lng, city.lat] },
+      properties: { id: city.id, name: city.name, rank, r: rank <= 3 ? 20 : 15 },
+    })),
+  }), [rows]);
+
+  const listingData = useMemo<FeatureCollection>(() => {
+    listingsRef.current = listings ?? [];
+    return {
+      type: 'FeatureCollection',
+      features: (listings ?? []).map(l => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [l.lng, l.lat] },
+        properties: { id: l.id, kind: l.kind, price: priceLabel(l) },
+      })),
+    };
+  }, [listings]);
+
+  // Create the map once.
+  useEffect(() => {
+    const el = container.current;
+    if (!el) return;
+    const map = new maplibregl.Map({
+      container: el,
+      style: STYLE_URL,
+      bounds: UTAH_BOUNDS,
+      fitBoundsOptions: { padding: 10 },
+      minZoom: 5,
+      attributionControl: { compact: true },
+    });
+    mapRef.current = map;
+    if (import.meta.env.DEV || import.meta.env.VITE_EXPOSE_MAP) window.__utahMap = map;
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left');
+
+    map.on('load', () => {
+      map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 11 });
+      map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
+      const kindColor: maplibregl.ExpressionSpecification = ['match', ['get', 'kind'], 'apartment', APARTMENT_COLOR, HOME_COLOR];
+      // Towns: small muted dots, beneath everything else.
+      map.addLayer({
+        id: 'towns-dots', type: 'circle', source: 'towns',
+        paint: {
+          'circle-radius': hoverCase(7, 4.5), 'circle-color': TOWN_MUTED, 'circle-opacity': 0.8,
+          'circle-stroke-color': hoverCase(INK, SAND), 'circle-stroke-width': hoverCase(2, 1),
+        },
+      });
+      map.addLayer({
+        id: 'towns-circle', type: 'circle', source: 'towns', filter: ['<=', ['get', 'rank'], NUMBERED_PINS],
+        layout: { 'circle-sort-key': ['-', 100, ['get', 'rank']], visibility: 'none' },
+        paint: {
+          'circle-radius': hoverCase(['*', ['get', 'r'], 1.25], ['get', 'r']),
+          'circle-color': ['case', ['<=', ['get', 'rank'], 3], ROCK_500, ALPINE_700],
+          'circle-stroke-color': hoverCase(INK, SAND), 'circle-stroke-width': hoverCase(3, 2),
+        },
+      });
+      map.addLayer({
+        id: 'towns-rank', type: 'symbol', source: 'towns', filter: ['<=', ['get', 'rank'], NUMBERED_PINS],
+        layout: {
+          'text-field': ['to-string', ['get', 'rank']], 'text-font': ['Noto Sans Bold'],
+          'text-size': ['case', ['<=', ['get', 'rank'], 3], 16, 12],
+          'text-allow-overlap': true, 'text-ignore-placement': true,
+          'symbol-sort-key': ['-', 100, ['get', 'rank']], visibility: 'none',
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
+      map.addLayer({
+        id: 'towns-label', type: 'symbol', source: 'towns', minzoom: 9,
+        layout: {
+          'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 11,
+          'text-offset': [0, 0.9], 'text-anchor': 'top', 'text-optional': true,
+        },
+        paint: { 'text-color': TOWN_MUTED, 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
+      });
+      // Listings: the primary layer.
+      map.addLayer({
+        id: 'listings-clusters', type: 'circle', source: 'listings', filter: ['has', 'point_count'],
+        paint: {
+          'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 50, 26],
+          'circle-color': ALPINE_700, 'circle-opacity': 0.92,
+          'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3,
+        },
+      });
+      map.addLayer({
+        id: 'listings-cluster-count', type: 'symbol', source: 'listings', filter: ['has', 'point_count'],
+        layout: {
+          'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Bold'], 'text-size': 13,
+          'text-allow-overlap': true, 'text-ignore-placement': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
+      map.addLayer({
+        id: 'listings-circle', type: 'circle', source: 'listings', filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 8, 12, 11],
+          'circle-color': kindColor, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2.5,
+        },
+      });
+      map.addLayer({
+        id: 'listings-selected', type: 'circle', source: 'listings', filter: ['==', ['get', 'id'], ''],
+        paint: {
+          'circle-radius': 16, 'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': INK, 'circle-stroke-width': 3,
+        },
+      });
+      map.addLayer({
+        id: 'listings-price', type: 'symbol', source: 'listings', minzoom: 10, filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'price'], '']],
+        layout: {
+          'text-field': ['get', 'price'], 'text-font': ['Noto Sans Bold'], 'text-size': 12,
+          'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true,
+        },
+        paint: { 'text-color': INK, 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      });
+      applyFocus(map, focusRef.current);
+      setReady(true);
+    });
+
+    const tip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14, className: 'town-tip' });
+    let overId: string | null = null;
+    const hit = (p: maplibregl.Point) =>
+      map.queryRenderedFeatures([[p.x - 8, p.y - 8], [p.x + 8, p.y + 8]], { layers: HIT_LAYERS })[0];
+
+    map.on('mousemove', e => {
+      const f = hit(e.point);
+      map.getCanvas().style.cursor = f ? 'pointer' : '';
+      const id = f && PIN_LAYERS.includes(f.layer.id) ? String(f.properties.id) : null;
+      if (id === overId) return;
+      overId = id;
+      handlers.current.onHover(id);
+      if (f && id) tip.setLngLat((f.geometry as Point).coordinates as [number, number]).setText(String(f.properties.name)).addTo(map);
+      else tip.remove();
+    });
+    map.on('mouseout', () => {
+      if (overId !== null) { overId = null; handlers.current.onHover(null); }
+      tip.remove();
+    });
+    map.on('click', e => {
+      const f = hit(e.point);
+      if (!f) return;
+      if (f.layer.id === 'listings-clusters') {
+        const src = map.getSource('listings') as maplibregl.GeoJSONSource;
+        Promise.resolve(src.getClusterExpansionZoom(Number(f.properties.cluster_id)))
+          .then(zoom => map.easeTo({ center: (f.geometry as Point).coordinates as [number, number], zoom: zoom + 0.5 }))
+          .catch(() => undefined);
+        return;
+      }
+      if (PIN_LAYERS.includes(f.layer.id)) { handlers.current.onOpen(String(f.properties.id)); return; }
+      const listing = listingsRef.current.find(l => l.id === f.properties.id);
+      if (!listing) return;
+      handlers.current.onSelectListing?.(listing);
+      const node = document.createElement('div');
+      const p = new maplibregl.Popup({ className: 'listing-marker-popup', maxWidth: '340px', offset: 12 })
+        .setLngLat([listing.lng, listing.lat]).setDOMContent(node).addTo(map);
+      setPopup({ listing, el: node });
+      p.on('close', () => setPopup(cur => (cur?.el === node ? null : cur)));
+    });
+
+    return () => {
+      tip.remove();
+      map.remove();
+      mapRef.current = null;
+      setReady(false);
+      setPopup(null);
+      if (window.__utahMap === map) delete window.__utahMap;
+    };
+  }, []);
+
+  // Data updates: only when the memoized GeoJSON actually changes.
+  useEffect(() => {
+    if (ready) (mapRef.current?.getSource('towns') as maplibregl.GeoJSONSource | undefined)?.setData(townData);
+  }, [ready, townData]);
+  useEffect(() => {
+    if (ready) (mapRef.current?.getSource('listings') as maplibregl.GeoJSONSource | undefined)?.setData(listingData);
+  }, [ready, listingData]);
+
+  useEffect(() => {
+    if (ready) mapRef.current?.setFilter('listings-selected', ['==', ['get', 'id'], selectedListingId ?? '']);
+  }, [ready, selectedListingId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (ready && map) applyFocus(map, focus);
+  }, [ready, focus]);
+
+  // Hover highlight via feature-state: no layer or source rebuild.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const prev = hoveredRef.current;
+    if (prev) map.setFeatureState({ source: 'towns', id: prev }, { hover: false });
+    if (hovered) map.setFeatureState({ source: 'towns', id: hovered }, { hover: true });
+    hoveredRef.current = hovered;
+  }, [ready, hovered]);
+
+  // Heatmap: one image per metric, below the pins.
+  const heatUrl = useMemo(() => {
+    if (!layer) return '';
+    const points = cities.flatMap(c => (layer.values[c.id] === undefined ? [] : [{ lat: c.lat, lng: c.lng, value: layer.values[c.id] }]));
+    return gridToDataUrl(computeGrid(points), points.map(p => p.value), layer.higherIsBetter);
+  }, [layer, cities]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    if (map.getLayer('heat')) map.removeLayer('heat');
+    if (map.getSource('heat')) map.removeSource('heat');
+    if (!heatUrl) return;
+    map.addSource('heat', {
+      type: 'image', url: heatUrl,
+      coordinates: [[BOUNDS.west, BOUNDS.north], [BOUNDS.east, BOUNDS.north], [BOUNDS.east, BOUNDS.south], [BOUNDS.west, BOUNDS.south]],
+    });
+    map.addLayer({ id: 'heat', type: 'raster', source: 'heat', paint: { 'raster-opacity': HEAT_OPACITY, 'raster-fade-duration': 0 } }, 'towns-dots');
+  }, [ready, heatUrl]);
 
   return (
     <div className="relative size-full">
-    <MapContainer
-      bounds={UTAH_BOUNDS} boundsOptions={BOUNDS_OPTIONS} minZoom={5}
-      zoomSnap={0.25} zoomDelta={1}
-      className="size-full bg-alpine-50" scrollWheelZoom
-    >
-      <ZoomGate zooming={zooming} />
-      {/* Esri light gray canvas: keyless and fast. CARTO basemaps now require an API key. */}
-      <TileLayer
-        attribution="Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-        maxNativeZoom={16}
-      />
-      <TileLayer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-        maxNativeZoom={16}
-      />
-      {layer && <HeatmapLayer metric={layer} cities={cities} />}
-      {rows.map(({ city, rank }) => (
-        <Pin
-          key={city.id} id={city.id} name={city.name} lat={city.lat} lng={city.lng} rank={rank}
-          active={city.id === hovered} zooming={zooming} onHover={onHover} onOpen={open}
-        />
-      ))}
-      {listings?.map((listing) => (
-        <ListingMarker
-          key={listing.id}
-          listing={listing}
-          onSelect={onSelectListing}
-        />
-      ))}
-      {sponsoredPins?.map((pin) => (
-        <SponsoredPin key={pin._id} campaign={pin} />
-      ))}
-    </MapContainer>
-    <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+      <div ref={container} role="region" aria-label="Map of Utah towns" className="size-full bg-alpine-50" />
+      <ul className="sr-only" aria-label="Towns on the map">
+        {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
+      </ul>
+      <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+      {popup && createPortal(
+        <div className="p-1"><ListingCard item={popup.listing} className="border-none p-2 shadow-none" /></div>,
+        popup.el,
+      )}
     </div>
   );
 });

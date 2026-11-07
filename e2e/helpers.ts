@@ -2,21 +2,25 @@ import { expect, type Page } from '@playwright/test';
 
 export const TOWNS = 42;
 
-/** On narrow screens the sliders sit in a collapsed <details>. */
+/** Priorities (category sliders, commute cap) live in a popover. */
 export async function openControls(page: Page) {
-  const summary = page.getByText('Adjust what matters');
-  if (await summary.isVisible()) {
-    const details = page.locator('details', { has: summary }).first();
-    if (!(await details.evaluate((d: HTMLDetailsElement) => d.open))) await summary.click();
-  }
+  const btn = page.getByRole('button', { name: 'Priorities' });
+  if ((await btn.getAttribute('aria-expanded')) !== 'true') await btn.click();
 }
 
+/** Results open on Homes. */
 export async function gotoResults(page: Page, persona = 'Skier') {
   await page.goto('/');
   await page.getByRole('button', { name: persona, exact: false }).first().click();
   await page.getByRole('button', { name: 'Show my towns' }).click();
   await expect(page).toHaveURL(/#\/results$/);
-  await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
+  await expect(page.getByText(/Showing \d+ homes in \d+ areas?/)).toBeVisible({ timeout: 20_000 });
+}
+
+export async function gotoAreas(page: Page, persona = 'Skier') {
+  await gotoResults(page, persona);
+  await page.getByRole('button', { name: 'Areas', exact: true }).click();
+  await expect(page.getByText(/areas ranked|areas match/)).toBeVisible();
 }
 
 export const cards = (page: Page) => page.getByRole('region', { name: 'Ranked towns' }).getByRole('listitem');
@@ -60,4 +64,14 @@ export async function settledZoom(page: Page) {
     last = z;
   }
   return last;
+}
+
+/** Phones show the list or the map, not both. */
+export async function showMap(page: Page) {
+  const toggle = page.getByRole('group', { name: 'List or map' }).getByRole('button', { name: 'Map' });
+  if (await toggle.isVisible()) await toggle.click();
+}
+export async function showList(page: Page) {
+  const toggle = page.getByRole('group', { name: 'List or map' }).getByRole('button', { name: 'List' });
+  if (await toggle.isVisible()) await toggle.click();
 }

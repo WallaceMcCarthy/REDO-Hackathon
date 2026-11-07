@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cardNames, cards, gotoResults, openControls, pins, setRange, TOWNS, settledZoom, zoomOf } from './helpers';
+import { cardNames, cards, gotoAreas, gotoResults, showList, showMap, openControls, pins, setRange, TOWNS, settledZoom, zoomOf } from './helpers';
 
 const TILE_HOST = /arcgisonline\.com/;
 
@@ -21,16 +21,18 @@ test.describe('Utah Fit', () => {
     await page.getByRole('button', { name: /Skier/ }).click();
     await expect(page.getByRole('button', { name: /Skier/ })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Show my towns' }).click();
-    await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
+    await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
     await page.waitForLoadState('networkidle');
     expect(w.errors, 'console errors').toEqual([]);
     expect(w.failed, 'failed requests').toEqual([]);
   });
 
-  test('2. results list 42 towns and 42 pins; slider reorders cards', async ({ page }) => {
-    await gotoResults(page);
+  test('2. areas list 42 towns and 42 pins; slider reorders cards', async ({ page }) => {
+    await gotoAreas(page);
     await expect(cards(page)).toHaveCount(TOWNS);
+    await showMap(page);
     await expect(pins(page)).toHaveCount(TOWNS);
+    await showList(page);
     await openControls(page);
     // Zero out outdoors first, then max it; the top of the list should differ.
     await setRange(page, /Outdoors/, 0);
@@ -52,6 +54,7 @@ test.describe('Utah Fit', () => {
       }
     });
     await gotoResults(page);
+    await showMap(page);
     await expect.poll(() => page.locator('img.leaflet-tile-loaded').count()).toBeGreaterThan(3);
     await page.waitForLoadState('networkidle');
     expect(tiles.length).toBeGreaterThan(3);
@@ -83,6 +86,7 @@ test.describe('Utah Fit', () => {
 
   test('4. zoom with + control and mouse wheel', async ({ page, isMobile }) => {
     await gotoResults(page);
+    await showMap(page);
     await expect.poll(() => page.locator('img.leaflet-tile-loaded').count()).toBeGreaterThan(3);
     await page.waitForLoadState('networkidle');
     const z0 = await settledZoom(page);
@@ -132,28 +136,52 @@ test.describe('Utah Fit', () => {
     }
   });
 
-  test('5. home value and commute caps filter, clearing restores 42', async ({ page }) => {
-    await gotoResults(page, 'Family');
+  test('5. commute cap filters areas, clearing restores 42', async ({ page }) => {
+    await gotoAreas(page, 'Family');
     await openControls(page);
-    for (const name of [/Max home value/, /Max commute/]) {
-      await expect(cards(page)).toHaveCount(TOWNS);
-      await setRange(page, name, 'min');
-      await expect(cards(page).first()).toBeVisible();
-      const n = await cards(page).count();
-      expect(n, `${name} should shrink the list`).toBeLessThan(TOWNS);
-      expect(n).toBeGreaterThanOrEqual(1);
-      await expect(page.getByText(`${n} of ${TOWNS} towns match`)).toBeVisible();
-      expect(await pins(page).count(), 'pins follow filter').toBe(n);
-      await setRange(page, name, 'max');
-      await expect(cards(page)).toHaveCount(TOWNS);
-      await expect(pins(page)).toHaveCount(TOWNS);
-    }
+    await expect(cards(page)).toHaveCount(TOWNS);
+    await setRange(page, /Max commute/, 'min');
+    await expect(cards(page).first()).toBeVisible();
+    const n = await cards(page).count();
+    expect(n, 'commute cap should shrink the list').toBeLessThan(TOWNS);
+    expect(n).toBeGreaterThanOrEqual(1);
+    await expect(page.getByText(`${n} of ${TOWNS} areas match`)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await showMap(page);
+    expect(await pins(page).count(), 'pins follow filter').toBe(n);
+    await showList(page);
+    await openControls(page);
+    await setRange(page, /Max commute/, 'max');
+    await showList(page);
+    await expect(cards(page)).toHaveCount(TOWNS);
+    await showMap(page);
+    await expect(pins(page)).toHaveCount(TOWNS);
+  });
+
+  test('5b. homes budget filters homes; empty state offers a way out', async ({ page }) => {
+    await gotoResults(page);
+    await page.getByRole('combobox', { name: 'Max price' }).selectOption({ index: 2 });
+    await expect(page.getByText(/Showing \d+ homes|No homes under/)).toBeVisible();
+    await page.getByRole('combobox', { name: 'Sort' }).selectOption('price');
+    const amounts = await page.locator('article p.font-display').allTextContents();
+    const nums = amounts.map(a => (a.endsWith('M') ? parseFloat(a.slice(1)) * 1e6 : parseFloat(a.slice(1)) * 1e3));
+    for (const v of nums) expect(v).toBeLessThanOrEqual(400_000);
+    expect([...nums].sort((a, b) => a - b)).toEqual(nums);
+  });
+
+  test('5c. See homes in a town switches to Homes filtered to it', async ({ page }) => {
+    await gotoAreas(page);
+    const name = (await cardNames(page, 1))[0]!;
+    await cards(page).first().getByRole('button', { name: /^See homes in/ }).click();
+    await expect(page.getByRole('button', { pressed: true, name: 'Homes', exact: true })).toBeVisible();
+    await expect(page.getByText(new RegExp(`Showing \\d+ homes in 1 area`))).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('button', { name: `${name} (clear)` })).toBeVisible();
   });
 
   test('6. town detail shows metrics vs median with source links; back works', async ({ page }) => {
-    await gotoResults(page);
+    await gotoAreas(page);
     const first = (await cardNames(page, 1))[0]!;
-    await cards(page).first().getByRole('button').click();
+    await cards(page).first().getByRole('button', { name: /^About/ }).click();
     await expect(page).toHaveURL(/#\/town\/.+/);
     await expect(page.getByRole('heading', { level: 1, name: first })).toBeVisible();
     await expect(page.getByText(/Utah median/).first()).toBeVisible();
@@ -163,12 +191,12 @@ test.describe('Utah Fit', () => {
     for (const h of hrefs) expect(h, 'source link').toMatch(/^http/);
     await page.getByRole('button', { name: 'Back to results' }).click();
     await expect(page).toHaveURL(/#\/results$/);
-    await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
+    await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
   });
 
   test('7. direct load of a town detail URL works', async ({ page }) => {
-    await gotoResults(page);
-    await cards(page).first().getByRole('button').click();
+    await gotoAreas(page);
+    await cards(page).first().getByRole('button', { name: /^About/ }).click();
     const url = page.url();
     const fresh = await page.context().newPage();
     await fresh.goto(url);
@@ -185,7 +213,8 @@ test.describe('Utah Fit', () => {
     await gotoResults(page);
     await page.waitForTimeout(500);
     expect(await overflow(), 'results overflow px').toBeLessThanOrEqual(0);
-    await cards(page).first().getByRole('button').click();
+    await page.getByRole('button', { name: 'Areas', exact: true }).click();
+    await cards(page).first().getByRole('button', { name: /^About/ }).click();
     await expect(page.getByText(/Utah median/).first()).toBeVisible();
     expect(await overflow(), 'detail overflow px').toBeLessThanOrEqual(0);
   });
