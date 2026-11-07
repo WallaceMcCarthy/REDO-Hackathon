@@ -3,6 +3,8 @@ import CategorySliders from '../components/CategorySliders';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
+import AdvertiserDashboard from '../components/ads/AdvertiserDashboard';
+import SavedPlaces from './SavedPlaces';
 import type { Listing } from '../components/listings/types';
 import type { Row } from '../components/results/types';
 import { useFlip } from '../components/results/useFlip';
@@ -31,6 +33,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const [controlsOpen] = useState(isWide);
   const [activeTab, setActiveTab] = useState<'towns' | 'listings'>('towns');
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [viewMode, setViewMode] = useState<'main' | 'saved' | 'ads'>('main');
 
   const rows = useMemo<Row[] | undefined>(() => {
     if (!cities || !metrics || !ranked) return undefined;
@@ -63,6 +66,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const filtered = CAPS.some(cap => prefs.filters[cap.key] !== undefined);
   const clearFilters = () => setPrefs({ ...prefs, filters: {} });
 
+  if (viewMode === 'ads') {
+    return <AdvertiserDashboard cities={cities ?? []} onBack={() => setViewMode('main')} />;
+  }
+  if (viewMode === 'saved') {
+    return <SavedPlaces onBack={() => setViewMode('main')} onOpenTown={openFromPin} />;
+  }
+
   return (
     <main className="xl:sticky xl:top-0 xl:grid xl:h-dvh xl:grid-cols-[18rem_minmax(0,28rem)_minmax(0,1fr)]">
       <section aria-label="Map of ranked towns" className="sticky top-0 isolate z-10 order-first h-56 border-b border-rock-100 sm:h-80 xl:static xl:order-last xl:h-full xl:border-b-0">
@@ -72,9 +82,19 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
       <aside className="border-b border-rock-100 p-5 xl:overflow-y-auto xl:border-b-0 xl:border-r">
         <h1 className="font-display text-3xl leading-tight text-ink">Where you would fit in Utah</h1>
         <p className="mt-2 text-sm text-dusk">Move a slider and the ranking follows.</p>
-        <button type="button" onClick={onRestart} className="mt-2 text-sm font-semibold text-alpine-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-alpine-500">
-          Change my answers
-        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+          <button type="button" onClick={onRestart} className="font-semibold text-alpine-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-alpine-500">
+            Change my answers
+          </button>
+          <span className="text-rock-300">•</span>
+          <button type="button" onClick={() => setViewMode('saved')} className="font-semibold text-rose-700 underline underline-offset-2 hover:text-rose-900 focus-visible:outline-alpine-500">
+            Saved places
+          </button>
+          <span className="text-rock-300">•</span>
+          <button type="button" onClick={() => setViewMode('ads')} className="font-semibold text-purple-700 underline underline-offset-2 hover:text-purple-900 focus-visible:outline-alpine-500">
+            Advertise
+          </button>
+        </div>
         <details open={controlsOpen} className="mt-5 [&>summary]:xl:hidden">
           <summary className="cursor-pointer rounded text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-alpine-500">Adjust what matters</summary>
           <div className="mt-4 space-y-6">

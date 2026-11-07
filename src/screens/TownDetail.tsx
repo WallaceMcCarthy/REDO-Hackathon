@@ -1,7 +1,9 @@
 import MetricRow from '../components/detail/MetricRow';
 import TownListings from '../components/listings/TownListings';
-import SafeSectionBoundary from '../components/SafeSectionBoundary';
+import { openSignIn } from '../components/auth/AccountMenu';
+import TownFeed from '../components/feed/TownFeed';
 import CommentsThread from '../components/social/CommentsThread';
+import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { useCities, useMetrics, useRank } from '../data/hooks';
 import { CATEGORY_LABELS, toMetricWeights } from '../prefs';
 import { CATEGORIES, type Prefs } from '../types';
@@ -77,16 +79,21 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
       </header>
 
       <div className="mx-auto max-w-4xl px-4">
-        <TownListings cityId={id} cityName={town.name} />
+        <SafeSectionBoundary>
+          <TownListings cityId={id} cityName={town.name} />
+        </SafeSectionBoundary>
 
         <SafeSectionBoundary>
+          <TownFeed
+            cityId={town.id} cityName={town.name} onSignIn={openSignIn}
+            renderComments={postId => <CommentsThread targetType="post" targetId={postId} />}
+          />
+        </SafeSectionBoundary>
 
+        <SafeSectionBoundary>
           <div className="mt-12 border-t border-rock-200 pt-8">
-
             <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
-
           </div>
-
         </SafeSectionBoundary>
 
         {groups.map(({ category, items }) => (

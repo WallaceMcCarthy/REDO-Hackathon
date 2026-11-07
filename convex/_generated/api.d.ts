@@ -8,17 +8,31 @@
  * @module
  */
 
+import type * as ads from "../ads.js";
+import type * as adsSchema from "../adsSchema.js";
 import type * as auth from "../auth.js";
 import type * as cities from "../cities.js";
+import type * as feedSchema from "../feedSchema.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_feed from "../lib/feed.js";
 import type * as lib_listings from "../lib/listings.js";
+import type * as lib_payments from "../lib/payments.js";
+import type * as lib_roommateRules from "../lib/roommateRules.js";
+import type * as lib_roommates from "../lib/roommates.js";
 import type * as lib_scoring from "../lib/scoring.js";
+import type * as lib_social from "../lib/social.js";
 import type * as listings from "../listings.js";
 import type * as metrics from "../metrics.js";
+import type * as posts from "../posts.js";
 import type * as profiles from "../profiles.js";
+import type * as roommateSchema from "../roommateSchema.js";
+import type * as roommates from "../roommates.js";
+import type * as sampleData from "../sampleData.js";
 import type * as search from "../search.js";
 import type * as seed from "../seed.js";
+import type * as social from "../social.js";
+import type * as socialSchema from "../socialSchema.js";
 
 import type {
   ApiFromModules,
@@ -27,17 +41,31 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ads: typeof ads;
+  adsSchema: typeof adsSchema;
   auth: typeof auth;
   cities: typeof cities;
+  feedSchema: typeof feedSchema;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/feed": typeof lib_feed;
   "lib/listings": typeof lib_listings;
+  "lib/payments": typeof lib_payments;
+  "lib/roommateRules": typeof lib_roommateRules;
+  "lib/roommates": typeof lib_roommates;
   "lib/scoring": typeof lib_scoring;
+  "lib/social": typeof lib_social;
   listings: typeof listings;
   metrics: typeof metrics;
+  posts: typeof posts;
   profiles: typeof profiles;
+  roommateSchema: typeof roommateSchema;
+  roommates: typeof roommates;
+  sampleData: typeof sampleData;
   search: typeof search;
   seed: typeof seed;
+  social: typeof social;
+  socialSchema: typeof socialSchema;
 }>;
 
 /**

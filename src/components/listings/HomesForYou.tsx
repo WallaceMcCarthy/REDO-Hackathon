@@ -4,6 +4,8 @@ import { toMetricWeights } from '../../prefs';
 import type { Listing, ListingKind, Recommendation } from '../../../convex/lib/listings';
 import { useRecommendedListings } from '../../data/listingsHooks';
 import ListingCard from './ListingCard';
+import FeaturedListingSlot from '../ads/FeaturedListingSlot';
+import { useActiveFeatured } from '../../data/adsHooks';
 
 interface HomesForYouProps {
   prefs: Prefs;
@@ -31,6 +33,8 @@ export default function HomesForYou({
   const cityMap = useMemo(() => {
     return new Map((cities || []).map((c) => [c.id, c.name]));
   }, [cities]);
+
+  const featuredCampaigns = useActiveFeatured();
 
   // Query top recommendations from Convex backend
   const recommendations = useRecommendedListings({
@@ -79,6 +83,15 @@ export default function HomesForYou({
           </button>
         </div>
       </div>
+
+      {/* Sponsored Featured Slot */}
+      {featuredCampaigns && featuredCampaigns.length > 0 && (
+        <div className="space-y-3">
+          {featuredCampaigns.map((camp) => (
+            <FeaturedListingSlot key={camp._id} campaign={camp} />
+          ))}
+        </div>
+      )}
 
       {/* Recommendations List */}
       {isLoading ? (

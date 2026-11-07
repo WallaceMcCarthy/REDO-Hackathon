@@ -28,12 +28,36 @@ const listings = existsSync(listingsDir)
   ? readdirSync(listingsDir).filter((f) => f.endsWith(".json")).sort().flatMap((f) => readJson(join(listingsDir, f)))
   : [];
 if (listings.length) {
-  const CHUNK = 500;
-  for (let i = 0; i < listings.length; i += CHUNK) {
-    const chunk = listings.slice(i, i + CHUNK);
-    runConvex("seed:replaceListings", { listings: chunk, reset: i === 0 });
-    console.log(`Seeded listings ${Math.min(i + CHUNK, listings.length)}/${listings.length}`);
+  // Byte-bounded, not row-count-bounded: a fixed row count risks the OS's
+  // single-argument size limit (ARG_MAX) on some platforms/shells once rows
+  // get bigger (e.g. longer addresses), and risks Convex's ~1MB CLI arg cap
+  // either way. 400KB leaves headroom under both.
+  const MAX_CHUNK_BYTES = 400_000;
+  const MAX_CHUNK_ROWS = 500;
+  let chunk: unknown[] = [];
+  let chunkBytes = 2; // "[]"
+  let seeded = 0;
+  let first = true;
+
+  function flush() {
+    if (chunk.length === 0) return;
+    runConvex("seed:replaceListings", { listings: chunk, reset: first });
+    seeded += chunk.length;
+    console.log(`Seeded listings ${seeded}/${listings.length}`);
+    first = false;
+    chunk = [];
+    chunkBytes = 2;
   }
+
+  for (const row of listings) {
+    const rowBytes = JSON.stringify(row).length + 1; // +1 for the separating comma
+    if (chunk.length > 0 && (chunkBytes + rowBytes > MAX_CHUNK_BYTES || chunk.length >= MAX_CHUNK_ROWS)) {
+      flush();
+    }
+    chunk.push(row);
+    chunkBytes += rowBytes;
+  }
+  flush();
 } else {
   console.warn("No data/listings/*.json found; skipping listings seed");
 }

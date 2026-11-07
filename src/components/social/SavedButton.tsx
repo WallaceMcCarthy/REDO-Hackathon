@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useToggleSaved } from '../../data/socialHooks';
+import React, { useEffect, useState } from 'react';
+import { useIsSaved, useToggleSaved } from '../../data/socialHooks';
 
 interface SavedButtonProps {
   listingId: string;
@@ -14,9 +14,16 @@ export default function SavedButton({
   onToggle,
   className = '',
 }: SavedButtonProps) {
+  const isSavedFromServer = useIsSaved(listingId);
   const [saved, setSaved] = useState(initialSaved);
   const [busy, setBusy] = useState(false);
   const toggleSaved = useToggleSaved();
+
+  useEffect(() => {
+    if (typeof isSavedFromServer === 'boolean') {
+      setSaved(isSavedFromServer);
+    }
+  }, [isSavedFromServer]);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -33,10 +40,13 @@ export default function SavedButton({
         setSaved(res.saved);
         onToggle?.(res.saved);
       }
-    } catch (err) {
+    } catch (err: any) {
       // Revert optimistic state on failure
       setSaved(saved);
       onToggle?.(saved);
+      if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) {
+        alert('Please sign in to save places to your profile.');
+      }
     } finally {
       setBusy(false);
     }

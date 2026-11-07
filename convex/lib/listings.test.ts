@@ -73,14 +73,25 @@ describe("recommendListings", () => {
     listing({ id: "desert-cheap", cityId: "desert", kind: "home", value: 150_000 }),
   ];
 
-  it("exhausts the top-ranked town's listings before moving to the next town", () => {
+  it("round-robins across towns by rank instead of draining the #1 town first", () => {
     const result = recommendListings({
       cities, metrics, listings, weights: { trails: 5 }, filters: {}, kind: "home", limit: 3,
     });
-    // alpine ranks #1 for trails, so both its listings come first (cheapest first), then valley.
-    expect(result.map((r) => r.listing.id)).toEqual(["alpine-cheap", "alpine-pricey", "valley-mid"]);
-    expect(result[0].townRank).toBe(1);
+    // Ranked by trails: alpine(30) > valley(20) > desert(10). One listing per
+    // town per round, in rank order, so each of the 3 towns gets a slot
+    // before alpine's second listing is ever considered.
+    expect(result.map((r) => r.listing.id)).toEqual(["alpine-cheap", "valley-mid", "desert-cheap"]);
+    expect(result.map((r) => r.townRank)).toEqual([1, 2, 3]);
     expect(result[0].reason).toContain("Alpine");
+  });
+
+  it("only pulls a second listing from a town once every town's first round is used", () => {
+    const result = recommendListings({
+      cities, metrics, listings, weights: { trails: 5 }, filters: {}, kind: "home", limit: 4,
+    });
+    // valley and desert only have one listing each, so round 2 only has
+    // alpine's second (pricier) listing left to contribute.
+    expect(result.map((r) => r.listing.id)).toEqual(["alpine-cheap", "valley-mid", "desert-cheap", "alpine-pricey"]);
   });
 
   it("applies maxHomeValue as the per-listing budget cap for homes", () => {

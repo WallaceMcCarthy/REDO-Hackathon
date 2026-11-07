@@ -1,9 +1,17 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { adsTables } from "./adsSchema";
+import { feedTables } from "./feedSchema";
+import { roommateTables } from "./roommateSchema";
+import { socialTables } from "./socialSchema";
 
 export default defineSchema({
   ...authTables,
+  ...socialTables,
+  ...feedTables,
+  ...roommateTables,
+  ...adsTables,
   profiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),
@@ -52,5 +60,5 @@ export default defineSchema({
     source: v.string(),
     sourceUrl: v.string(),
     year: v.union(v.number(), v.null()),
-  }).index("by_cityId", ["cityId"]).index("by_kind", ["kind"]),
+  }).index("by_cityId", ["cityId"]).index("by_kind", ["kind"]).index("by_listingId", ["id"]),
 });

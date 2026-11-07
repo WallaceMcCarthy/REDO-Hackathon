@@ -5,6 +5,8 @@ import type { City, Metric } from '../../types';
 import HeatmapLayer from './HeatmapLayer';
 import LayerPicker from './LayerPicker';
 import ListingMarker from '../listings/ListingMarker';
+import SponsoredPin from '../ads/SponsoredPin';
+import { useActivePins } from '../../data/adsHooks';
 import type { Listing } from '../listings/types';
 import type { Row } from './types';
 
@@ -86,6 +88,7 @@ const BOUNDS_OPTIONS = { padding: [10, 10] } as L.FitBoundsOptions;
 
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing }: Props) {
   const [layerId, setLayerId] = useState('');
+  const sponsoredPins = useActivePins();
   const layer = metrics.find(m => m.id === layerId);
   const zooming = useRef(false);
   const open = useCallback((id: string) => onOpen(id), [onOpen]);
@@ -121,6 +124,9 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
           listing={listing}
           onSelect={onSelectListing}
         />
+      ))}
+      {sponsoredPins?.map((pin) => (
+        <SponsoredPin key={pin._id} campaign={pin} />
       ))}
     </MapContainer>
     <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
