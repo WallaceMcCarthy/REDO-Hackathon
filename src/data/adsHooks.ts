@@ -53,6 +53,21 @@ export function useMyCampaigns(): CampaignRecord[] | undefined {
   return result as CampaignRecord[] | undefined;
 }
 
+export interface CampaignDailyStat {
+  campaignId: string;
+  day: number;
+  surface: 'results_featured' | 'town_highlights' | 'unknown';
+  pageTownId?: string;
+  impressions: number;
+  clicks: number;
+}
+
+export function useMyCampaignStats(): CampaignDailyStat[] | undefined {
+  const { isAuthenticated } = useConvexAuth();
+  const queryFn = (api as any).ads?.listMyCampaignStats;
+  return useQuery(queryFn, queryFn && isAuthenticated ? {} : 'skip') as CampaignDailyStat[] | undefined;
+}
+
 export function useCreateCheckout() {
   const actionFn = (api as any).ads?.createCheckout;
   const run = useAction(actionFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0, provider: 'none' })));
@@ -122,10 +137,10 @@ export function useRecordImpression() {
   const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
 
   return useCallback(
-    async (campaignId: string) => {
+    async (campaignId: string, surface?: 'results_featured' | 'town_highlights', pageTownId?: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey(), surface, pageTownId });
       } catch {
         // Silently ignore if unauthenticated session
       }
@@ -139,10 +154,10 @@ export function useRecordClick() {
   const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
 
   return useCallback(
-    async (campaignId: string) => {
+    async (campaignId: string, surface?: 'results_featured' | 'town_highlights', pageTownId?: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey(), surface, pageTownId });
       } catch {
         // Silently ignore if unauthenticated session
       }

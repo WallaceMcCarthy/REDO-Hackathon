@@ -5,5 +5,5 @@ import FeaturedListingSlot from './FeaturedListingSlot';
 export default function TownSponsoredSlot({ cityId, className }: { cityId: string; className?: string }) {
   const campaigns = useTownCampaigns(cityId);
   const campaign = campaigns?.find(c => c.cityId === cityId) ?? campaigns?.[0];
-  return campaign ? <FeaturedListingSlot key={campaign._id} campaign={campaign} className={className} /> : null;
+  return campaign ? <FeaturedListingSlot key={campaign._id} campaign={campaign} pageTownId={cityId} className={className} /> : null;
 }

@@ -15,6 +15,7 @@ const modules = {
 const refs = {
   createCampaign: makeFunctionReference<"mutation">("ads:createCampaign"),
   listMyCampaigns: makeFunctionReference<"query">("ads:listMyCampaigns"),
+  listMyCampaignStats: makeFunctionReference<"query">("ads:listMyCampaignStats"),
   getActivePins: makeFunctionReference<"query">("ads:getActivePins"),
   getActiveFeatured: makeFunctionReference<"query">("ads:getActiveFeatured"),
   recordImpression: makeFunctionReference<"mutation">("ads:recordImpression"),
@@ -219,6 +220,20 @@ describe("ads security & exploit resistance", () => {
     expect(rows.some((r: any) => r.kind === "click" && /^[a-f0-9]{64}$/.test(r.viewerKey))).toBe(true);
 
     await expect(t.mutation(refs.recordClick, { campaignId: id, viewerKey: "bad key!" })).rejects.toThrow();
+  });
+
+  it("aggregates accepted events by day, surface, and page town", async () => {
+    const { t, advertiser } = await setup();
+    const created = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Stats", body: "Body text", url: "https://example.com", durationDays: 7 });
+    await t.mutation(refs.fulfillRedoPayment, { campaignId: created.campaignId, redoPaymentId: "pay_stats", amount: created.amount, currency: "USD", rawEventId: "evt_stats" });
+    await t.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "statskey_111", surface: "town_highlights", pageTownId: "provo" });
+    await t.mutation(refs.recordClick, { campaignId: created.campaignId, viewerKey: "statskey_111", surface: "town_highlights", pageTownId: "provo" });
+    await t.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "statskey_222", surface: "results_featured", pageTownId: "provo" });
+    const rows = await advertiser.query(refs.listMyCampaignStats, {});
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ surface: "town_highlights", pageTownId: "provo", impressions: 1, clicks: 1 }),
+      expect.objectContaining({ surface: "results_featured", pageTownId: "provo", impressions: 1, clicks: 0 }),
+    ]));
   });
 
   it("caps public ads and prioritizes the requested town over statewide campaigns", async () => {

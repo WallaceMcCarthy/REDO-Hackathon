@@ -8,11 +8,13 @@ import { safeHttpsHref } from './safeHttpsHref';
 
 interface FeaturedListingSlotProps {
   campaign: CampaignRecord;
+  pageTownId?: string;
   className?: string;
 }
 
 export default function FeaturedListingSlot({
   campaign,
+  pageTownId,
   className = '',
 }: FeaturedListingSlotProps) {
   const recordImpression = useRecordImpression();
@@ -22,9 +24,9 @@ export default function FeaturedListingSlot({
   useEffect(() => {
     if (!recorded.current) {
       recorded.current = true;
-      recordImpression(campaign._id);
+      recordImpression(campaign._id, 'results_featured', pageTownId);
     }
-  }, [campaign._id, recordImpression]);
+  }, [campaign._id, pageTownId, recordImpression]);
 
   const href = safeHttpsHref(campaign.url);
 
@@ -51,7 +53,7 @@ export default function FeaturedListingSlot({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => recordClick(campaign._id)}
+            onClick={() => recordClick(campaign._id, 'results_featured', pageTownId)}
             variant="secondary"
             size="sm"
             fullWidth
