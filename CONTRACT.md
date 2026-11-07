@@ -74,3 +74,68 @@ The Convex query `api.search.rank({ weights, filters })` wraps `rankTowns`. Furt
 1. **Landing / quiz.** Pick a few personas (skier, family, remote worker, foodie) or adjust a slider per category.
 2. **Results.** A map with ranked pins on one side and ranked cards with score bars on the other. Results update live as the sliders move.
 3. **Town detail.** Every metric compared with the Utah median, with source links.
+
+---
+
+# Phase 2: individual homes, apartments and map layers
+
+Goal: the app suggests real homes and apartments inside the towns that fit you, not just towns. It also shows any metric as a heatmap, so the data behind each score can be seen on the map.
+
+## Listing data (public sources only, real records, nothing invented)
+
+There is no free, legal feed of for-sale MLS or Zillow listings, so we use public records and label them honestly in the UI:
+
+- **Homes:** real residential parcels from the Utah Geospatial Resource Center (UGRC) statewide parcels with LIR attributes (county assessor data). Fields: market value, building sqft, year built, property class. The UI says "Estimated value (county assessor, <year>)", never "price".
+- **Apartments:**
+  - Real apartment complexes from the HUD LIHTC database and the HUD Multifamily properties datasets, plus OpenStreetMap `building=apartments` with a `name`.
+  - Estimated rent comes from HUD Small Area Fair Market Rents (SAFMR) for the complex's ZIP code, labeled "HUD fair market rent for this ZIP".
+
+`data/listings/homes.json` and `data/listings/apartments.json`, each an array of:
+```json
+{
+  "id": "slco-16053260150000",
+  "cityId": "salt-lake-city",
+  "kind": "home",
+  "name": null,
+  "address": "123 E Example Ave",
+  "lat": 40.75, "lng": -111.88,
+  "value": 525000,
+  "rent": null,
+  "beds": null, "sqft": 1840, "yearBuilt": 1948, "units": null,
+  "propertyType": "Single family",
+  "source": "UGRC Salt Lake County LIR parcels 2025",
+  "sourceUrl": "https://..."
+}
+```
+
+- `kind` is "home" or "apartment".
+- A home has `value`. An apartment has `rent` (monthly, 2-bedroom SAFMR) and `units` where known.
+- Fields a source doesn't have are `null`.
+- **Volume:** up to 150 homes and 40 apartments per town, sampled evenly across the town (not just the center).
+- **Size:** keep each file under 2 MB.
+
+## Backend (Convex)
+
+- **Schema:** `listings` table with the fields above, indexed by `cityId` and by `kind`.
+- **Query `api.listings.forTown({cityId, kind?, maxValue?, maxRent?})`:** sorted by fit.
+- **Query `api.listings.recommend({weights, filters, kind, limit})`:** takes the top towns from `rankTowns`, then the best listings inside them by budget fit and size. Returns the listing plus its town score and a one-line reason.
+- **Seeding:** the CLI arg limit is about 1 MB, so the seed script loads listings in chunks of about 500 through an internal mutation, `seed.replaceListings`. george runs the seeds.
+
+## Map layers (frontend)
+
+- **Layer picker:** one control on the results map shows any single metric as a heatmap.
+- **Interpolation:** in the browser, using inverse-distance weighting (power 2) from the 42 town values onto a grid canvas over Utah, about 150x150 cells.
+- **Display:**
+  - Color follows `higherIsBetter`, so green always means better.
+  - A legend shows real min and max with units.
+  - A "Source" link uses the metric's `sourceUrl`.
+  - The 42 measured points stay visible as dots, so it's clear what is measured and what is interpolated.
+- **Listings:** show as pins once zoomed in on a town. Clicking one opens a card with its fields, the source and a "Why this home" line.
+
+## Later, if time allows (in this order)
+
+1. Sponsored pins and featured listings, the monetization story.
+   - Clearly labeled "Sponsored (sample)" in the demo.
+   - Include one "Apply to REDO" pin.
+2. A video of the build process from the git history, board log and chat.
+3. Cut for this hackathon: login, social features, roommates and comments.
