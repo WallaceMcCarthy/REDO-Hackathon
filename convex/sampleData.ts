@@ -19,6 +19,8 @@ type SampleCampaign = {
   title: string;
   body: string;
   url: string;
+  lat?: number;
+  lng?: number;
 };
 
 const sample = (kind: SampleCampaign["kind"], category: AdCategory, cityId: string, title: string, body: string): SampleCampaign => ({
@@ -36,6 +38,9 @@ export const SAMPLE_CAMPAIGNS: SampleCampaign[] = [
     kind: "job",
     category: "tech_jobs",
     cityId: "salt-lake-city",
+    // REDO headquarters, 14761 Future Way, Draper.
+    lat: 40.4837,
+    lng: -111.89126,
     title: "Apply to REDO!",
     body: "We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.",
     url: "https://getredo.com/careers",
@@ -116,8 +121,8 @@ export const seedSampleContent = internalMutation({
       await ctx.db.insert("campaigns", {
         ...camp,
         imageUrl: `/sample-ads/${camp.category}.svg`,
-        lat: city.lat,
-        lng: city.lng,
+        lat: camp.lat ?? city.lat,
+        lng: camp.lng ?? city.lng,
         startsAt: now,
         endsAt: now + SAMPLE_DURATION_MS,
         status: "active",

@@ -430,7 +430,8 @@ describe("ad categories and placement", () => {
       if (s.url.includes(`/sample/${s.cityId}/`)) {
         expect(Math.abs(s.lat - city.lat)).toBeLessThan(0.2);
         expect(Math.abs(s.lng - city.lng)).toBeLessThan(0.2);
-      } else expect([s.lat, s.lng]).toEqual([city.lat, city.lng]);
+      } else if (s.title === "Apply to REDO!") expect([s.lat, s.lng]).toEqual([40.4837, -111.89126]);
+      else expect([s.lat, s.lng]).toEqual([city.lat, city.lng]);
       expect(s.url).toMatch(/^https:\/\//);
       expect(existsSync(`public${s.imageUrl}`)).toBe(true);
       expect(s.advertiserUserId).toBeUndefined();

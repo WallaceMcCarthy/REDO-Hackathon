@@ -97,8 +97,8 @@ describe("public ad reads", () => {
       expect(row.title.trim(), row.url).not.toBe("");
       expect(row.body.trim(), row.title).not.toBe("");
       expect(Number.isFinite(row.lat) && Number.isFinite(row.lng), row.title).toBe(true);
-      expect(Math.abs(row.lat - town.lat), row.title).toBeLessThan(0.2);
-      expect(Math.abs(row.lng - town.lng), row.title).toBeLessThan(0.2);
+      expect(Math.abs(row.lat - town.lat), row.title).toBeLessThan(0.3);
+      expect(Math.abs(row.lng - town.lng), row.title).toBeLessThan(0.3);
     }
   });
 

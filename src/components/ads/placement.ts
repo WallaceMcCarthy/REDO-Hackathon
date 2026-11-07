@@ -6,8 +6,9 @@ export const REDO_IT = {
   title: 'REDO IT',
   body: 'We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.',
   url: 'https://getredo.com/careers',
-  lat: 40.7608,
-  lng: -111.891,
+  // REDO headquarters, 14761 Future Way, Draper, UT 84020.
+  lat: 40.4837,
+  lng: -111.89126,
 };
 
 const isRental = (listingId: string) => listingId.startsWith('market:for_rent:');
