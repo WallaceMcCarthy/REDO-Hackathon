@@ -258,23 +258,51 @@ export const recordCheckoutSession = internalMutation({
   },
 });
 
+const MAX_LIVE_UNPAID_CAMPAIGNS = 5;
+
+/** No-payment publishing: payment no longer limits abuse here, so the cap and the activation share one transaction. */
+export const publishCampaign = internalMutation({
+  args: { userId: v.id("users"), ...campaignArgs },
+  handler: async (ctx, { userId, ...args }) => {
+    const now = Date.now();
+    const mine = await ctx.db
+      .query("campaigns")
+      .withIndex("by_advertiser", (q) => q.eq("advertiserUserId", userId))
+      .collect();
+    if (mine.filter((c) => c.status === "active" && c.endsAt > now).length >= MAX_LIVE_UNPAID_CAMPAIGNS) {
+      throw new ConvexError(
+        `You already have ${MAX_LIVE_UNPAID_CAMPAIGNS} live ads. Wait for one to end before publishing another.`,
+      );
+    }
+    // The insert just set startsAt to now and endsAt to now plus the duration, as fulfillStripePayment would.
+    const { campaignId } = await insertPendingCampaign(ctx, userId, args);
+    await ctx.db.patch(campaignId, { status: "active" });
+    return campaignId;
+  },
+});
+
 /**
- * Checkout entry point. Stripe when STRIPE_SECRET_KEY is set, else the labeled sandbox.
- * The amount is always computed server-side from kind and duration.
+ * Entry point for the advertiser form. Stripe checkout when STRIPE_SECRET_KEY is set; otherwise the
+ * ad goes live at once with no payment row. The Stripe amount is computed server-side.
  */
 export const createCheckout = action({
   args: campaignArgs,
   handler: async (
     ctx,
     args,
-  ): Promise<{ campaignId: string; checkoutUrl: string; amount: number; provider: "redo" | "stripe" }> => {
+  ): Promise<{ campaignId: string; checkoutUrl: string; amount: number; provider: "none" | "stripe" }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Sign in required");
+
+    const client = selectPaymentClient();
+    if (client.provider !== "stripe") {
+      const campaignId: Id<"campaigns"> = await ctx.runMutation(internal.ads.publishCampaign, { userId, ...args });
+      return { campaignId: String(campaignId), checkoutUrl: "/#/advertise", amount: 0, provider: "none" };
+    }
 
     const created: { campaignId: Id<"campaigns">; amount: number; title: string; durationDays: number } =
       await ctx.runMutation(internal.ads.createPendingCampaign, { userId, ...args });
 
-    const client = selectPaymentClient();
     const session = await client.createCheckoutSession({
       campaignId: String(created.campaignId),
       amount: created.amount,
@@ -285,15 +313,13 @@ export const createCheckout = action({
       cancelUrl: `${siteUrl()}/#ads?canceled=1`,
     });
 
-    if (client.provider === "stripe") {
-      await ctx.runMutation(internal.ads.recordCheckoutSession, {
-        campaignId: created.campaignId,
-        provider: "stripe",
-        sessionId: session.sessionId,
-        amount: created.amount,
-        currency: "USD",
-      });
-    }
+    await ctx.runMutation(internal.ads.recordCheckoutSession, {
+      campaignId: created.campaignId,
+      provider: "stripe",
+      sessionId: session.sessionId,
+      amount: created.amount,
+      currency: "USD",
+    });
 
     return {
       campaignId: String(created.campaignId),
@@ -304,11 +330,11 @@ export const createCheckout = action({
   },
 });
 
-/** Public flag so the UI can show the Stripe test-mode note. */
+/** Public flag so the UI knows whether publishing goes through Stripe or needs no payment. */
 export const paymentProvider = query({
   args: {},
   handler: async () => ({
-    provider: process?.env?.STRIPE_SECRET_KEY?.trim() ? ("stripe" as const) : ("redo" as const),
+    provider: process?.env?.STRIPE_SECRET_KEY?.trim() ? ("stripe" as const) : ("none" as const),
   }),
 });
 

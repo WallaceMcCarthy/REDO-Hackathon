@@ -21,7 +21,6 @@ const SCREENS: { name: string; path: string; ready: (page: Page) => ReturnType<P
   { name: 'account', path: '/#/account', ready: p => p.getByText('Sign in to see your profile') },
   { name: 'messages', path: '/#/messages', ready: p => p.getByText('Sign in to view messages') },
   { name: 'advertise', path: '/#/advertise', ready: p => p.getByRole('button', { name: 'Back to results' }) },
-  { name: 'ads-checkout', path: '/#/ads-sandbox-checkout?campaignId=test_123&amount=3500&title=Sample+Campaign', ready: p => p.getByText(/Sandbox: REDO payments are not connected yet/) },
   { name: 'ui-kit', path: '/#/ui', ready: p => p.locator('main') },
 ];
 

@@ -12,7 +12,6 @@ import SavedPlaces from './screens/SavedPlaces';
 import { AppHeader, Button, EmptyState } from './components/ui';
 import SafeSectionBoundary from './components/SafeSectionBoundary';
 import TownDetail from './screens/TownDetail';
-import AdsSandboxCheckout from './screens/AdsSandboxCheckout';
 import UiKit from './screens/UiKit';
 import type { Prefs } from './types';
 
@@ -50,7 +49,6 @@ export default function App() {
   const homesTown = params.get('town');
   const view = params.get('view');
   const isMessages = path === 'messages' || path.startsWith('messages/');
-  const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
 
   if (!['/', '/index.html'].includes(window.location.pathname)) return <NotFound />;
 
@@ -61,8 +59,6 @@ export default function App() {
         <UiKit />
       ) : town ? (
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
-      ) : isAdsCheckout ? (
-        <AdsSandboxCheckout onDone={() => go('results')} />
       ) : route === 'account' ? (
         <Account onBack={() => go('results')} onSignIn={openSignIn} />
       ) : route === 'roommates' ? (
