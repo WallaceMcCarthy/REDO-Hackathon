@@ -112,13 +112,19 @@ export function rankTowns(
         points += contribution;
         breakdown.push({ metricId: metric.id, raw, normalized, weight, contribution });
         if (max !== min && normalized >= 0.5) {
-          const betterCount = cities.reduce((count, candidate) => {
+          let betterCount = 0;
+          let tiedCount = 0;
+          for (const candidate of cities) {
             const other = metric.values[candidate.id];
-            return count + (finite(other) && (metric.higherIsBetter ? other > raw : other < raw) ? 1 : 0);
-          }, 0);
-          if (betterCount < 3) {
+            if (!finite(other)) continue;
+            if (other === raw) tiedCount += 1;
+            else if (metric.higherIsBetter ? other > raw : other < raw) betterCount += 1;
+          }
+          // A badge should distinguish at most three towns, including all ties.
+          // Near-universal zero-violations values do not distinguish towns.
+          if (betterCount + tiedCount <= 3) {
             rankedHighlights.push({
-              text: betterCount === 0 ? `Best for ${metric.label.toLowerCase()}` : `Top 3 for ${metric.label.toLowerCase()}`,
+              text: betterCount === 0 && tiedCount === 1 ? `Best for ${metric.label.toLowerCase()}` : `Top 3 for ${metric.label.toLowerCase()}`,
               importance: weight * normalized,
             });
           }

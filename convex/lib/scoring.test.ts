@@ -71,6 +71,17 @@ describe("rankTowns", () => {
     expect(rankTowns(cities, [], {}, {})).toHaveLength(3);
   });
 
+  it("suppresses common tied leaders and reserves Best for unique leaders", () => {
+    const expanded = [...cities, { ...cities[0], id: "fourth" }, { ...cities[0], id: "fifth" }];
+    const common = metric("water_quality", { alpine: 0, desert: 0, valley: 0, fourth: 0, fifth: 1 }, false);
+    expect(rankTowns(expanded, [common], { water_quality: 5 }).every((town) => town.highlights.length === 0)).toBe(true);
+    const rare = metric("water_quality", { alpine: 0, desert: 0, valley: 1, fourth: 1, fifth: 2 }, false);
+    const ranked = rankTowns(expanded, [rare], { water_quality: 5 });
+    expect(ranked[0].highlights).toEqual(["Top 3 for water quality"]);
+    expect(ranked[1].highlights).toEqual(["Top 3 for water quality"]);
+    expect(ranked.find((town) => town.cityId === "valley")!.highlights).toEqual([]);
+  });
+
   it("provides six named persona presets with valid weights", () => {
     expect(Object.keys(PERSONA_WEIGHTS)).toEqual(["skier", "family", "remote_worker", "foodie", "retiree", "student"]);
     for (const persona of Object.values(PERSONAS)) {
