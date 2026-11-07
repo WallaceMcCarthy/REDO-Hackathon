@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
@@ -176,11 +177,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
 
         <section aria-label="Map" className={`isolate h-full ${pane === 'list' ? 'hidden lg:block' : ''}`}>
           {showMap && (
+            <SafeSectionBoundary fallback={<p className="p-6 text-sm text-dusk">The map needs WebGL, which this browser has turned off. The list still works.</p>}>
             <ResultsMap
               rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered}
               onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectListing}
               focus={view === 'areas' ? 'towns' : 'listings'} selectedListingId={selectedListing?.id}
             />
+            </SafeSectionBoundary>
           )}
         </section>
       </div>

@@ -1,4 +1,8 @@
 import * as maplibregl from 'maplibre-gl';
+// Bundle MapLibre's module worker (and the shared chunk it imports) as one file so production builds can load it.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 import type { FeatureCollection, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
