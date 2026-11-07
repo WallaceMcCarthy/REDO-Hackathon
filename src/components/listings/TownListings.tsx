@@ -63,7 +63,9 @@ export default function TownListings({ cityId, cityName }: TownListingsProps) {
         <div className="mt-6 rounded-2xl border border-dashed border-rock-300 p-8 text-center">
           <p className="text-sm font-medium text-ink">No {filter === 'all' ? 'listings' : filter + 's'} found for {cityName}</p>
           <p className="mt-1 text-xs text-dusk">
-            Public records may be pending county ingestion or have source gaps in this jurisdiction.
+            {filter === 'home'
+              ? 'No public assessor values available for this town: the county that covers it does not publish market value or building size for its parcels in any public dataset we could find, so no records are shown rather than estimating them.'
+              : 'Public records may be pending county ingestion or have source gaps in this jurisdiction.'}
           </p>
         </div>
       ) : (

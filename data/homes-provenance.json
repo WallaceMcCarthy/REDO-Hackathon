@@ -297,7 +297,8 @@
         "withValue": 0,
         "withSqft": 0,
         "withClass": 0
-      }
+      },
+      "note": "Confirmed real upstream gap, not fixable with a different source as of 2025-11: searched for a Davis County-specific alternative beyond UGRC's statewide LIR feed. Checked (1) Davis County's own ArcGIS Online services (services1.arcgis.com/.../Parcels_Davis/FeatureServer and gisportal-pro.daviscountyutah.gov Public/Davis_County_Public_Parcels + Operational/Parcels MapServers) - these publish only parcel boundaries plus owner mailing address and situs address fields (e.g. ParcelTaxID, ParcelOwnerMailAddressLine1, ParcelSitusStreetName); no market value, building sqft, year-built, or property-class field exists on any layer. (2) Davis County's own 'Property Search 2.0' webportal (webportal.daviscountyutah.gov/App/PropertySearch) - a closed Angular SPA with no discoverable public bulk-query REST endpoint in its shipped JS bundle, so it is not a stable source a script can poll. (3) Commercial resellers (LandRecords.us, Realie.ai, AssessorSearch) do show assessed values but are paid/licensed aggregators, not a public government source, so excluded per CONTRACT.md 'public sources only'. No public, programmatically queryable endpoint with assessor value/sqft for Bountiful parcels was found; left at 0 homes rather than inventing records."
     },
     "price": {
       "count": 0,
@@ -305,6 +306,7 @@
       "occupiedCells": 0,
       "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Carbon_LIR/FeatureServer/0",
       "allowMissingSqft": true,
+      "note": "Confirmed real upstream gap, not fixable with a different source as of 2025-11: searched for a Carbon County-specific alternative beyond UGRC's statewide LIR feed. Checked (1) Carbon County's own ArcGIS Server (maps.carbon.utah.gov) services Addressing_Parcels_Pro, Addressing_Ownership, Parcels_by_Tax_District, and Carbon_County_Informative_1 - all expose only ownership/address/acreage/subdivision fields (Parcel, Name, Add1, PropertyAddress, Acres, District, a 'TaxInfo' link to a scanned PDF) with no market value, building sqft, or year-built field on any layer. (2) Carbon County's public 'property search' page (carbon.utah.gov/service/property-search/), confirmed via its wpDataTables AJAX column schema to be backed by the identical ownership/address-only table, not a richer assessor dataset. (3) Commercial resellers (LandRecords.us, Realie.ai, AssessorSearch) show assessed values but are paid/licensed aggregators, not a public government source, so excluded per CONTRACT.md 'public sources only'. No public, programmatically queryable endpoint with assessor value/sqft for Price parcels was found; left at 0 homes rather than inventing records.",
       "sourceAvailability": {
         "parcelsInMunicipalBoundingBox": 6018,
         "withValue": 0,
