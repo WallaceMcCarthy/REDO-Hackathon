@@ -2,6 +2,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import { v } from "convex/values";
 import { marketRowValidator } from "./marketSchema";
 import { normalizeMarketRow, type Market } from "./lib/market";
+import { nonUtahReasons } from "./lib/utah";
 
 type OrderEntry = { rcId: string; price: number; yearBuilt: number };
 type Delta = { cityId: string | null; market: Market; add: OrderEntry[]; remove: string[] };
@@ -64,3 +65,40 @@ export const marketImportStatus = internalQuery({ args: {}, handler: async ctx =
     rankedPricedResidential: stats.filter(row => row.cityId !== null).reduce((sum, row) => sum + row.prices.length, 0),
     newestIndexReady: stats.every(row => row.yearOrder !== undefined), townsAndMarkets: stats.length };
 } });
+
+/** Operator-only, bounded and rerunnable. Preview is the default; null town IDs alone never qualify. */
+export const purgeNonUtahPage = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())), dryRun: v.optional(v.boolean()), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 200;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) throw new Error('Use a page size between 1 and 200.');
+    const dryRun = args.dryRun !== false;
+    const page = await ctx.db.query('marketListings').paginate({ cursor: args.cursor ?? null, numItems: limit });
+    const affected = page.page.map(row => ({ row, reasons: nonUtahReasons(row) })).filter(x => x.reasons.length > 0);
+    const changes = new Map<string, Delta>();
+    if (!dryRun) {
+      for (const { row } of affected) {
+        addDelta(changes, row, true);
+        await ctx.db.delete(row._id);
+      }
+      // Recompute exact counts/price arrays/newest order for every affected city+market atomically.
+      await updateStats(ctx, changes);
+    }
+    return { dryRun, checked: page.page.length, matched: affected.length, deleted: dryRun ? 0 : affected.length,
+      isDone: page.isDone, continueCursor: page.isDone ? null : page.continueCursor,
+      examples: affected.slice(0, 5).map(({ row, reasons }) => ({ rcId: row.rcId, market: row.market,
+        address: row.address, zip: row.zip, lat: row.lat, lng: row.lng, cityId: row.cityId, reasons })) };
+  },
+});
+
+/** Read-only check of the old assessor/HUD/OSM sample table. Never deletes shared social targets. */
+export const auditLegacyUtahPage = internalQuery({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query('listings').paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    const affected = page.page.map(row => ({ row, reasons: nonUtahReasons(row) })).filter(x => x.reasons.length > 0);
+    return { checked: page.page.length, matched: affected.length, isDone: page.isDone,
+      continueCursor: page.isDone ? null : page.continueCursor,
+      examples: affected.slice(0, 5).map(({ row, reasons }) => ({ id: row.id, address: row.address, lat: row.lat, lng: row.lng, reasons })) };
+  },
+});
