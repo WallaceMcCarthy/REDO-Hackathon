@@ -111,14 +111,18 @@ There is no free, legal feed of for-sale MLS or Zillow listings, so we use publi
 - `kind` is "home" or "apartment".
 - A home has `value`. An apartment has `rent` (monthly, 2-bedroom SAFMR) and `units` where known.
 - Fields a source doesn't have are `null`.
-- **Volume:** up to 150 homes and 40 apartments per town, sampled evenly across the town (not just the center).
-- **Size:** the 2 MB limit applies only to files browsers download (`public/data/`) and data tracked in git. It does not limit the database, where housing data is headed.
+- **Volume:** `data/listings/homes.json` is a git-tracked sample (currently 80 homes per town, spread evenly, under 2 MB). It feeds the `listings` fallback. Apartments: up to 40 per town.
+- **Homes live in the database.** At most 2,000 improved residential parcels per town (about 77,700 of the 590,634 available, only the smallest towns load in full, all others are sampled evenly across the town) go to the Convex `assessorListings` table, an even spatial spread that is the same on every run (`--max-per-town=N` overrides). Towns under the cap load in full. The cap keeps one dev plus one prod load under half of the Convex Free plan's 1 GB/month bandwidth; storage is estimated at about 60%, of 0.5 GB. No file in git. Raw pages and load progress stay in `data/raw/`, which is gitignored.
+- **Size:** the 2 MB limit applies only to files browsers download (`public/data/`) and data tracked in git. It does not limit the database.
 
 ## Backend (Convex)
 
 - **Schema:** `listings` table with the fields above, indexed by `cityId` and by `kind`.
 - **Query `api.listings.forTown({cityId, kind?, maxValue?, maxRent?})`:** sorted by fit.
 - **Query `api.listings.recommend({weights, filters, kind, limit})`:** takes the top towns from `rankTowns`, then the best listings inside them by budget fit and size. Returns the listing plus its town score and a one-line reason.
+- **Table `assessorListings`:** one row per parcel, keyed by the same `county-PARCEL_ID` id as `listings` homes, indexed by id and by `[cityId, value, id]`. Never bulk-load parcels into `listings`: `forTown`, `recommend` and `search` collect that table.
+- **Query `api.assessor.townHomes({cityId, maxValue?, paginationOpts})`:** one town, cheapest first, at most 100 rows per page. No query may scan this table. Convex stops a transaction at 32,000 documents scanned or 16 MiB read.
+- **Parcel load:** `npm run seed:assessor` streams towns through the internal mutation `assessor.upsertListings` in chunks of at most 1,000 rows and 400 KB. It is idempotent by parcel id and resumes from `data/raw/assessor-load/`. george runs it.
 - **Seeding:** the CLI arg limit is about 1 MB, so the seed script loads listings in chunks of about 500 through an internal mutation, `seed.replaceListings`. george runs the seeds.
 
 ## Map layers (frontend)
