@@ -106,7 +106,7 @@ export default function App() {
             view={!homesTown && (view === 'apartments' || view === 'areas') ? view : 'homes'} townFilter={homesTown}
           />
         ) : (
-          <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go(prefs.budget.maxRent !== undefined ? 'results?view=apartments' : 'results')} />
+          <Quiz prefs={prefs} setPrefs={setPrefs} onDone={mode => go(mode === 'rent' ? 'results?view=apartments' : 'results')} />
         )}
       </Suspense>
     </div>
