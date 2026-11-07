@@ -76,8 +76,9 @@ export default function Account({ cities, onBack }: AccountProps) {
 
         <form onSubmit={handleSave} className="mt-6 space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-ink">Display Name</label>
+            <label htmlFor="acct-name" className="block text-xs font-semibold text-ink">Display Name</label>
             <input
+              id="acct-name"
               type="text"
               required
               value={displayName}
@@ -88,8 +89,9 @@ export default function Account({ cities, onBack }: AccountProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink">Target Utah Town</label>
+            <label htmlFor="acct-town" className="block text-xs font-semibold text-ink">Target Utah Town</label>
             <select
+              id="acct-town"
               value={cityId}
               onChange={(e) => setCityId(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-rock-200 px-3 py-2 text-sm text-ink focus:border-alpine-500 focus:outline-none"
@@ -105,8 +107,9 @@ export default function Account({ cities, onBack }: AccountProps) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-ink">Move-by Target Date</label>
+              <label htmlFor="acct-move" className="block text-xs font-semibold text-ink">Move-by Target Date</label>
               <input
+                id="acct-move"
                 type="date"
                 value={moveBy}
                 onChange={(e) => setMoveBy(e.target.value)}
@@ -115,8 +118,9 @@ export default function Account({ cities, onBack }: AccountProps) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-ink">Monthly Budget ($)</label>
+              <label htmlFor="acct-budget" className="block text-xs font-semibold text-ink">Monthly Budget ($)</label>
               <input
+                id="acct-budget"
                 type="number"
                 min={0}
                 step={50}
@@ -129,8 +133,9 @@ export default function Account({ cities, onBack }: AccountProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink">Household Size</label>
+            <label htmlFor="acct-house" className="block text-xs font-semibold text-ink">Household Size</label>
             <input
+              id="acct-house"
               type="number"
               min={1}
               max={12}
