@@ -1,5 +1,5 @@
 import type { Metric } from '../../types';
-import { compare, type Verdict } from './compare';
+import { compare, gapWords, type Verdict } from './compare';
 
 const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
@@ -29,7 +29,7 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
   const at = (n: number) => (range > 0 ? ((n - c.min) / range) * 100 : 50);
   const sentence = c.verdict === 'none' || c.pct === undefined || c.verdict === 'typical'
     ? WORDS[c.verdict]
-    : `${WORDS[c.verdict]}, ${Math.abs(c.pct) < 1 ? 'under 1%' : `${Math.round(Math.abs(c.pct))}%`} ${c.pct > 0 ? 'higher' : 'lower'}`;
+    : `${WORDS[c.verdict]}, ${gapWords(c.pct)}`;
 
   return (
     <li className="min-w-0 py-4">
@@ -71,7 +71,9 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
       <details className="group mt-2 max-w-prose text-small text-text-muted">
         <summary className="line-clamp-2 min-h-11 cursor-pointer list-none rounded-control break-words [overflow-wrap:anywhere] hover:text-text group-open:line-clamp-none">{metric.description}</summary>
       </details>
-      <p className="text-caption text-text-muted">{metric.year}</p>
+      <p className="text-caption text-text-muted">
+        Source: <a href={metric.sourceUrl} target="_blank" rel="noreferrer" className="text-primary-hover underline underline-offset-2">{metric.source}</a>, {metric.year}
+      </p>
     </li>
   );
 }

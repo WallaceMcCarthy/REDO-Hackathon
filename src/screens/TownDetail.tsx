@@ -8,7 +8,7 @@ import CommentsThread from '../components/social/CommentsThread';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
-import { CATEGORY_LABELS, toMetricWeights } from '../prefs';
+import { CATEGORY_LABELS, isDefaultPrefs, toMetricWeights } from '../prefs';
 import { CATEGORIES, type Prefs } from '../types';
 
 const BackButton = ({ onBack }: { onBack: () => void }) => (
@@ -66,8 +66,11 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
           {score ? (
             <>
               <div className="shrink-0">
-                <p className="font-display text-display tabular-nums text-success">{Math.round(score.score)}</p>
-                <p className="text-small text-text-muted">Fit for your priorities, ranked {idx + 1} of {ranked.length}</p>
+                <p className="font-display text-display tabular-nums text-success">{Math.round(score.score)}<span className="font-sans text-body text-text-muted"> / 100</span></p>
+                <p className="text-small text-text-muted">
+                  {isDefaultPrefs(prefs) ? 'Fit for a balanced mix of priorities' : 'Fit for your priorities'}, ranked {idx + 1} of {ranked.length}
+                </p>
+                <a href="#/" className="text-small font-semibold text-primary-hover underline underline-offset-2">{isDefaultPrefs(prefs) ? 'Set your priorities' : 'Change your priorities'}</a>
               </div>
               {score.highlights.length > 0 && (
                 <ul aria-label="Why it fits" className="flex min-w-0 flex-wrap gap-2">
@@ -83,27 +86,6 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
 
       <SafeSectionBoundary fallback={<Unavailable>Homes for {town.name} aren’t available right now. Try again in a moment.</Unavailable>}>
         <TownListings cityId={id} cityName={town.name} />
-      </SafeSectionBoundary>
-
-      <SafeSectionBoundary fallback={<Unavailable>Local businesses aren’t available right now. Try again in a moment.</Unavailable>}>
-        <TownBusinessHighlights cityId={id} cityName={town.name} />
-      </SafeSectionBoundary>
-
-      <SafeSectionBoundary fallback={<Unavailable>The {town.name} feed couldn’t load right now. Try again in a moment.</Unavailable>}>
-        <TownFeed
-          cityId={town.id} cityName={town.name} onSignIn={openSignIn}
-          renderComments={postId => (
-            <SafeSectionBoundary fallback={<p className="text-small text-text-muted">Comments couldn’t load right now.</p>}>
-              <CommentsThread targetType="post" targetId={postId} />
-            </SafeSectionBoundary>
-          )}
-        />
-      </SafeSectionBoundary>
-
-      <SafeSectionBoundary fallback={<Unavailable>Comments couldn’t load right now. Try again in a moment.</Unavailable>}>
-        <div className="mt-section">
-          <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
-        </div>
       </SafeSectionBoundary>
 
       <section className="mt-section" aria-labelledby="town-metrics-heading">
@@ -127,6 +109,28 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
           </section>
         ))}
       </section>
+
+      <SafeSectionBoundary fallback={<Unavailable>Local businesses aren’t available right now. Try again in a moment.</Unavailable>}>
+        <TownBusinessHighlights cityId={id} cityName={town.name} />
+      </SafeSectionBoundary>
+
+      <SafeSectionBoundary fallback={<Unavailable>The {town.name} feed couldn’t load right now. Try again in a moment.</Unavailable>}>
+        <TownFeed
+          cityId={town.id} cityName={town.name} onSignIn={openSignIn}
+          renderComments={postId => (
+            <SafeSectionBoundary fallback={<p className="text-small text-text-muted">Comments couldn’t load right now.</p>}>
+              <CommentsThread targetType="post" targetId={postId} />
+            </SafeSectionBoundary>
+          )}
+        />
+      </SafeSectionBoundary>
+
+      <SafeSectionBoundary fallback={<Unavailable>Comments couldn’t load right now. Try again in a moment.</Unavailable>}>
+        <div className="mt-section">
+          <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
+        </div>
+      </SafeSectionBoundary>
+
     </main>
   );
 }

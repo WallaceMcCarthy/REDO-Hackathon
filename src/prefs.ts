@@ -24,6 +24,32 @@ export const PERSONAS: Persona[] = [
 
 export const defaultPrefs = (): Prefs => ({ categories: flat(2), filters: {}, budget: {} });
 
+export const isDefaultPrefs = (prefs: Prefs) => CATEGORIES.every(c => prefs.categories[c] === 2);
+
+const PREFS_KEY = 'utahFitPrefs';
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Stored prefs can come from an older build, so anything malformed falls back to the defaults. */
+export function parsePrefs(raw: string | null): Prefs {
+  try {
+    const p: unknown = JSON.parse(raw ?? 'null');
+    if (!isRecord(p) || !isRecord(p.categories) || !isRecord(p.filters) || !isRecord(p.budget)) return defaultPrefs();
+    const { categories, filters, budget } = p;
+    const valid = CATEGORIES.every(c => typeof categories[c] === 'number' && categories[c] >= 0 && categories[c] <= 5);
+    return valid ? ({ categories, filters, budget } as Prefs) : defaultPrefs();
+  } catch {
+    return defaultPrefs();
+  }
+}
+
+export function loadPrefs(): Prefs {
+  try { return parsePrefs(localStorage.getItem(PREFS_KEY)); } catch { return defaultPrefs(); }
+}
+
+export function savePrefs(prefs: Prefs) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* private mode: prefs last for this visit */ }
+}
+
 /** Personas stack: each category takes the highest value any picked persona gives it. */
 export function applyPersonas(ids: string[]): CategoryWeights {
   const picked = PERSONAS.filter(p => ids.includes(p.id));
