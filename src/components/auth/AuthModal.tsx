@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Button, Field, Input } from '../ui';
 
@@ -7,11 +7,6 @@ type Mode = 'signIn' | 'signUp';
 const MIN_PASSWORD = 8;
 
 const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold transition-colors';
-
-/** Field overwrites aria-invalid on its direct child unless it renders its own error, and here one banner covers both inputs. */
-const CredentialInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid: boolean }>(function CredentialInput({ invalid, ...rest }, ref) {
-  return <Input ref={ref} {...rest} aria-invalid={invalid || undefined} />;
-});
 
 /** Convex Auth throws "Invalid credentials" (bad sign in), "Invalid password" (under 8 chars) and "Account X already exists" (sign up). Production may redact the text, so fall back by mode. */
 function plainError(err: unknown, mode: Mode): string {
@@ -118,11 +113,11 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} noValidate className="mt-6 space-y-4">
-          <Field label="Email">
-            <CredentialInput ref={emailInput} invalid={!!error} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={describedBy} />
+          <Field label="Email" invalid={!!error}>
+            <Input ref={emailInput} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={describedBy} />
           </Field>
-          <Field label="Password" hint={signingIn ? undefined : `At least ${MIN_PASSWORD} characters.`}>
-            <CredentialInput invalid={!!error} type="password" required autoComplete={signingIn ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={describedBy} />
+          <Field label="Password" invalid={!!error} hint={signingIn ? undefined : `At least ${MIN_PASSWORD} characters.`}>
+            <Input type="password" required autoComplete={signingIn ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={describedBy} />
           </Field>
           <p id="auth-error" role="alert" className={error ? 'flex gap-2 rounded-control border border-rock-300 bg-surface-sunken px-3 py-2.5 text-small font-semibold text-danger' : 'sr-only'}>
             {error && (

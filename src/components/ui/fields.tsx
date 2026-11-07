@@ -26,12 +26,14 @@ type FieldProps = {
   label: ReactNode;
   hint?: ReactNode;
   error?: ReactNode;
+  /** Mark the control invalid when something other than this field's own error says so, such as a shared form banner. */
+  invalid?: boolean;
   /** One control. It receives id, aria-describedby and aria-invalid. */
   children: ReactElement;
   className?: string;
 };
 
-export function Field({ label, hint, error, children, className = '' }: FieldProps) {
+export function Field({ label, hint, error, invalid, children, className = '' }: FieldProps) {
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
@@ -39,7 +41,7 @@ export function Field({ label, hint, error, children, className = '' }: FieldPro
   return (
     <div className={className}>
       <label htmlFor={id} className="mb-1.5 block text-small font-semibold text-text">{label}</label>
-      {cloneElement(children, { id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : children.props['aria-invalid'] })}
+      {cloneElement(children, { id, 'aria-describedby': describedBy, 'aria-invalid': error || invalid ? true : children.props['aria-invalid'] })}
       {hint && <p id={hintId} className="mt-1.5 text-caption text-text-muted">{hint}</p>}
       {error && <p id={errorId} role="alert" className="mt-1.5 text-small font-semibold text-danger">{error}</p>}
     </div>

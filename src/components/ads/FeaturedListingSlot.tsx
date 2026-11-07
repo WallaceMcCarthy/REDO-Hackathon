@@ -2,22 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { Badge, Button, Card } from '../ui';
+import { safeHttpsHref } from './safeHttpsHref';
 
 interface FeaturedListingSlotProps {
   campaign: CampaignRecord;
   className?: string;
-}
-
-/** Defense-in-depth: only allow https URLs to be rendered into href */
-function safeHttpsHref(rawUrl?: string): string | undefined {
-  if (!rawUrl) return undefined;
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.protocol === 'https:') {
-      return parsed.toString();
-    }
-  } catch {}
-  return undefined;
 }
 
 export default function FeaturedListingSlot({

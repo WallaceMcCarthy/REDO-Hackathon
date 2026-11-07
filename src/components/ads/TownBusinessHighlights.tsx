@@ -2,21 +2,11 @@ import { useEffect, useRef } from 'react';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useActiveFeatured, useActivePins, useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { Badge, Button, Card } from '../ui';
+import { safeHttpsHref } from './safeHttpsHref';
 
 interface Props {
   cityId: string;
   cityName: string;
-}
-
-function safeHttpsHref(rawUrl?: string): string | undefined {
-  if (!rawUrl) return undefined;
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.protocol === 'https:') {
-      return parsed.toString();
-    }
-  } catch {}
-  return undefined;
 }
 
 function BusinessCard({ campaign }: { campaign: CampaignRecord }) {
