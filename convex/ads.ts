@@ -133,6 +133,53 @@ export const listMyCampaigns = query({
   },
 });
 
+/**
+ * Removes an advertiser's campaign from their dashboard and every public ad surface.
+ * Paid campaigns keep a scrubbed, detached shell because payment records must retain
+ * their campaign reference for accounting; campaigns without payments can be erased.
+ */
+export const deleteCampaign = mutation({
+  args: { campaignId: v.id("campaigns") },
+  handler: async (ctx, { campaignId }) => {
+    const userId = await requireUserId(ctx);
+    const campaign = await ctx.db.get(campaignId);
+    if (!campaign || campaign.advertiserUserId !== userId) {
+      // Do not reveal whether another advertiser's campaign exists.
+      throw new ConvexError("Campaign not found");
+    }
+
+    const [events, stats, payments] = await Promise.all([
+      ctx.db.query("adEvents").withIndex("by_campaign_kind_bucket", (q) => q.eq("campaignId", campaignId)).collect(),
+      ctx.db.query("campaignDailyStats").withIndex("by_campaign_day", (q) => q.eq("campaignId", campaignId)).collect(),
+      ctx.db.query("payments").withIndex("by_campaignId", (q) => q.eq("campaignId", campaignId)).collect(),
+    ]);
+    await Promise.all([...events, ...stats].map((row) => ctx.db.delete(row._id)));
+
+    if (payments.length === 0) {
+      await ctx.db.delete(campaignId);
+    } else {
+      await ctx.db.patch(campaignId, {
+        advertiserUserId: undefined,
+        status: "expired",
+        title: "Deleted campaign",
+        body: "Deleted by advertiser",
+        url: "https://cmascope.com/",
+        imageUrl: undefined,
+        lat: undefined,
+        lng: undefined,
+        listingId: undefined,
+        cityId: undefined,
+        impressions: 0,
+        clicks: 0,
+        moderationReasons: undefined,
+        moderationFlag: undefined,
+      });
+    }
+
+    return { deleted: true };
+  },
+});
+
 const campaignArgs = {
   kind: v.optional(campaignKindValidator),
   category: v.optional(campaignCategoryValidator),

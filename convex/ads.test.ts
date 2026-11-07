@@ -16,6 +16,7 @@ const refs = {
   createCampaign: makeFunctionReference<"mutation">("ads:createCampaign"),
   resumeCheckout: makeFunctionReference<"action">("ads:resumeCheckout"),
   listMyCampaigns: makeFunctionReference<"query">("ads:listMyCampaigns"),
+  deleteCampaign: makeFunctionReference<"mutation">("ads:deleteCampaign"),
   listMyCampaignStats: makeFunctionReference<"query">("ads:listMyCampaignStats"),
   getActivePins: makeFunctionReference<"query">("ads:getActivePins"),
   getActiveFeatured: makeFunctionReference<"query">("ads:getActiveFeatured"),
@@ -46,6 +47,48 @@ async function setup() {
 }
 
 describe("ads security & exploit resistance", () => {
+  it("lets only the owner delete a campaign and removes its reporting data", async () => {
+    const { t, advertiser, attacker } = await setup();
+    const created = await advertiser.mutation(refs.createCampaign, {
+      kind: "pin", title: "Delete me", body: "Temporary campaign", url: "https://example.com/delete",
+      durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png",
+    });
+
+    await expect(attacker.mutation(refs.deleteCampaign, { campaignId: created.campaignId })).rejects.toThrow("Campaign not found");
+    expect(await advertiser.query(refs.listMyCampaigns, {})).toHaveLength(1);
+
+    await advertiser.mutation(refs.deleteCampaign, { campaignId: created.campaignId });
+    expect(await advertiser.query(refs.listMyCampaigns, {})).toHaveLength(0);
+    const remaining = await t.run(async (ctx: any) => ({
+      campaign: await ctx.db.get(created.campaignId),
+      events: await ctx.db.query("adEvents").collect(),
+      stats: await ctx.db.query("campaignDailyStats").collect(),
+    }));
+    expect(remaining).toEqual({ campaign: null, events: [], stats: [] });
+  });
+
+  it("scrubs a paid campaign while retaining its payment audit record", async () => {
+    const { t, advertiser } = await setup();
+    const created = await advertiser.mutation(refs.createCampaign, {
+      kind: "featured", title: "Paid campaign", body: "Paid campaign body", url: "https://example.com/paid",
+      durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png",
+    });
+    await t.mutation(refs.fulfillRedoPayment, {
+      campaignId: created.campaignId, redoPaymentId: "pay_delete", amount: created.amount,
+      currency: "USD", rawEventId: "evt_delete",
+    });
+
+    await advertiser.mutation(refs.deleteCampaign, { campaignId: created.campaignId });
+    expect(await advertiser.query(refs.listMyCampaigns, {})).toHaveLength(0);
+    const retained = await t.run(async (ctx: any) => ({
+      campaign: await ctx.db.get(created.campaignId),
+      payments: await ctx.db.query("payments").withIndex("by_campaignId", (q: any) => q.eq("campaignId", created.campaignId)).collect(),
+    }));
+    expect(retained.payments).toHaveLength(1);
+    expect(retained.campaign).toMatchObject({ status: "expired", title: "Deleted campaign", impressions: 0, clicks: 0 });
+    expect(retained.campaign).not.toHaveProperty("advertiserUserId");
+  });
+
   it("REJECTS Stored XSS exploit payloads (javascript:alert(document.cookie))", async () => {
     const { advertiser } = await setup();
 

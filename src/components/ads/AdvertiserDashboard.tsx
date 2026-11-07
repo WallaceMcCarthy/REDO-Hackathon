@@ -4,7 +4,7 @@ import { AD_CATEGORIES } from '../../../convex/lib/adCategories';
 import { DEFAULT_AD_DAYS, FREE_AD_DAYS, priceCents } from '../../../convex/lib/pricing';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
-import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, useMyCampaignStats, usePaymentProvider, useResumeCheckout } from '../../data/adsHooks';
+import { useConfirmCheckout, useCreateCheckout, useDeleteCampaign, useMyCampaigns, useMyCampaignStats, usePaymentProvider, useResumeCheckout } from '../../data/adsHooks';
 import type { City } from '../../types';
 import AdImage from './AdImage';
 import AdLocationPicker, { type AdLocation } from './AdLocationPicker';
@@ -29,6 +29,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const dailyStats = useMyCampaignStats();
   const createCheckout = useCreateCheckout();
   const resumeCheckout = useResumeCheckout();
+  const deleteCampaign = useDeleteCampaign();
   const provider = usePaymentProvider();
   const isStripe = provider === 'stripe';
   const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
@@ -45,6 +46,8 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [imageUrl, setImageUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resumingId, setResumingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -118,6 +121,21 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       setCheckoutNotice(err instanceof ConvexError ? String(err.data) : 'Could not resume checkout. Try again.');
     } finally {
       setResumingId(null);
+    }
+  };
+
+  const handleDelete = async (campaignId: string) => {
+    if (deletingId) return;
+    setDeletingId(campaignId);
+    setCheckoutNotice(null);
+    try {
+      await deleteCampaign(campaignId);
+      setConfirmDeleteId(null);
+      setCheckoutNotice('Campaign deleted. It will no longer appear in your dashboard or on the map.');
+    } catch (err) {
+      setCheckoutNotice(err instanceof ConvexError ? String(err.data) : 'Could not delete the campaign. Try again.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -218,6 +236,35 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                       <div><dt className="text-text-muted">Click rate</dt><dd className="font-semibold text-text">{ctr}%</dd></div>
                       <div><dt className="text-text-muted">Ends</dt><dd className="font-semibold text-text">{new Date(c.endsAt).toLocaleDateString()}</dd></div>
                     </dl>
+                    <div className="mt-3 border-t border-border pt-3">
+                      {confirmDeleteId === c._id ? (
+                        <div role="alert" className="rounded-control bg-surface-sunken p-3">
+                          <p className="text-small font-semibold text-text">Delete this campaign?</p>
+                          <p className="mt-1 text-caption text-text-muted">It will stop appearing immediately. This cannot be undone.</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              disabled={deletingId === c._id}
+                              onClick={() => void handleDelete(c._id)}
+                            >
+                              {deletingId === c._id ? 'Deleting…' : 'Yes, delete campaign'}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={deletingId === c._id}
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteId(c._id)}>
+                          Delete campaign
+                        </Button>
+                      )}
+                    </div>
                   </Card>
                 );
               })}
