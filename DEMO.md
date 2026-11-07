@@ -26,7 +26,7 @@ Every click and result below was run in the live app against the shared Convex b
 
 ## 0:50 to 1:20. Family
 
-**Action:** click **Change my answers**, turn Skier off, click **Family**, then **Show my towns**. Drag **Max home value** to the left.
+**Action:** click **Change my answers** (persona cards reset here), click **Family**, then **Show my towns**. Drag **Max home value** to the left.
 
 **Expect:** the mountain towns drop out of the lead. Ephraim, Kaysville, Lehi, Bountiful and South Jordan sit within about a point of each other at the top. The count above the list falls as the cap tightens.
 
