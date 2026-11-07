@@ -1,4 +1,5 @@
 import MetricRow from '../components/detail/MetricRow';
+import TownListings from '../components/listings/TownListings';
 import { useCities, useMetrics, useRank } from '../data/hooks';
 import { CATEGORY_LABELS, toMetricWeights } from '../prefs';
 import { CATEGORIES, type Prefs } from '../types';
@@ -74,6 +75,8 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
       </header>
 
       <div className="mx-auto max-w-4xl px-4">
+        <TownListings cityId={id} cityName={town.name} />
+
         {groups.map(({ category, items }) => (
           <section key={category} className="mt-10" aria-labelledby={`cat-${category}`}>
             <h2 id={`cat-${category}`} className="border-b-2 border-alpine-300 pb-2 font-display text-2xl text-alpine-900">{CATEGORY_LABELS[category]}</h2>

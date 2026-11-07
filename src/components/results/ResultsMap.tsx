@@ -4,6 +4,8 @@ import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from 'react-le
 import type { City, Metric } from '../../types';
 import HeatmapLayer from './HeatmapLayer';
 import LayerPicker from './LayerPicker';
+import ListingMarker from '../listings/ListingMarker';
+import type { Listing } from '../listings/types';
 import type { Row } from './types';
 
 const UTAH_BOUNDS: L.LatLngBoundsExpression = [[37, -114], [42, -109]];
@@ -33,7 +35,7 @@ function pinIcon(rank: number) {
   return icon;
 }
 
-type Props = { rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null; onHover: (id: string | null) => void; onOpen: (id: string) => void };
+type Props = { rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null; onHover: (id: string | null) => void; onOpen: (id: string) => void; listings?: Listing[]; onSelectListing?: (l: Listing) => void };
 
 /** Tracks whether a zoom is in flight so pins sliding under a still cursor do not fire hover. */
 function ZoomGate({ zooming }: { zooming: { current: boolean } }) {
@@ -82,7 +84,7 @@ const Pin = memo(function Pin({ id, name, lat, lng, rank, active, zooming, onHov
 const TOOLTIP_OFFSET: L.PointTuple = [0, -14];
 const BOUNDS_OPTIONS = { padding: [10, 10] } as L.FitBoundsOptions;
 
-export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen }: Props) {
+export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing }: Props) {
   const [layerId, setLayerId] = useState('');
   const layer = metrics.find(m => m.id === layerId);
   const zooming = useRef(false);
@@ -111,6 +113,13 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         <Pin
           key={city.id} id={city.id} name={city.name} lat={city.lat} lng={city.lng} rank={rank}
           active={city.id === hovered} zooming={zooming} onHover={onHover} onOpen={open}
+        />
+      ))}
+      {listings?.map((listing) => (
+        <ListingMarker
+          key={listing.id}
+          listing={listing}
+          onSelect={onSelectListing}
         />
       ))}
     </MapContainer>
