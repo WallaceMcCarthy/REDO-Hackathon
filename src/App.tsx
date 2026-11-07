@@ -6,6 +6,7 @@ import Results from './screens/Results';
 import Roommates from './screens/Roommates';
 import TownDetail from './screens/TownDetail';
 import AdsSandboxCheckout from './screens/AdsSandboxCheckout';
+import UiKit from './screens/UiKit';
 import type { Prefs } from './types';
 
 const readHash = () => window.location.hash.replace(/^#\/?/, '');
@@ -26,8 +27,10 @@ export default function App() {
 
   return (
     <>
-      <AccountMenu />
-      {town ? (
+      {route !== 'ui' && <AccountMenu />}
+      {route === 'ui' ? (
+        <UiKit />
+      ) : town ? (
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
       ) : isAdsCheckout ? (
         <AdsSandboxCheckout onDone={() => go('results')} />
