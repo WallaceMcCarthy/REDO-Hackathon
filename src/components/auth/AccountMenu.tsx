@@ -28,16 +28,16 @@ export default function AccountMenu() {
         Roommates
       </a>
       {isLoading ? null : isAuthenticated ? (
-        <div className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 shadow dark:bg-neutral-900/90">
-          <span className="font-medium">{me?.displayName ?? 'Account'}</span>
-          <button onClick={() => void signOut()} className="text-neutral-500 underline">
+        <div className="flex items-center gap-2 h-9 rounded-full border border-rock-100 bg-sand/95 px-4 text-ink shadow-sm">
+          <span className="max-w-32 truncate font-semibold">{me?.displayName ?? 'Account'}</span>
+          <button onClick={() => void signOut()} className="font-semibold text-alpine-700 underline hover:text-alpine-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500">
             Sign out
           </button>
         </div>
       ) : (
         <button
           onClick={() => setShowModal(true)}
-          className="rounded-full bg-white/90 px-3 py-1.5 font-medium shadow dark:bg-neutral-900/90"
+          className="h-9 cursor-pointer rounded-full bg-rock-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rock-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500"
         >
           Sign in
         </button>
