@@ -79,6 +79,7 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
             <li>Your posts are deleted, along with their likes and comments.</li>
             <li>Your comments, likes and reports are deleted. Replies other people wrote to you stay up.</li>
             <li>Your roommate profile and all your roommate connections are deleted.</li>
+            <li>Your direct messages are deleted, including the copy the other person sees.</li>
             <li>Any ads you run end now and lose their text and link.</li>
             <li>Payment records stay for accounting, no longer linked to your account.</li>
           </ul>

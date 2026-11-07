@@ -1,5 +1,6 @@
 export type Point = { lat: number; lng: number; value: number };
-export type Grid = { cols: number; rows: number; values: Float32Array };
+/** `confidence` is 1 near a measured town and falls to 0 far from any, so empty country shows no colour. */
+export type Grid = { cols: number; rows: number; values: Float32Array; confidence: Float32Array };
 export type Rgba = [number, number, number, number];
 
 /** Image extent. The image is drawn over exactly this box, so grid cells map to it linearly in Mercator y. */
@@ -27,26 +28,38 @@ export function cellLatLng(col: number, row: number, cols: number, rows: number)
   return [unmerc(yN - ((row + 0.5) / rows) * (yN - yS)), BOUNDS.west + ((col + 0.5) / cols) * (BOUNDS.east - BOUNDS.west)];
 }
 
+// Interpolation says nothing about places far from any town, so colour fades between these distances.
+const FULL_KM = 30;
+const NONE_KM = 70;
+const KM_PER_DEGREE = 111;
+
+export function confidenceAt(km: number): number {
+  return Math.min(1, Math.max(0, (NONE_KM - km) / (NONE_KM - FULL_KM)));
+}
+
 /** Inverse-distance weighting, power 2. Cells outside Utah are NaN. Non-finite point values are ignored. */
 export function computeGrid(points: Point[], cols = 150, rows = 150): Grid {
   const pts = points.filter(p => Number.isFinite(p.value));
   const values = new Float32Array(cols * rows).fill(NaN);
+  const confidence = new Float32Array(cols * rows);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const [lat, lng] = cellLatLng(c, r, cols, rows);
       if (!pts.length || !insideUtah(lat, lng)) continue;
       const k = Math.cos((lat * Math.PI) / 180);
-      let num = 0, den = 0, exact: number | undefined;
+      let num = 0, den = 0, exact: number | undefined, nearest = Infinity;
       for (const p of pts) {
         const d2 = (p.lat - lat) ** 2 + ((p.lng - lng) * k) ** 2;
+        nearest = Math.min(nearest, d2);
         if (d2 < 1e-12) { exact = p.value; break; }
         num += p.value / d2;
         den += 1 / d2;
       }
       values[r * cols + c] = exact ?? num / den;
+      confidence[r * cols + c] = confidenceAt(Math.sqrt(nearest) * KM_PER_DEGREE);
     }
   }
-  return { cols, rows, values };
+  return { cols, rows, values, confidence };
 }
 
 // Worst to best. Red rock, sand, then green, so green always reads as better.
@@ -100,7 +113,10 @@ export function gridToDataUrl(grid: Grid, townValues: number[], higherIsBetter: 
   if (!ctx) return '';
   const img = ctx.createImageData(grid.cols, grid.rows);
   const color = colorScale(townValues, higherIsBetter);
-  grid.values.forEach((v, i) => img.data.set(color(v), i * 4));
+  grid.values.forEach((v, i) => {
+    const [r, g, b, a] = color(v);
+    img.data.set([r, g, b, Math.round(a * grid.confidence[i])], i * 4);
+  });
   ctx.putImageData(img, 0, 0);
   return canvas.toDataURL('image/png');
 }

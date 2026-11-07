@@ -3,6 +3,8 @@ import { useConvexAuth } from 'convex/react';
 import { useInbox, useUnreadCount } from '../data/messagesHooks';
 import ConversationList from '../components/messages/ConversationList';
 import ConversationView from '../components/messages/ConversationView';
+import SafeSectionBoundary from '../components/SafeSectionBoundary';
+import { Button, EmptyState } from '../components/ui';
 
 interface MessagesProps {
   conversationId?: string | null;
@@ -104,16 +106,22 @@ export default function Messages({
 
           {/* Conversation Thread Column */}
           <div
-            className={`flex-1 flex-col ${
+            className={`min-w-0 flex-1 flex-col ${
               activeId ? 'flex' : 'hidden md:flex md:items-center md:justify-center'
             }`}
           >
             {activeId ? (
-              <ConversationView
-                conversationId={activeId}
-                conversationMeta={activeMeta}
-                onBack={handleBackToList}
-              />
+              // Keyed so a conversation that vanishes (the other person deleted their account) resets on Back.
+              <SafeSectionBoundary
+                key={activeId}
+                fallback={<EmptyState title="That conversation is not available" action={<Button onClick={handleBackToList}>Back to messages</Button>} />}
+              >
+                <ConversationView
+                  conversationId={activeId}
+                  conversationMeta={activeMeta}
+                  onBack={handleBackToList}
+                />
+              </SafeSectionBoundary>
             ) : (
               <div className="p-8 text-center text-dusk">
                 <span className="text-4xl">✉️</span>

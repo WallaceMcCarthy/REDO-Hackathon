@@ -130,7 +130,9 @@ export const commentCounts = query({
     const counts: Record<string, number> = {};
     await Promise.all(ids.map(async (targetId) => {
       const rows = await ctx.db.query("comments").withIndex("by_target", (q) => q.eq("targetType", args.targetType).eq("targetId", targetId)).filter((q) => q.eq(q.field("hidden"), false)).take(100);
-      if (rows.length > 0) counts[targetId] = rows.length;
+      const parents = await Promise.all(rows.map((row) => (row.parentId ? ctx.db.get(row.parentId) : null)));
+      const visible = rows.filter((_, i) => !parents[i]?.hidden).length;
+      if (visible > 0) counts[targetId] = visible;
     }));
     return counts;
   },

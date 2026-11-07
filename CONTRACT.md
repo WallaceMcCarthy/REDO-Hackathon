@@ -112,7 +112,7 @@ There is no free, legal feed of for-sale MLS or Zillow listings, so we use publi
 - A home has `value`. An apartment has `rent` (monthly, 2-bedroom SAFMR) and `units` where known.
 - Fields a source doesn't have are `null`.
 - **Volume:** up to 150 homes and 40 apartments per town, sampled evenly across the town (not just the center).
-- **Size:** keep each file under 2 MB.
+- **Size:** the 2 MB limit applies only to files browsers download (`public/data/`) and data tracked in git. It does not limit the database, where housing data is headed.
 
 ## Backend (Convex)
 

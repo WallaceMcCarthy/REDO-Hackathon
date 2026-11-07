@@ -35,7 +35,8 @@ function SingleComment({
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
-  const [reported, setReported] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const { isAuthenticated } = useConvexAuth();
@@ -44,9 +45,15 @@ function SingleComment({
   const reportComment = useReportComment();
 
   const handleReport = async () => {
-    if (reported) return;
-    setReported(true);
-    await reportComment(comment._id);
+    setReporting(true);
+    setReportError(null);
+    try {
+      await reportComment(comment._id);
+    } catch {
+      setReportError('Could not report this comment. Try again.');
+    } finally {
+      setReporting(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -93,12 +100,16 @@ function SingleComment({
           {isAuthenticated && onMessageUser && !comment.canDelete && comment.userId && (
             <Button variant="ghost" size="sm" onClick={() => onMessageUser(comment.userId, targetId)}>Message</Button>
           )}
-          {isAuthenticated && <Button variant="ghost" size="sm" onClick={handleReport} disabled={reported}>{reported ? 'Reported' : 'Report'}</Button>}
+          {isAuthenticated && !comment.canDelete && (
+            <Button variant="ghost" size="sm" onClick={handleReport} loading={reporting} disabled={comment.hasReported}>{comment.hasReported ? 'Reported' : 'Report'}</Button>
+          )}
           {!isReply && isAuthenticated && (
             <Button variant="ghost" size="sm" onClick={() => setReplyOpen(!replyOpen)}>{replyOpen ? 'Cancel' : 'Reply'}</Button>
           )}
         </div>
       )}
+
+      {reportError && <p role="alert" className="text-caption text-danger">{reportError}</p>}
 
       {replyOpen && (
         <form onSubmit={handleSendReply} className="mt-2 space-y-2">
@@ -145,6 +156,7 @@ export default function CommentsThread({
 
   const comments = useComments(targetType, targetId);
   const addComment = useAddComment();
+  const total = comments?.reduce((sum, c) => sum + 1 + (c.replies?.length ?? 0), 0) ?? 0;
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +190,7 @@ export default function CommentsThread({
         <h3 className="font-display text-title text-text">{title}</h3>
         {comments && (
           <span className="shrink-0 text-small text-text-muted">
-            {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+            {total} {total === 1 ? 'comment' : 'comments'}
           </span>
         )}
       </div>

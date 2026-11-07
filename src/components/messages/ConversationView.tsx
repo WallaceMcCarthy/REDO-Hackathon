@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ConvexError } from 'convex/values';
-import { useMessagesActions, useThread, type InboxItem } from '../../data/messagesHooks';
+import { useInbox, useMessagesActions, useThread, type InboxItem } from '../../data/messagesHooks';
+import { Button } from '../ui';
 
 interface ConversationViewProps {
   conversationId: string;
@@ -16,29 +17,47 @@ function formatMessageTime(timestamp: number): string {
 
 export default function ConversationView({
   conversationId,
-  conversationMeta,
+  conversationMeta: metaProp,
   onBack,
 }: ConversationViewProps) {
   const thread = useThread(conversationId);
-  const { sendMessage, markRead } = useMessagesActions();
+  const inbox = useInbox();
+  // The Results dialog passes no meta, so look the conversation up rather than show "Participant".
+  const conversationMeta = metaProp ?? inbox?.find((item) => item._id === conversationId);
+  const { sendMessage, markRead, block, unblock, reportMessage } = useMessagesActions();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Mark read when conversation is opened or new messages arrive
-  useEffect(() => {
-    if (conversationId) {
-      void markRead(conversationId);
-    }
-  }, [conversationId, thread?.page.length]);
+  // Keyed on the newest message, so loading older history neither re-marks read nor yanks the scroll.
+  const newestId = thread?.page.at(-1)?._id;
 
-  // Scroll to bottom on message update
+  useEffect(() => {
+    if (conversationId && thread) void markRead(conversationId);
+  }, [conversationId, newestId, thread === undefined]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [thread?.page.length, conversationId]);
+  }, [newestId, conversationId]);
+
+  const [actionError, setActionError] = useState<string | null>(null);
+  const run = async (action: () => Promise<unknown>) => {
+    setActionError(null);
+    try {
+      await action();
+    } catch {
+      setActionError('That did not go through. Please try again.');
+    }
+  };
+  const toggleBlock = () => {
+    if (!conversationMeta) return;
+    const { otherUserId, otherDisplayName, isBlockedByMe } = conversationMeta;
+    if (isBlockedByMe) return void run(() => unblock(otherUserId));
+    if (window.confirm(`Block ${otherDisplayName}? Neither of you will be able to send messages in this conversation.`)) void run(() => block(otherUserId));
+  };
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -56,7 +75,9 @@ export default function ConversationView({
       await sendMessage(conversationId, text);
       setDraft('');
     } catch (err) {
-      setSendError(err instanceof ConvexError ? String(err.data) : 'Failed to deliver message. Try again.');
+      // "Conversation not available." is also what a blocked sender gets, so never show it as is.
+      const reason = err instanceof ConvexError ? String(err.data) : '';
+      setSendError(reason && reason !== 'Conversation not available.' ? reason : 'Your message could not be sent.');
     } finally {
       setSending(false);
     }
@@ -76,7 +97,7 @@ export default function ConversationView({
     <div className="flex h-full flex-col bg-white">
       {/* Thread Header */}
       <div className="flex items-center justify-between border-b border-rock-100 px-4 py-3 bg-white">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           {onBack && (
             <button
               type="button"
@@ -92,9 +113,9 @@ export default function ConversationView({
             {otherName.charAt(0).toUpperCase()}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h2 className="font-display text-sm font-bold text-ink">{otherName}</h2>
+              <h2 className="truncate font-display text-sm font-bold text-ink">{otherName}</h2>
               {conversationMeta?.otherIsSample && (
                 <span className="rounded bg-amber-100 px-1.5 py-0.2 text-[9px] font-medium text-amber-800">
                   Sample
@@ -109,6 +130,11 @@ export default function ConversationView({
             )}
           </div>
         </div>
+        {conversationMeta && (
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={toggleBlock}>
+            {conversationMeta.isBlockedByMe ? 'Unblock' : 'Block'}
+          </Button>
+        )}
       </div>
 
       {/* Listing Context Banner if present */}
@@ -150,7 +176,13 @@ export default function ConversationView({
             </p>
           </div>
         ) : (
-          thread.page.map((msg) => {
+          <>
+          {thread.canLoadMore && (
+            <div className="flex justify-center">
+              <Button variant="secondary" size="sm" onClick={thread.loadMore}>Load earlier messages</Button>
+            </div>
+          )}
+          {thread.page.map((msg) => {
             const isMine = msg.isMine;
 
             return (
@@ -168,23 +200,39 @@ export default function ConversationView({
                   {/* Strict plain text rendering to prevent XSS */}
                   <span className="whitespace-pre-wrap">{msg.body}</span>
                 </div>
-                <span className="mt-1 px-1 text-[10px] text-dusk">
+                <span className="mt-1 flex items-center px-1 text-[10px] text-dusk">
                   {formatMessageTime(msg.createdAt)}
+                  {!isMine && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="!min-h-8 !px-2 !text-[10px]"
+                      disabled={msg.hasReported}
+                      onClick={() => void run(() => reportMessage(msg._id))}
+                    >
+                      {msg.hasReported ? 'Reported' : 'Report'}
+                    </Button>
+                  )}
                 </span>
               </div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 
       {/* Error alert if send failed */}
-      {sendError && (
-        <div className="border-t border-red-200 bg-red-50 px-4 py-1.5 text-xs text-red-700">
-          {sendError}
+      {(sendError || actionError) && (
+        <div role="alert" className="border-t border-red-200 bg-red-50 px-4 py-1.5 text-xs text-red-700">
+          {sendError ?? actionError}
         </div>
       )}
 
-      {/* Composer */}
+      {conversationMeta?.isBlockedByMe ? (
+        <p className="border-t border-rock-100 bg-white p-4 text-center text-xs text-dusk">
+          You blocked {otherName}. Unblock to send messages.
+        </p>
+      ) : (
       <form onSubmit={handleSend} className="border-t border-rock-100 p-3 bg-white">
         <div className="flex items-end gap-2">
           <textarea
@@ -209,6 +257,7 @@ export default function ConversationView({
           <span>{draft.length}/2000</span>
         </div>
       </form>
+      )}
     </div>
   );
 }
