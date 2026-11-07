@@ -112,7 +112,7 @@ There is no free, legal feed of for-sale MLS or Zillow listings, so we use publi
 - A home has `value`. An apartment has `rent` (monthly, 2-bedroom SAFMR) and `units` where known.
 - Fields a source doesn't have are `null`.
 - **Volume:** `data/listings/homes.json` is a git-tracked sample (currently 80 homes per town, spread evenly, under 2 MB). It feeds the `listings` fallback. Apartments: up to 40 per town.
-- **Homes live in the database.** At most 2,000 improved residential parcels per town (about 77,700 of the 590,634 available, 36 of 42 towns in full, the 6 largest sampled) go to the Convex `assessorListings` table, an even spatial spread that is the same on every run (`--max-per-town=N` overrides). Towns under the cap load in full. The cap keeps one dev plus one prod load under half of the Convex Free plan's 1 GB/month bandwidth; storage is estimated at about 60%, of 0.5 GB. No file in git. Raw pages and load progress stay in `data/raw/`, which is gitignored.
+- **Homes live in the database.** At most 2,000 improved residential parcels per town (about 77,700 of the 590,634 available, only the smallest towns load in full, all others are sampled evenly across the town) go to the Convex `assessorListings` table, an even spatial spread that is the same on every run (`--max-per-town=N` overrides). Towns under the cap load in full. The cap keeps one dev plus one prod load under half of the Convex Free plan's 1 GB/month bandwidth; storage is estimated at about 60%, of 0.5 GB. No file in git. Raw pages and load progress stay in `data/raw/`, which is gitignored.
 - **Size:** the 2 MB limit applies only to files browsers download (`public/data/`) and data tracked in git. It does not limit the database.
 
 ## Backend (Convex)
