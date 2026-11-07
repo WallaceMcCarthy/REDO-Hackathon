@@ -90,6 +90,7 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns', grouped: b
 // Pale to dark green, so a pin's colour reads as how well its town fits this search.
 const fitColor: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['get', 'fit'], 0, '#f2d9c7', 0.35, '#e8a33d', 0.7, '#3aa76d', 1, '#0b6b3a'];
 const fitOpacity: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['get', 'fit'], 0, 0.35, 0.5, 0.75, 1, 1];
+const SELECTED_RED = '#dc2626';
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
 // MapLibre allows one zoom curve per paint value, and only at the top, so hover scales each stop.
@@ -250,8 +251,8 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       map.addLayer({
         id: 'listings-selected', type: 'circle', source: 'listings', filter: ['==', ['get', 'id'], ''],
         paint: {
-          'circle-radius': 16, 'circle-color': 'rgba(0,0,0,0)',
-          'circle-stroke-color': INK, 'circle-stroke-width': 3,
+          'circle-radius': 13, 'circle-color': SELECTED_RED,
+          'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3,
         },
       });
       map.addLayer({
@@ -272,7 +273,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       });
       map.addLayer({
         id: 'flat-selected', type: 'circle', source: 'listings-flat', filter: ['==', ['get', 'id'], ''],
-        paint: { 'circle-radius': 14, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': INK, 'circle-stroke-width': 3 },
+        paint: { 'circle-radius': 11, 'circle-color': SELECTED_RED, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 },
       });
       map.addLayer({
         id: 'flat-price', type: 'symbol', source: 'listings-flat', minzoom: 11, filter: ['!=', ['get', 'price'], ''],
