@@ -13,6 +13,7 @@ import PrioritiesPopover from '../components/homes/PrioritiesPopover';
 import Segmented, { type View } from '../components/homes/Segmented';
 import { BTN_PRIMARY, FOCUS } from '../components/homes/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
+import { openConversation, useMessagesActions } from '../data/messagesHooks';
 import { toMetricWeights } from '../prefs';
 import type { Prefs } from '../types';
 
@@ -88,6 +89,11 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     if (l.cityId) setHovered(l.cityId);
   }, []);
 
+  const { startConversation } = useMessagesActions();
+  const messageUser = (userId: string, listingId: string) => {
+    void startConversation(userId, listingId).then(openConversation);
+  };
+
   const closePanel = useCallback(() => setSelectedListing(null), []);
   const selIndex = selectedListing && recs ? recs.findIndex(r => r.listing.id === selectedListing.id) : -1;
   const step = (d: number) => {
@@ -108,7 +114,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
       index={selIndex} total={recs?.length}
       onPrev={recs && selIndex > 0 ? () => step(-1) : undefined}
       onNext={recs && selIndex >= 0 && selIndex < recs.length - 1 ? () => step(1) : undefined}
-      onClose={closePanel} onOpenTown={onOpenTown}
+      onClose={closePanel} onOpenTown={onOpenTown} onMessageUser={messageUser}
     />
   ) : null;
 

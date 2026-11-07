@@ -75,16 +75,20 @@ function SingleComment({
   };
 
   return (
-    <div className={`space-y-2 ${isReply ? 'ml-2.5 mt-3 border-l-2 border-border pl-2.5 sm:ml-6 sm:pl-3' : 'py-3'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-small">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="break-words font-semibold text-text [overflow-wrap:anywhere]">{comment.displayName || 'Anonymous'}</span>
-          {comment.isSample && <Badge tone="sample" />}
-          <span className="text-text-muted">
-            {new Date(comment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
+    <div data-comment={comment._id} className={isReply ? 'ml-2 mt-3 border-l-2 border-border pl-3 sm:ml-4' : 'py-3'}>
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-small">
+        <span className="break-words font-semibold text-text [overflow-wrap:anywhere]">{comment.displayName || 'Anonymous'}</span>
+        {comment.isSample && <Badge tone="sample" />}
+        <span className="text-caption text-text-muted">
+          {new Date(comment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+        </span>
+      </div>
+
+      {/* plain text only: React escapes it, whitespace is preserved by CSS */}
+      <p className="mt-1 whitespace-pre-wrap break-words text-small text-text [overflow-wrap:anywhere]">{comment.body}</p>
+
+      {(comment.canDelete || isAuthenticated) && (
+        <div className="-ml-3 flex flex-wrap items-center">
           {comment.canDelete && <Button variant="ghost" size="sm" onClick={handleDelete}>Delete</Button>}
           {isAuthenticated && onMessageUser && !comment.canDelete && comment.userId && (
             <Button variant="ghost" size="sm" onClick={() => onMessageUser(comment.userId, targetId)}>Message</Button>
@@ -94,10 +98,7 @@ function SingleComment({
             <Button variant="ghost" size="sm" onClick={() => setReplyOpen(!replyOpen)}>{replyOpen ? 'Cancel' : 'Reply'}</Button>
           )}
         </div>
-      </div>
-
-      {/* plain text only: React escapes it, whitespace is preserved by CSS */}
-      <p className="whitespace-pre-wrap break-words text-small text-text [overflow-wrap:anywhere]">{comment.body}</p>
+      )}
 
       {replyOpen && (
         <form onSubmit={handleSendReply} className="mt-2 space-y-2">

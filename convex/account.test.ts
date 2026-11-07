@@ -7,6 +7,7 @@ import schema from "./schema";
 const modules = {
   "./account.ts": () => import("./account"),
   "./ads.ts": () => import("./ads"),
+  "./messages.ts": () => import("./messages"),
   "./posts.ts": () => import("./posts"),
   "./profiles.ts": () => import("./profiles"),
   "./roommates.ts": () => import("./roommates"),
@@ -58,6 +59,10 @@ const post = (userId: Id<"users">, extra = {}) => ({ cityId: "provo", userId, bo
 const comment = (userId: Id<"users">, targetId = "provo", extra = {}) => ({
   targetType: "town" as const, targetId, userId, body: "A comment", parentId: null, reports: 0, hidden: false, isSample: false, ...extra,
 });
+const conversation = (userA: Id<"users">, userB: Id<"users">) => ({
+  userA, userB, contextListingId: null, lastMessage: "Alice's secret", lastMessageAt: 1, unreadA: 0, unreadB: 1, startedBy: userA, startedAt: 1,
+});
+const dm = (conversationId: Id<"conversations">, senderId: Id<"users">, body = "Alice's secret") => ({ conversationId, senderId, body, createdAt: 1, isSample: false });
 const campaign = (advertiserUserId: Id<"users">, extra = {}) => ({
   advertiserUserId, kind: "pin" as const, title: "Alice's Bakery", body: "Call 555-0100", url: "https://alice.test", lat: 40, lng: -111, cityId: "provo",
   startsAt: Date.now() - 1000, endsAt: Date.now() + 1_000_000, status: "active" as const, impressions: 7, clicks: 2, isSample: false, expectedAmount: 3500, expectedCurrency: "USD", ...extra,
@@ -134,7 +139,27 @@ async function seedEverything(t: T, alice: Id<"users">, bob: Id<"users">, carol:
     const pending = await ctx.db.insert("campaigns", campaign(alice, { status: "pending_payment" }));
     const bobCampaign = await ctx.db.insert("campaigns", campaign(bob, { title: "Bob's Bikes", body: "Bikes", url: "https://bob.test" }));
 
-    return { aliceAuthIds, bobSaved, bobReply, bobRoot, alicePost, bobPost, bobComment, bobCarol, paid, payment, pending, bobCampaign };
+    const aliceBob = await ctx.db.insert("conversations", conversation(alice, bob));
+    const carolAlice = await ctx.db.insert("conversations", conversation(carol, alice));
+    const aliceDm = await ctx.db.insert("messages", dm(aliceBob, alice));
+    const bobDm = await ctx.db.insert("messages", dm(aliceBob, bob, "Bob's reply to the secret"));
+    await ctx.db.insert("messages", dm(carolAlice, carol, "Carol's note to the secret"));
+    await ctx.db.insert("reads", { userId: bob, conversationId: aliceBob, lastReadAt: 1 });
+    await ctx.db.insert("reads", { userId: carol, conversationId: carolAlice, lastReadAt: 1 });
+    await ctx.db.insert("contentReports", { targetType: "message", targetId: aliceDm, userId: bob });
+    await ctx.db.insert("contentReports", { targetType: "message", targetId: bobDm, userId: alice });
+    await ctx.db.insert("userBlocks", { userId: alice, blockedUserId: carol });
+    await ctx.db.insert("userBlocks", { userId: bob, blockedUserId: alice });
+    const bobCarolChat = await ctx.db.insert("conversations", { ...conversation(bob, carol), lastMessage: "Hi" });
+    const bobCarolDm = await ctx.db.insert("messages", dm(bobCarolChat, bob, "Hi"));
+    const bobCarolRead = await ctx.db.insert("reads", { userId: carol, conversationId: bobCarolChat, lastReadAt: 1 });
+    const bobCarolReport = await ctx.db.insert("contentReports", { targetType: "message", targetId: bobCarolDm, userId: carol });
+    const bobBlocksCarol = await ctx.db.insert("userBlocks", { userId: bob, blockedUserId: carol });
+
+    return {
+      aliceAuthIds, bobSaved, bobReply, bobRoot, alicePost, bobPost, bobComment, bobCarol, paid, payment, pending, bobCampaign,
+      aliceBob, carolAlice, aliceDm, bobDm, bobCarolChat, bobCarolDm, bobCarolRead, bobCarolReport, bobBlocksCarol,
+    };
   });
 }
 
@@ -168,7 +193,7 @@ describe("deleteMyAccount", () => {
 
   it("leaves nothing referencing the user in any table", async () => {
     const { t, alice, bob, carol, asAlice } = await setup();
-    const { aliceAuthIds, alicePost } = await seedEverything(t, alice, bob, carol);
+    const { aliceAuthIds, alicePost, aliceBob, carolAlice, aliceDm, bobDm } = await seedEverything(t, alice, bob, carol);
     const needles = [alice, "alice@example.test", ...aliceAuthIds];
     expect((await leftovers(t, needles)).length).toBeGreaterThan(15);
 
@@ -177,6 +202,39 @@ describe("deleteMyAccount", () => {
 
     expect(await leftovers(t, needles)).toEqual([]);
     expect(await leftovers(t, [alicePost, "Alice's Bakery", "555-0100", "alice.test"])).toEqual([]);
+    expect(await leftovers(t, [aliceBob, carolAlice, aliceDm, bobDm, "the secret", "Alice's secret"])).toEqual([]);
+  });
+
+  it("removes both sides of a DM, keeps other people's DMs, and bounds the rows per run", async () => {
+    const { t, alice, bob, carol, asAlice } = await setup();
+    const seeded = await seedEverything(t, alice, bob, carol);
+    const N = 450;
+    await t.run(async (ctx) => {
+      for (let i = 0; i < N; i++) {
+        const id = await ctx.db.insert("messages", dm(seeded.aliceBob, i % 2 ? alice : bob));
+        await ctx.db.insert("contentReports", { targetType: "message", targetId: id, userId: i % 2 ? bob : alice });
+        await ctx.db.insert("reads", { userId: bob, conversationId: seeded.carolAlice, lastReadAt: i });
+      }
+    });
+    await asAlice.mutation(refs.deleteMyAccount, {});
+    const rowCount = async () => Object.values(await dump(t)).reduce((sum, rows) => sum + rows.length, 0);
+    let rows = await rowCount();
+    let biggestRun = 0;
+    for (let runs = 0; runs < 100 && (await leftovers(t, [seeded.aliceBob, seeded.carolAlice])).length > 0; runs++) {
+      await t.mutation(refs.sweep, { userId: alice });
+      const next = await rowCount();
+      biggestRun = Math.max(biggestRun, rows - next);
+      rows = next;
+    }
+    expect(biggestRun).toBeLessThanOrEqual(200);
+    await t.finishAllScheduledFunctions(vi.runAllTimers, 2000);
+
+    const all = await dump(t);
+    expect(all.conversations.map((row) => row._id)).toEqual([seeded.bobCarolChat]);
+    expect(all.messages.map((row) => row._id)).toEqual([seeded.bobCarolDm]);
+    expect(all.reads.map((row) => row._id)).toEqual([seeded.bobCarolRead]);
+    expect(all.userBlocks.map((row) => row._id)).toEqual([seeded.bobBlocksCarol]);
+    expect(all.contentReports.filter((row) => row.targetType === "message").map((row) => row._id)).toEqual([seeded.bobCarolReport]);
   });
 
   it("keeps other users' data, correcting only counts and thread position", async () => {
@@ -198,7 +256,7 @@ describe("deleteMyAccount", () => {
     expect(await row(ids.bobReply)).toMatchObject({ parentId: null, body: "A comment" });
     expect(await t.run((ctx) => ctx.db.get(ids.bobCampaign))).toMatchObject({ title: "Bob's Bikes", status: "active", advertiserUserId: bob });
     expect(after.postLikes).toHaveLength(1);
-    expect(after.contentReports).toHaveLength(1);
+    expect(after.contentReports).toHaveLength(2);
   });
 
   it("keeps payments and anonymized campaigns, and ends the ads", async () => {

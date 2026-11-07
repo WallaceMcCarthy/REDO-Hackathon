@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ConvexError } from 'convex/values';
 import { useMessagesActions, useThread, type InboxItem } from '../../data/messagesHooks';
 
 interface ConversationViewProps {
@@ -54,8 +55,8 @@ export default function ConversationView({
     try {
       await sendMessage(conversationId, text);
       setDraft('');
-    } catch (err: any) {
-      setSendError(err.message || 'Failed to deliver message.');
+    } catch (err) {
+      setSendError(err instanceof ConvexError ? String(err.data) : 'Failed to deliver message. Try again.');
     } finally {
       setSending(false);
     }

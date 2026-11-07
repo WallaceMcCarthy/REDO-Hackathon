@@ -438,6 +438,88 @@ test('advertiser form shows validation text, never a raw Convex error', async ({
   await ctx.close();
 });
 
+test('listing panel comments, direct message, unread badge, and DMs die with the account', async ({ browser }, info) => {
+  const shots = process.env.E2E_SHOTS;
+  const openPanel = async (page: Page) => {
+    await page.goto(`/#/results?town=${TOWN}`);
+    await page.locator('article h3').nth(7).click();
+    const panel = page.getByTestId('listing-panel');
+    await expect(panel).toBeVisible();
+    return panel;
+  };
+  const panelFits = (page: Page) => page.getByTestId('listing-panel').evaluate(el => el.scrollWidth - el.clientWidth);
+  const shotPanel = async (page: Page, name: string) => {
+    if (!shots) return;
+    await page.getByTestId('listing-panel').getByRole('region', { name: 'Comments' }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${shots}/panel-${name}-${info.project.name}.png` });
+  };
+
+  const anon = await newUser(browser);
+  const anonPanel = await openPanel(anon.page);
+  await expect(anonPanel.getByRole('region', { name: 'Comments' })).toBeVisible();
+  await expect(anonPanel.getByRole('button', { name: 'Message' })).toHaveCount(0);
+  await expect(anon.page.getByRole('link', { name: /Messages/ })).toHaveText('Messages');
+  expect(await panelFits(anon.page)).toBeLessThanOrEqual(0);
+  await shotPanel(anon.page, 'signed-out');
+  expect(anon.w.errors.filter(e => /Sign in|Uncaught/.test(e))).toEqual([]);
+  await anon.ctx.close();
+
+  const a = await newUser(browser);
+  const b = await newUser(browser);
+  await signUp(a.page, `m1-${RUN}@example.test`);
+  await signUp(b.page, `m2-${RUN}@example.test`);
+  const aPanel = await openPanel(a.page);
+  const body = `Anyone sharing this place? ${RUN}`;
+  await aPanel.getByPlaceholder(/Looking for roommates/).fill(body);
+  await aPanel.getByRole('button', { name: 'Post comment' }).click();
+  const aComment = aPanel.getByText(body);
+  await expect(aComment).toBeVisible();
+
+  const bPanel = await openPanel(b.page);
+  await expect(bPanel.getByText(body)).toBeVisible();
+  const ownComment = bPanel.locator('[data-comment]').filter({ hasText: body }).first();
+  await ownComment.getByRole('button', { name: 'Reply', exact: true }).click();
+  await bPanel.getByPlaceholder(/^Reply to/).fill(`Yes, me too ${RUN}`);
+  await bPanel.locator('form').filter({ has: b.page.getByPlaceholder(/^Reply to/) }).getByRole('button', { name: 'Reply' }).click();
+  await expect(bPanel.getByText(`Yes, me too ${RUN}`)).toBeVisible();
+  await expect(ownComment.getByRole('button', { name: 'Report' }).first()).toBeVisible();
+  await expect(aPanel.getByRole('button', { name: 'Delete', exact: true }).first()).toBeVisible();
+  expect(await panelFits(b.page)).toBeLessThanOrEqual(0);
+  await shotPanel(a.page, 'owner');
+  await shotPanel(b.page, 'reply');
+
+  await ownComment.getByRole('button', { name: 'Message' }).first().click();
+  await expect(b.page).toHaveURL(/#\/messages\/.+/);
+  await b.page.getByPlaceholder(/Enter to send/).fill(`dm ${RUN}`);
+  await b.page.getByPlaceholder(/Enter to send/).press('Enter');
+  await expect(b.page.getByText(`dm ${RUN}`).last()).toBeVisible();
+  if (shots) await b.page.screenshot({ path: `${shots}/messages-thread-${info.project.name}.png` });
+
+  const badge = a.page.getByRole('link', { name: 'Messages 1 unread' });
+  await expect(badge).toBeVisible();
+  await badge.click();
+  await a.page.getByRole('button').filter({ hasText: `dm ${RUN}` }).first().click();
+  await expect(a.page.getByText(`dm ${RUN}`).last()).toBeVisible();
+  await expect(a.page.getByRole('link', { name: 'Messages', exact: true })).toBeVisible();
+  const scroll = await a.page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
+  expect(scroll, 'messages page must not scroll under the header').toBeLessThanOrEqual(0);
+
+  await a.page.goto('/#/messages/not-a-conversation');
+  await expect(a.page.getByText('That conversation is not available')).toBeVisible();
+
+  a.page.on('dialog', d => void d.accept());
+  await a.page.goto('/#/account');
+  await a.page.getByRole('button', { name: 'Delete my account' }).click();
+  await a.page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await a.page.getByRole('button', { name: 'Permanently delete' }).click();
+  await expect(a.page.getByRole('heading', { name: 'Your account has been deleted' })).toBeVisible();
+
+  await b.page.goto('/#/messages');
+  await expect(b.page.getByText(`dm ${RUN}`)).toHaveCount(0);
+  await a.ctx.close();
+  await b.ctx.close();
+});
+
 test('roommate profile form shows readable errors', async ({ browser }) => {
   const { ctx, page } = await newUser(browser);
   await signUp(page, `d-${RUN}@example.test`);

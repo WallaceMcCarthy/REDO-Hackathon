@@ -48,7 +48,7 @@ export default function Messages({
   };
 
   return (
-    <main className="mx-auto flex h-[calc(100dvh-4rem)] max-w-6xl flex-col px-3 py-4 sm:px-6 sm:py-6">
+    <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-3 py-4 sm:px-6 sm:py-6">
       {/* Top Bar */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">

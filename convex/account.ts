@@ -4,6 +4,7 @@ import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internalMutation, mutation, type MutationCtx } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { nextLikes } from "./lib/feed";
+import { deleteConversationsForUser } from "./messages";
 import { deletePostBatch } from "./posts";
 import { deleteCommentBatch } from "./social";
 
@@ -104,7 +105,9 @@ const connections: Step = async (ctx, userId) =>
   (await deleteRows(ctx, await ctx.db.query("connections").withIndex("by_from", (q) => q.eq("fromUserId", userId)).take(BATCH))) ||
   deleteRows(ctx, await ctx.db.query("connections").withIndex("by_to", (q) => q.eq("toUserId", userId)).take(BATCH));
 
-const steps: Step[] = [sessions, campaigns, posts, comments, likes, reports, saved, connections];
+const directMessages: Step = (ctx, userId) => deleteConversationsForUser(ctx, userId, BATCH);
+
+const steps: Step[] = [sessions, campaigns, posts, comments, likes, reports, saved, connections, directMessages];
 
 /**
  * One bounded slice per run, rescheduled until every step finds nothing. It keeps no cursor, so

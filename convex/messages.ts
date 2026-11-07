@@ -2,7 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { requireUserId } from "./lib/auth";
+import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { withListingMetadata } from "./lib/listings";
 import { deleteReportsFor, recordContentReport } from "./social";
 
@@ -117,8 +117,10 @@ export const markRead = mutation({
   },
 });
 
+/** Feeds the header badge on every screen, so a deleted account's still-valid token must read as 0, not throw. */
 export const unreadTotal = query({ args: {}, handler: async ctx => {
-  const me = await requireUserId(ctx);
+  const me = await getOptionalUserId(ctx);
+  if (!me) return 0;
   return (await conversationsOf(ctx, me)).reduce((sum, c) => sum + (c.userA === me ? c.unreadA : c.unreadB), 0);
 } });
 
@@ -149,21 +151,46 @@ export const unblock = mutation({ args: { userId: v.id("users") }, handler: asyn
   return null;
 } });
 
-/** Server-only account-deletion helper; no registered client entry point. */
-export async function deleteConversationsForUser(ctx: MutationCtx, userId: Id<"users">) {
-  for (const conversation of await conversationsOf(ctx, userId)) {
-    for (const message of await ctx.db.query("messages").withIndex("by_conversation", q => q.eq("conversationId", conversation._id)).collect()) {
-      await deleteReportsFor(ctx, "message", message._id);
-      await ctx.db.delete(message._id);
+/**
+ * Server-only account-deletion helper; no registered client entry point. Deletes at most `limit`
+ * rows and returns how many it touched, 0 once none remain, so the account sweep can reschedule.
+ */
+export async function deleteConversationsForUser(ctx: MutationCtx, userId: Id<"users">, limit = 200): Promise<number> {
+  let left = limit;
+  const nextConversation = async () =>
+    (await ctx.db.query("conversations").withIndex("by_userA", q => q.eq("userA", userId)).first()) ??
+    (await ctx.db.query("conversations").withIndex("by_userB", q => q.eq("userB", userId)).first());
+  for (let conversation = await nextConversation(); conversation && left >= 2; conversation = await nextConversation()) {
+    // Only the other participant can report a message, so a message and its reports are at most two rows.
+    const rows = await ctx.db.query("messages").withIndex("by_conversation", q => q.eq("conversationId", conversation!._id)).take(Math.floor(left / 2));
+    if (rows.length > 0) {
+      for (const message of rows) {
+        await deleteReportsFor(ctx, "message", message._id);
+        await ctx.db.delete(message._id);
+      }
+      left -= rows.length * 2;
+      continue;
     }
-    for (const read of await ctx.db.query("reads").withIndex("by_conversation", q => q.eq("conversationId", conversation._id)).collect()) await ctx.db.delete(read._id);
+    const reads = await ctx.db.query("reads").withIndex("by_conversation", q => q.eq("conversationId", conversation!._id)).take(left);
+    if (reads.length > 0) {
+      for (const read of reads) await ctx.db.delete(read._id);
+      left -= reads.length;
+      continue;
+    }
     await ctx.db.delete(conversation._id);
+    left -= 1;
   }
-  const [out, incoming] = await Promise.all([
-    ctx.db.query("userBlocks").withIndex("by_user", q => q.eq("userId", userId)).collect(),
-    ctx.db.query("userBlocks").withIndex("by_blocked", q => q.eq("blockedUserId", userId)).collect(),
-  ]);
-  for (const row of [...out, ...incoming]) await ctx.db.delete(row._id);
+  if (left > 0) {
+    const rows = await ctx.db.query("userBlocks").withIndex("by_user", q => q.eq("userId", userId)).take(left);
+    for (const row of rows) await ctx.db.delete(row._id);
+    left -= rows.length;
+  }
+  if (left > 0) {
+    const rows = await ctx.db.query("userBlocks").withIndex("by_blocked", q => q.eq("blockedUserId", userId)).take(left);
+    for (const row of rows) await ctx.db.delete(row._id);
+    left -= rows.length;
+  }
+  return limit - left;
 }
 
 // Keep the first UI contract usable while canonical task names remain available.

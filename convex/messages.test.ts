@@ -31,7 +31,8 @@ describe("private direct messages", () => {
     const { t, ids, alice, carol } = await setup();
     const conversationId = await alice.mutation(m("startConversation"), { otherUserId: ids[1] });
     const messageId = await alice.mutation(m("sendMessage"), { conversationId, body: "Private text" });
-    for (const name of ["myConversations", "inbox", "unreadTotal", "unreadCount"]) await expect(t.query(q(name), {})).rejects.toThrow("Sign in");
+    for (const name of ["myConversations", "inbox"]) await expect(t.query(q(name), {})).rejects.toThrow("Sign in");
+    for (const name of ["unreadTotal", "unreadCount"]) expect(await t.query(q(name), {})).toBe(0);
     await expect(t.query(q("messages"), { conversationId, paginationOpts })).rejects.toThrow("Sign in");
     for (const [name, args] of [["startConversation", { otherUserId: ids[1] }], ["sendMessage", { conversationId, body: "No" }], ["markRead", { conversationId }], ["block", { userId: ids[1] }], ["unblock", { userId: ids[1] }], ["reportMessage", { messageId }]] as const) await expect(t.mutation(m(name), args)).rejects.toThrow("Sign in");
     expect(await carol.query(q("myConversations"), {})).toEqual([]);

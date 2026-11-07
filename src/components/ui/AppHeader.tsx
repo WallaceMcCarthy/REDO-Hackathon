@@ -1,9 +1,10 @@
 import AccountMenu from '../auth/AccountMenu';
+import { useUnreadCount } from '../../data/messagesHooks';
 
 const NAV = [
   { label: 'Homes', route: 'results' },
   { label: 'Areas', route: 'results?view=areas' },
-  { label: 'Roommates', route: 'roommates' },
+  { label: 'Messages', route: 'messages' },
   { label: 'Saved', route: 'saved' },
 ];
 
@@ -23,7 +24,8 @@ function Logo() {
 /** The one site header. `route` is the hash path without "#/", and marks the current nav item. */
 export function AppHeader({ route }: { route?: string }) {
   // Every Results view but Areas is homes: the Apartments tab and a single town's homes.
-  const current = route?.startsWith('results') && route !== 'results?view=areas' ? 'results' : route;
+  const current = route?.startsWith('messages') ? 'messages' : route?.startsWith('results') && route !== 'results?view=areas' ? 'results' : route;
+  const unread = useUnreadCount();
   return (
     <header className="relative z-header border-b border-border bg-surface sm:sticky sm:top-0">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 px-gutter py-1.5">
@@ -37,6 +39,11 @@ export function AppHeader({ route }: { route?: string }) {
               className="flex min-h-11 items-center rounded-control px-3 text-small font-semibold text-text-muted no-underline transition-colors first:-ml-3 hover:text-text aria-[current=page]:text-primary-hover aria-[current=page]:underline aria-[current=page]:decoration-2 aria-[current=page]:underline-offset-8 sm:first:ml-0"
             >
               {item.label}
+              {item.route === 'messages' && unread > 0 && (
+                <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-pill bg-primary px-1 text-caption font-semibold text-on-primary">
+                  {unread}<span className="sr-only"> unread</span>
+                </span>
+              )}
             </a>
           ))}
         </nav>

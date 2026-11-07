@@ -9,7 +9,8 @@ import Messages from './screens/Messages';
 import Results from './screens/Results';
 import Roommates from './screens/Roommates';
 import SavedPlaces from './screens/SavedPlaces';
-import { AppHeader } from './components/ui';
+import { AppHeader, Button, EmptyState } from './components/ui';
+import SafeSectionBoundary from './components/SafeSectionBoundary';
 import TownDetail from './screens/TownDetail';
 import AdsSandboxCheckout from './screens/AdsSandboxCheckout';
 import UiKit from './screens/UiKit';
@@ -34,10 +35,11 @@ export default function App() {
   const params = new URLSearchParams(query);
   const homesTown = params.get('town');
   const view = params.get('view');
+  const isMessages = path === 'messages' || path.startsWith('messages/');
   const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
 
   return (
-    <div className={path === 'results' ? 'flex h-dvh flex-col' : undefined}>
+    <div className={path === 'results' || isMessages ? 'flex h-dvh flex-col' : undefined}>
       {route !== 'ui' && <AppHeader route={route} />}
       {route === 'ui' ? (
         <UiKit />
@@ -51,8 +53,10 @@ export default function App() {
         <Roommates onSignIn={openSignIn} />
       ) : route === 'saved' ? (
         <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
-      ) : path === 'messages' || path.startsWith('messages/') ? (
-        <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
+      ) : isMessages ? (
+        <SafeSectionBoundary key={route} fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button href="#/messages">Back to messages</Button>} />}>
+          <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
+        </SafeSectionBoundary>
       ) : route === 'advertise' ? (
         <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
       ) : path === 'results' ? (
