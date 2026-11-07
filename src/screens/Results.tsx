@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { useConvexAuth } from 'convex/react';
+import ResultsFeatured from '../components/ads/ResultsFeatured';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
@@ -110,6 +111,11 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     if (selectedListing && l.length && !l.some(h => h.id === selectedListing.id)) l.push(selectedListing);
     return l.length ? l : undefined;
   }, [listings, selectedListing, view]);
+
+  const featuredTowns = useMemo(() => {
+    if (view === 'areas') return (rows ?? []).map(r => r.city.id);
+    return townFilter ? [townFilter] : [...new Set((listings ?? []).map(l => l.cityId))];
+  }, [view, rows, townFilter, listings]);
 
   const flip = useFlip(rows);
 
@@ -226,6 +232,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           aria-label={view === 'areas' ? 'Ranked towns' : 'Homes and apartments'}
           className={`min-h-0 overflow-y-auto p-4 lg:border-r lg:border-rock-100 ${pane === 'map' ? 'hidden lg:block' : ''}`}
         >
+          <SafeSectionBoundary><ResultsFeatured townIds={featuredTowns} max={wide ? 2 : 1} /></SafeSectionBoundary>
           {view === 'areas' ? areas : (
             <ListErrorBoundary key={view}>
               <HomesForYou
@@ -246,6 +253,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
               rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered}
               onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectListing}
               focus={view === 'areas' ? 'towns' : 'listings'} selectedListingId={selectedListing?.id}
+              selectedTown={view === 'areas' ? null : townFilter}
             />
             </SafeSectionBoundary>
           )}
