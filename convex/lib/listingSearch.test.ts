@@ -35,7 +35,9 @@ describe("homes-first search", () => {
   it("applies inclusive actual home and rent budgets and excludes unknown prices", () => {
     const d = { ...data, listings: [listing("known", "town-0"), listing("unknown", "town-0", { value: null }), listing("rent", "town-0", { kind: "apartment", value: null, rent: 1500 }), listing("rent-gap", "town-0", { kind: "apartment", rent: null })] };
     expect(ids(searchListings(d, { ...opts, maxValue: 100 }))).toEqual(["known"]);
-    expect(ids(searchListings(d, { ...opts, kind: "apartment", maxRent: 1500 }))).toEqual(["rent"]);
+    const apartments = searchListings(d, { ...opts, kind: "apartment", maxRent: 1500 });
+    expect(ids(apartments)).toEqual(["rent"]);
+    expect(apartments.page[0].listing).toMatchObject({ rentKind: "area_benchmark", rentBenchmarkBedrooms: 2, beds: null });
     expect(searchListings(d, { ...opts, kind: "apartment", maxRent: 1499 }).total).toBe(0);
     expect(searchListings(d, { ...opts, maxValue: 0 }).total).toBe(0);
   });

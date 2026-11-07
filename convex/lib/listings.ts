@@ -21,7 +21,22 @@ export type Listing = {
   source: string;
   sourceUrl: string;
   year: number | null;
+  /** Derived at the API boundary; rent is never a quoted property asking rent. */
+  rentKind?: "area_benchmark" | null;
+  rentBenchmarkBedrooms?: number | null;
+  rentSourceUrl?: string | null;
 };
+
+/** Existing apartment source beds=2 means the benchmark size, not a unit attribute. */
+export function withListingMetadata<T extends Listing>(listing: T) {
+  return {
+    ...listing,
+    beds: listing.kind === "apartment" ? null : listing.beds,
+    rentKind: listing.kind === "apartment" ? "area_benchmark" as const : null,
+    rentBenchmarkBedrooms: listing.kind === "apartment" ? 2 : null,
+    rentSourceUrl: listing.kind === "apartment" ? "https://www.huduser.gov/portal/datasets/fmr.html#2025" : null,
+  };
+}
 
 export type Recommendation = {
   listing: Listing;
@@ -58,7 +73,7 @@ export function bestListingsForTown(
     if (finite(priceB)) return 1;
     return a.id.localeCompare(b.id);
   });
-  return finite(limit) ? sorted.slice(0, limit) : sorted;
+  return (finite(limit) ? sorted.slice(0, limit) : sorted).map(withListingMetadata);
 }
 
 /** How many of the top-ranked towns share the recommendation slots. */

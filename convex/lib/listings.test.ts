@@ -50,6 +50,12 @@ describe("bestListingsForTown", () => {
     ];
     expect(bestListingsForTown(withGap, { kind: "home" }).map((l) => l.id)).toEqual(["y", "z"]);
   });
+
+  it("separates benchmark size from actual apartment bedrooms on public records", () => {
+    const result = bestListingsForTown([listing({ id: "apt", cityId: "alpine", kind: "apartment", beds: 2, rent: 1500 })]);
+    expect(result[0]).toMatchObject({ beds: null, rentKind: "area_benchmark", rentBenchmarkBedrooms: 2, rent: 1500 });
+    expect(result[0].rentSourceUrl).toContain("huduser.gov");
+  });
 });
 
 describe("recommendListings", () => {

@@ -66,6 +66,7 @@ describe("authenticated social endpoints", () => {
     expect(second.page).toHaveLength(1);
     expect(first.page[0].listingId).not.toBe(second.page[0].listingId);
     expect(first.page[0].listing.value).toBe(300000);
+    expect(first.page[0].listing.rentKind).toBeNull();
     await expect(alice.mutation(refs.toggle, { listingId: "nonexistent" })).rejects.toThrow("unavailable");
     await t.run(async (ctx) => {
       const listing = await ctx.db.query("listings").withIndex("by_listingId", (q) => q.eq("id", "county-parcel-1")).first();

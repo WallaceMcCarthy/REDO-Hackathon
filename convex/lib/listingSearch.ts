@@ -1,4 +1,4 @@
-import { type Listing, type ListingKind, type Recommendation } from "./listings";
+import { withListingMetadata, type Listing, type ListingKind, type Recommendation } from "./listings";
 import { rankTowns, type City, type Filters, type Metric, type Weights } from "./scoring";
 
 export type ListingSort = "fit" | "price_asc" | "newest";
@@ -62,7 +62,7 @@ export function searchListings(data: { cities: readonly City[]; metrics: readonl
   });
   const wrap = (listing: Listing): Recommendation => {
     const town = townById.get(listing.cityId)!;
-    return { listing, cityId: listing.cityId, townScore: town.score, townRank: town.rank,
+    return { listing: withListingMetadata(listing), cityId: listing.cityId, townScore: town.score, townRank: town.rank,
       reason: `#${town.rank} match for your priorities in ${cityById.get(listing.cityId)?.name ?? listing.cityId} (score ${Math.round(town.score)})` };
   };
   const byPrice = (a: Listing, b: Listing) => numeric(price(a), price(b)) || a.id.localeCompare(b.id);

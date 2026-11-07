@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { checkOwner, checkParent, cleanComment, nextReportState, type CommentTarget } from "./lib/social";
 import { commentTarget } from "./socialSchema";
+import { withListingMetadata } from "./lib/listings";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
@@ -54,10 +55,13 @@ export const mySaved = query({
     const page = await ctx.db.query("saved").withIndex("by_user", (q) => q.eq("userId", userId)).order("desc").paginate({ ...opts, numItems: Math.min(100, Math.max(1, opts.numItems)) });
     return {
       ...page,
-      page: await Promise.all(page.page.map(async (save) => ({
-        _id: save._id, listingId: save.listingId, savedAt: save._creationTime,
-        listing: await findListing(ctx, save.listingId),
-      }))),
+      page: await Promise.all(page.page.map(async (save) => {
+        const listing = await findListing(ctx, save.listingId);
+        return {
+          _id: save._id, listingId: save.listingId, savedAt: save._creationTime,
+          listing: listing ? withListingMetadata(listing) : null,
+        };
+      })),
     };
   },
 });
