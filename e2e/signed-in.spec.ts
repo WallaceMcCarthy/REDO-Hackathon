@@ -494,6 +494,10 @@ test('listing panel comments, direct message, unread badge, and DMs die with the
   await b.page.getByPlaceholder(/Enter to send/).press('Enter');
   await expect(b.page.getByText(`dm ${RUN}`).last()).toBeVisible();
   if (shots) await b.page.screenshot({ path: `${shots}/messages-thread-${info.project.name}.png` });
+  // The dialog sits over the app header, so its top is reachable on a phone.
+  const dialogTop = (await b.page.getByRole('dialog', { name: 'Direct message conversation' }).locator('> div').boundingBox())!.y;
+  const onTop = await b.page.evaluate(y => !document.elementFromPoint(195, y + 20)?.closest('header'), dialogTop);
+  expect(onTop, 'conversation dialog is above the header').toBe(true);
 
   const badge = a.page.getByRole('link', { name: 'Messages 1 unread' });
   await expect(badge).toBeVisible();

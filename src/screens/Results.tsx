@@ -257,7 +257,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           role="dialog"
           aria-modal="true"
           aria-label="Direct message conversation"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) setActiveConversationId(null);
           }}
