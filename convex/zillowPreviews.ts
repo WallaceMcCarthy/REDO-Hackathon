@@ -1,3 +1,4 @@
+import { findMarketListing } from "./marketSearch";
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, query } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -25,7 +26,8 @@ export const get = query({
 export const prepare = internalQuery({
   args: { listingId: v.string(), now: v.number() },
   handler: async (ctx, { listingId, now }) => {
-    const listing = await ctx.db.query("listings").withIndex("by_listingId", q => q.eq("id", listingId)).first();
+    const listing = await ctx.db.query("listings").withIndex("by_listingId", q => q.eq("id", listingId)).first()
+      ?? await findMarketListing(ctx, listingId);
     if (!listing) return null;
     const city = await ctx.db.query("cities").withIndex("by_cityId", q => q.eq("id", listing.cityId)).first();
     const row = await ctx.db.query("zillowPreviews").withIndex("by_listingId", q => q.eq("listingId", listingId)).first();

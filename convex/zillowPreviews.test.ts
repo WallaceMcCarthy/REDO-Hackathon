@@ -5,6 +5,7 @@ import schema from "./schema";
 
 const mods = {
   "./zillowPreviews.ts": () => import("./zillowPreviews"),
+  "./marketSearch.ts": () => import("./marketSearch"),
   "./_generated/server.js": () => import("./_generated/server.js"),
   "./_generated/api.js": () => import("./_generated/api.js"),
 };
@@ -59,6 +60,21 @@ it("returns null for unknown listings and uses the pro endpoint with a key", asy
   await t.action(fetchRef, { listingId: "h1" });
   expect(fetchMock.mock.calls[0][0]).toContain("https://pro.microlink.io/");
   expect(fetchMock.mock.calls[0][1].headers).toEqual({ "x-api-key": "secret" });
+});
+
+it("fetches a preview for a live market listing", async () => {
+  const t = await setup();
+  await t.run(async ctx => {
+    await ctx.db.insert("marketListings", {
+      rcId: "120-N-Main", market: "for_sale", address: "120 N Main, Provo, UT 84601", city: "Provo", zip: "84601", lat: 40, lng: -111,
+      price: 400000, beds: 3, baths: 2, sqft: 1500, yearBuilt: 2000, propertyType: "Single Family", listedDate: null, daysOnMarket: 3,
+      cityId: "provo", residential: true, sortYearBuilt: 2000, importedAt: 1,
+    });
+  });
+  fetchMock.mockImplementation(() => respond(okBody));
+  const result = await t.action(fetchRef, { listingId: "market:for_sale:120-N-Main" });
+  expect(result?.status).toBe("ok");
+  expect(decodeURIComponent(fetchMock.mock.calls[0][0])).toContain("120-N-Main,-Provo,-UT-84601_rb");
 });
 
 it("refuses to call out once 45 calls happened in 24h", async () => {
