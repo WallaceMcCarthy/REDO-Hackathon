@@ -16,11 +16,43 @@ export async function gotoResults(page: Page, persona = 'Skier') {
   await page.getByRole('button', { name: persona, exact: false }).first().click();
   await page.getByRole('button', { name: 'Show my towns' }).click();
   await expect(page).toHaveURL(/#\/results$/);
+  // Results opens on Homes; these tests are about the ranked towns.
+  await page.getByRole('button', { name: /^Towns/ }).click();
   await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
 }
 
-export const cards = (page: Page) => page.getByRole('region', { name: 'Ranked towns' }).getByRole('listitem');
-export const pins = (page: Page) => page.locator('.leaflet-marker-icon');
+export const cards = (page: Page) => page.getByRole('region', { name: 'Ranked towns and listings' }).getByRole('listitem');
+/** The MapLibre canvas. */
+export const mapCanvas = (page: Page) => page.locator('.maplibregl-canvas');
+
+type MapHook = { __utahMap?: any };
+/** Distinct town pins in the GeoJSON source (the dev hook exposes the map as window.__utahMap). */
+export const pinCount = (page: Page) =>
+  page.evaluate(() => {
+    const map = (window as unknown as MapHook).__utahMap;
+    if (!map || !map.getSource('towns')) return -1;
+    return new Set(map.querySourceFeatures('towns').map((f: any) => f.properties.id)).size;
+  });
+
+/** Town pins actually drawn in the viewport right now (rendered features, de-duplicated across tiles). */
+export const renderedPinCount = (page: Page) =>
+  page.evaluate(() => {
+    const map = (window as unknown as MapHook).__utahMap;
+    if (!map) return -1;
+    return new Set(map.queryRenderedFeatures({ layers: ['towns-circle', 'towns-dots'] }).map((f: any) => f.properties.id)).size;
+  });
+
+/** Screen offset of every town pin from the map centre, via the map's own projection. */
+export const pinOffsets = (page: Page) =>
+  page.evaluate(() => {
+    const map = (window as unknown as MapHook).__utahMap;
+    const c = map.getCanvas().getBoundingClientRect();
+    const cx = c.width / 2, cy = c.height / 2;
+    return map.querySourceFeatures('towns').map((f: any) => {
+      const p = map.project(f.geometry.coordinates);
+      return { title: f.properties.name as string, dx: p.x - cx, dy: p.y - cy };
+    });
+  });
 
 export async function cardNames(page: Page, n: number) {
   return cards(page).locator('.font-display.text-xl').evaluateAll((els, k) => els.slice(0, k).map(e => e.textContent), n);
@@ -36,28 +68,29 @@ export async function setRange(page: Page, name: RegExp, value: number | 'min' |
   }, value);
 }
 
-/**
- * Leaflet exposes no map global, so derive the (possibly fractional) zoom from a loaded tile:
- * tile z from its URL plus log2 of its rendered width over the native 256px.
- */
+/** Current (fractional) zoom from the map hook, -1 before the map exists. */
 export const zoomOf = (page: Page) =>
   page.evaluate(() => {
-    const t = [...document.querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded')]
-      .map(img => ({ z: Number(img.src.match(/tile\/(\d+)\//)?.[1]), w: img.getBoundingClientRect().width }))
-      .filter(x => Number.isFinite(x.z) && x.w > 0);
-    if (!t.length) return -1;
-    const top = t.reduce((a, b) => (b.z > a.z ? b : a));
-    return Math.round((top.z + Math.log2(top.w / 256)) * 100) / 100;
+    const map = (window as unknown as MapHook).__utahMap;
+    return map ? Math.round(map.getZoom() * 100) / 100 : -1;
   });
 
-/** Zoom once animations and tile fades have stopped moving it. */
+/** Zoom once easing and inertia have stopped moving it. */
 export async function settledZoom(page: Page) {
   let last = await zoomOf(page);
   for (let i = 0; i < 40; i++) {
     await page.waitForTimeout(250);
     const z = await zoomOf(page);
-    if (z === last && (await page.locator('img.leaflet-tile-loading').count()) === 0) return z;
+    const moving = await page.evaluate(() => (window as unknown as MapHook).__utahMap?.isMoving() ?? false);
+    if (z === last && !moving) return z;
     last = z;
   }
   return last;
 }
+
+/** Resolves once the map's 'load' fired and the style is loaded. */
+export const mapReady = (page: Page) =>
+  page.waitForFunction(() => {
+    const map = (window as unknown as MapHook).__utahMap;
+    return !!map && map.loaded() && map.isStyleLoaded() && !!map.getSource('towns');
+  }, undefined, { timeout: 30_000 });

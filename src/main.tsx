@@ -2,7 +2,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
-import 'leaflet/dist/leaflet.css';
 import './index.css';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';

@@ -74,7 +74,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   return (
     <main className="xl:sticky xl:top-0 xl:grid xl:h-dvh xl:grid-cols-[18rem_minmax(0,28rem)_minmax(0,1fr)]">
       <section aria-label="Map of ranked towns" className="sticky top-0 isolate z-10 order-first h-56 border-b border-rock-100 sm:h-80 xl:static xl:order-last xl:h-full xl:border-b-0">
-        <ResultsMap rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={setSelectedListing} />
+        <ResultsMap rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={setSelectedListing} selectedListingId={selectedListing?.id} focus={activeTab} />
       </section>
 
       <aside className="border-b border-rock-100 p-5 xl:overflow-y-auto xl:border-b-0 xl:border-r">
