@@ -24,7 +24,7 @@ import { useMessagesActions } from '../data/messagesHooks';
 import ConversationView from '../components/messages/ConversationView';
 import { Button, EmptyState } from '../components/ui';
 
-type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null };
+type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null; openListing: string | null };
 
 const NONE: never[] = [];
 const WIDE = '(min-width: 1024px)';
@@ -41,7 +41,7 @@ function useWide() {
   return wide;
 }
 
-export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, townFilter }: Props) {
+export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, townFilter, openListing }: Props) {
   const cities = useCities();
   const metrics = useMetrics();
   const weights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
@@ -165,6 +165,12 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     else setPinNote(listing === null ? 'That listing is no longer available.' : 'Could not open that listing. Try again.');
   }, [convex, selectListing]);
   useEffect(() => { pinRequest.current++; setPinNote(''); }, [view]);
+  // A sponsored listing links here. Dropping the param lets the same ad open the listing again once the panel closes.
+  useEffect(() => {
+    if (!openListing) return;
+    void selectPin({ id: openListing } as MapPin);
+    window.location.replace(townFilter ? `#/results?town=${encodeURIComponent(townFilter)}` : view === 'homes' ? '#/results' : `#/results?view=${view}`);
+  }, [openListing, townFilter, view, selectPin]);
 
   const closePanel = useCallback(() => setSelectedListing(null), []);
   const selIndex = selectedListing && recs ? recs.findIndex(r => r.listing.id === selectedListing.id) : -1;
