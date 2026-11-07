@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 
-// Creates real accounts. Run only against a LOCAL Convex (VITE_CONVEX_URL=http://127.0.0.1:3210).
+// Creates real accounts, so it refuses to run unless VITE_CONVEX_URL names a local Convex.
+test.skip(!/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(process.env.VITE_CONVEX_URL ?? ''), 'needs a local Convex backend');
 test.describe.configure({ mode: 'serial' });
 
 const RUN = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -25,15 +26,16 @@ function watch(page: Page) {
   return { dialogs, errors };
 }
 
-const modal = (page: Page) => page.locator('form', { has: page.getByRole('heading', { name: /Sign in|Create an account/ }) });
+const modal = (page: Page) => page.getByRole('dialog');
+const accountLink = (page: Page) => page.locator('header a[href="#/account"]');
 
 async function signUp(page: Page, email: string) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await modal(page).getByRole('button', { name: /Need an account/ }).click();
+  await modal(page).getByRole('group').getByRole('button', { name: 'Create account' }).click();
   await modal(page).getByLabel('Email').fill(email);
   await modal(page).getByLabel('Password').fill(PASSWORD);
-  await modal(page).getByRole('button', { name: 'Create account' }).click();
+  await modal(page).locator('form').getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 }
 
@@ -41,7 +43,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await modal(page).getByLabel('Email').fill(email);
   await modal(page).getByLabel('Password').fill(password);
-  await modal(page).getByRole('button', { name: 'Sign in', exact: true }).click();
+  await modal(page).locator('form').getByRole('button', { name: 'Sign in', exact: true }).click();
 }
 
 let projectContext: BrowserContextOptions = {};
@@ -64,7 +66,7 @@ test('sign up, sign out, wrong password, sign in again', async ({ browser }) => 
 
   await signIn(page, A.email, 'definitely-wrong-1');
   await expect(modal(page).getByText('Wrong email or password.')).toBeVisible();
-  await modal(page).getByRole('button', { name: 'Cancel' }).click();
+  await modal(page).getByRole('button', { name: 'Close' }).click();
 
   await signIn(page, A.email, PASSWORD);
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
@@ -79,28 +81,28 @@ test('account profile can be edited and survives reload', async ({ browser }) =>
   await signIn(page, A.email, PASSWORD);
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.goto('/#/results');
-  await page.getByRole('link', { name: 'My account' }).or(page.getByRole('button', { name: 'My account' })).first().click();
+  await accountLink(page).click();
   await expect(page.getByRole('heading', { name: 'Your Profile' })).toBeVisible();
   await page.getByLabel('Display Name').fill(A.name);
-  await page.getByLabel('Monthly Budget ($)').fill('1800');
+  await page.getByLabel('Target Budget ($/mo)').fill('1800');
   await page.getByRole('button', { name: 'Save Profile' }).click();
   await expect(page.getByText('Profile updated successfully!')).toBeVisible();
   await expect(page.getByText(A.name, { exact: true }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByLabel('Display Name')).toHaveValue(A.name);
-  await expect(page.getByLabel('Monthly Budget ($)')).toHaveValue('1800');
+  await expect(page.getByLabel('Target Budget ($/mo)')).toHaveValue('1800');
 
   // optional fields can be cleared again
   await page.getByLabel('Target Utah Town').selectOption(TOWN);
   await page.getByRole('button', { name: 'Save Profile' }).click();
   await expect(page.getByText('Profile updated successfully!')).toBeVisible();
-  await page.getByLabel('Monthly Budget ($)').fill('');
+  await page.getByLabel('Target Budget ($/mo)').fill('');
   await page.getByLabel('Target Utah Town').selectOption('');
   await page.getByRole('button', { name: 'Save Profile' }).click();
   await expect(page.getByText('Profile updated successfully!')).toBeVisible();
   await page.reload();
   await expect(page.getByLabel('Display Name')).toHaveValue(A.name);
-  await expect(page.getByLabel('Monthly Budget ($)')).toHaveValue('');
+  await expect(page.getByLabel('Target Budget ($/mo)')).toHaveValue('');
   await expect(page.getByLabel('Target Utah Town')).toHaveValue('');
   await ctx.close();
 });
@@ -119,9 +121,9 @@ test('saved heart shows up in saved places and can be removed', async ({ browser
   await expect(card.getByRole('button', { name: 'Remove from saved places' })).toBeVisible();
 
   await page.goto('/#/results');
-  await page.getByRole('button', { name: 'Saved places' }).click();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Saved' }).click();
   await expect(page.getByRole('heading', { name: 'My saved places' })).toBeVisible();
-  const saved = page.locator('main article');
+  const saved = page.locator('main li');
   await expect(saved).toHaveCount(1);
   if (label) await expect(saved.first()).toContainText(label);
   await saved.first().getByRole('button', { name: 'Remove from saved places' }).click();
@@ -300,7 +302,7 @@ test('account bio-like hostile display name renders as text', async ({ browser }
   await signIn(page, B.email, PASSWORD);
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.goto('/#/results');
-  await page.getByRole('link', { name: 'My account' }).or(page.getByRole('button', { name: 'My account' })).first().click();
+  await accountLink(page).click();
   await page.getByLabel('Display Name').fill(`${XSS}${RUN}`);
   await page.getByRole('button', { name: 'Save Profile' }).click();
   await expect(page.getByText('Profile updated successfully!')).toBeVisible();
@@ -310,10 +312,10 @@ test('account bio-like hostile display name renders as text', async ({ browser }
   await ctx.close();
 });
 
-test('fixed account bar does not cover page controls', async ({ browser }) => {
+test('app header does not cover page controls', async ({ browser }) => {
   const { ctx, page } = await newUser(browser);
   await signUp(page, `c-${RUN}@example.test`);
-  const bar = page.getByRole('link', { name: 'Roommates', exact: true }).locator('xpath=..');
+  const bar = page.locator('header').first();
   const pages: [string, () => ReturnType<Page['locator']>][] = [
     ['/#/roommates', () => page.getByRole('heading', { level: 1 })],
     ['/#/account', () => page.getByRole('button', { name: /Back to results/ })],
@@ -324,8 +326,64 @@ test('fixed account bar does not cover page controls', async ({ browser }) => {
     await expect(target()).toBeVisible();
     const [a, b] = [await bar.boundingBox(), await target().boundingBox()];
     const overlap = a!.x < b!.x + b!.width && b!.x < a!.x + a!.width && a!.y < b!.y + b!.height && b!.y < a!.y + a!.height;
-    expect(overlap, `${url} covered by account bar`).toBe(false);
+    expect(overlap, `${url} covered by the header`).toBe(false);
   }
+  await ctx.close();
+});
+
+test('account form validates budget and household before saving', async ({ browser }) => {
+  const { ctx, page } = await newUser(browser);
+  await signUp(page, `v-${RUN}@example.test`);
+  await page.goto('/#/account');
+  const save = page.getByRole('button', { name: 'Save Profile' });
+  const household = page.getByLabel('Household Size');
+
+  await page.getByLabel('Target Budget ($/mo)').fill('-5');
+  await household.fill('13');
+  await save.click();
+  await expect(page.getByText('Enter a budget from $0 to $50,000,000.')).toBeVisible();
+  await expect(page.getByText('Household size is a whole number from 1 to 12.')).toBeVisible();
+  await expect(household).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('Profile updated successfully!')).toHaveCount(0);
+
+  await page.getByLabel('Target Budget ($/mo)').fill('2400');
+  await household.fill('2.5');
+  await save.click();
+  await expect(page.getByText('Household size is a whole number from 1 to 12.')).toBeVisible();
+  await expect(page.getByText('Profile updated successfully!')).toHaveCount(0);
+
+  await household.fill('3');
+  await save.click();
+  await expect(page.getByText('Profile updated successfully!')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Target Budget ($/mo)')).toHaveValue('2400');
+  await expect(household).toHaveValue('3');
+  await ctx.close();
+});
+
+test('delete account needs DELETE, removes the login and signs out', async ({ browser }) => {
+  const email = `del-${RUN}@example.test`;
+  const { ctx, page, w } = await newUser(browser);
+  await signUp(page, email);
+  await page.goto('/#/account');
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  const confirm = page.getByRole('button', { name: 'Permanently delete' });
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm').fill('delete');
+  await expect(confirm).toBeDisabled();
+  await page.getByRole('button', { name: 'Keep my account' }).click();
+  await expect(page.getByRole('button', { name: 'Delete my account' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await confirm.click();
+  await expect(page.getByRole('heading', { name: 'Your account has been deleted' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+
+  await page.reload();
+  await signIn(page, email, PASSWORD);
+  await expect(modal(page).getByText('Wrong email or password.')).toBeVisible();
+  expect(w.errors.filter(e => !/InvalidAccountId|InvalidSecret|Invalid credentials/.test(e))).toEqual([]);
   await ctx.close();
 });
 
