@@ -6,7 +6,7 @@ import type { Metric } from '../../types';
 import { Badge, Button, Card } from '../ui';
 import AdImage from './AdImage';
 import { titleRepeatsMessage } from './campaignPlacement';
-import { safeHttpsHref } from './safeHttpsHref';
+import { adLink, listingAction } from './placement';
 
 interface Props {
   cityId: string;
@@ -26,7 +26,7 @@ function BusinessCard({ campaign, cityId }: { campaign: CampaignRecord; cityId: 
     }
   }, [campaign._id, cityId, recordImpression]);
 
-  const href = safeHttpsHref(campaign.url);
+  const link = adLink(campaign);
   const messageOnly = titleRepeatsMessage(campaign);
 
   return (
@@ -43,9 +43,9 @@ function BusinessCard({ campaign, cityId }: { campaign: CampaignRecord; cityId: 
           {!messageOnly && <p className="break-words text-small text-text-muted">{campaign.body}</p>}
         </div>
       </div>
-      {href && (
-        <Button href={href} target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" className="mt-auto self-start" onClick={() => recordClick(campaign._id, 'town_highlights', cityId)}>
-          Visit <span className="sr-only">{campaign.title}</span> <span aria-hidden="true">↗</span>
+      {link && (
+        <Button {...link} variant="secondary" size="sm" className="mt-auto self-start" onClick={() => recordClick(campaign._id, 'town_highlights', cityId)}>
+          {campaign.listingId ? listingAction(campaign.listingId) : 'Visit'} <span className="sr-only">{campaign.title}</span> {!campaign.listingId && <span aria-hidden="true">↗</span>}
         </Button>
       )}
     </Card>

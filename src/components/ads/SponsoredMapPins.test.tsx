@@ -22,4 +22,21 @@ describe('MapAd', () => {
     expect(out).toContain('>Sample<');
     expect(out).toContain('>Sponsored<');
   });
+
+  it('opens a home ad inside the app and shows its price and address', () => {
+    const out = html(<MapAd pin={{ ...pin, title: 'Asking $500,000 at 1 Main St', listingId: 'market:for_sale:a b', cityId: 'provo', isSample: true }} />);
+    expect(out).toMatch(/^<a [^>]*href="#\/results\?town=provo&amp;listing=market%3Afor_sale%3Aa\+b"/);
+    expect(out).not.toContain('target=');
+    expect(out).not.toContain('new tab');
+    expect(out).toContain('Asking $500,000 at 1 Main St');
+    expect(out).toContain('View home');
+    expect(out).toContain('>Sponsored<');
+    expect(out).toContain('>Sample<');
+  });
+
+  it('opens a rental in the apartments view and says so', () => {
+    const out = html(<MapAd pin={{ ...pin, title: 'Rent $1,800/mo at 1 Main St', listingId: 'market:for_rent:a', cityId: 'provo' }} />);
+    expect(out).toMatch(/^<a [^>]*href="#\/results\?view=apartments&amp;listing=market%3Afor_rent%3Aa"/);
+    expect(out).toContain('View rental');
+  });
 });
