@@ -321,6 +321,12 @@ export const publishCampaign = internalMutation({
     // The insert just set startsAt to now and endsAt to now plus the duration, as fulfillStripePayment would.
     const { campaignId } = await insertPendingCampaign(ctx, userId, args);
     await ctx.db.patch(campaignId, { status: "active" });
+    // No-ops when moderation is disabled (#99); a free ad can be briefly
+    // active until this runs, then pulled back to pending_review if judged
+    // hold/reject. Scheduled, not awaited, so this mutation's shape and
+    // latency are unchanged either way. Paid (Stripe) campaigns aren't
+    // moderated here — out of scope for this pass, see board msg 692.
+    await ctx.scheduler.runAfter(0, internal.moderation.moderateCampaign, { campaignId });
     return campaignId;
   },
 });

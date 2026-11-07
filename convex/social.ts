@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { checkOwner, checkParent, cleanComment, nextReportState, type CommentTarget } from "./lib/social";
@@ -158,10 +159,15 @@ export const addComment = mutation({
     if (!(await targetExists(ctx, args.targetType, args.targetId))) throw new Error("This discussion is unavailable");
     if (args.parentId) checkParent(await ctx.db.get(args.parentId), args.targetType, args.targetId);
     const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", userId)).first();
-    return ctx.db.insert("comments", {
+    const commentId = await ctx.db.insert("comments", {
       targetType: args.targetType, targetId: args.targetId, userId, body,
       parentId: args.parentId ?? null, reports: 0, hidden: false, isSample: profile?.isSample ?? false,
     });
+    // No-ops when moderation is disabled (#99); a comment can be briefly
+    // visible until this runs. Scheduled, not awaited, so this mutation's
+    // shape and latency are unchanged either way.
+    await ctx.scheduler.runAfter(0, internal.moderation.moderateComment, { commentId });
+    return commentId;
   },
 });
 
