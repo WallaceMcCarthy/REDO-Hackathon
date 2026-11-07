@@ -14,4 +14,11 @@ export const zillowPreviewTables = {
     fetchedAt: v.number(),
     status: previewStatus,
   }).index("by_listingId", ["listingId"]).index("by_fetchedAt", ["fetchedAt"]),
+
+  // A short-lived quota record for cache-miss preview fetches. Authenticated callers
+  // are keyed by their user id; anonymous callers provide a persisted random session key.
+  zillowPreviewRequests: defineTable({
+    viewerKey: v.string(),
+    requestedAt: v.number(),
+  }).index("by_viewerKey_requestedAt", ["viewerKey", "requestedAt"]),
 };

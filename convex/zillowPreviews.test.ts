@@ -10,6 +10,7 @@ const mods = {
 };
 const fetchRef = makeFunctionReference<"action">("zillowPreviews:fetch");
 const getRef = makeFunctionReference<"query">("zillowPreviews:get");
+const viewerKey = "test-viewer";
 
 async function setup() {
   const t = convexTest(schema, mods);
@@ -30,33 +31,33 @@ it("calls Microlink once, stores the result, then serves it from cache", async (
   const t = await setup();
   fetchMock.mockImplementation(() => respond(okBody));
   expect(await t.query(getRef, { listingId: "h1" })).toBeNull();
-  const r = await t.action(fetchRef, { listingId: "h1" });
+  const r = await t.action(fetchRef, { listingId: "h1", viewerKey });
   expect(r).toMatchObject({ status: "ok", imageUrl: "https://photos.zillowstatic.com/a.jpg", pageUrl: "https://www.zillow.com/homedetails/1_zpid/" });
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls[0][0]).toBe(`https://api.microlink.io/?url=${encodeURIComponent("https://www.zillow.com/homes/123-Main-St%2C-Provo%2C-UT_rb/")}`);
   expect(await t.query(getRef, { listingId: "h1" })).toMatchObject({ status: "ok" });
-  await t.action(fetchRef, { listingId: "h1" });
+  await t.action(fetchRef, { listingId: "h1", viewerKey });
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
 it("stores errors (no immediate retry) for non-success responses and network failures", async () => {
   const t = await setup();
   fetchMock.mockImplementation(() => respond({ status: "fail" }, false));
-  expect((await t.action(fetchRef, { listingId: "h1" }))?.status).toBe("error");
-  expect((await t.action(fetchRef, { listingId: "h1" }))?.status).toBe("error");
+  expect((await t.action(fetchRef, { listingId: "h1", viewerKey }))?.status).toBe("error");
+  expect((await t.action(fetchRef, { listingId: "h1", viewerKey }))?.status).toBe("error");
   expect(fetchMock).toHaveBeenCalledTimes(1);
   const t2 = await setup();
   fetchMock.mockImplementation(() => Promise.reject(new Error("timeout")));
-  expect((await t2.action(fetchRef, { listingId: "h1" }))?.status).toBe("error");
+  expect((await t2.action(fetchRef, { listingId: "h1", viewerKey }))?.status).toBe("error");
 });
 
 it("returns null for unknown listings and uses the pro endpoint with a key", async () => {
   const t = await setup();
-  expect(await t.action(fetchRef, { listingId: "nope" })).toBeNull();
+  expect(await t.action(fetchRef, { listingId: "nope", viewerKey })).toBeNull();
   expect(fetchMock).not.toHaveBeenCalled();
   vi.stubEnv("MICROLINK_API_KEY", "secret");
   fetchMock.mockImplementation(() => respond(okBody));
-  await t.action(fetchRef, { listingId: "h1" });
+  await t.action(fetchRef, { listingId: "h1", viewerKey });
   expect(fetchMock.mock.calls[0][0]).toContain("https://pro.microlink.io/");
   expect(fetchMock.mock.calls[0][1].headers).toEqual({ "x-api-key": "secret" });
 });
@@ -66,8 +67,23 @@ it("refuses to call out once 45 calls happened in 24h", async () => {
   await t.run(async ctx => {
     for (let i = 0; i < 45; i++) await ctx.db.insert("zillowPreviews", { listingId: `x${i}`, requestUrl: "u", pageUrl: null, imageUrl: null, title: null, fetchedAt: Date.now() - 1000, status: "no_image" });
   });
-  const r = await t.action(fetchRef, { listingId: "h1" });
+  const r = await t.action(fetchRef, { listingId: "h1", viewerKey });
   expect(r?.status).toBe("error");
   expect(fetchMock).not.toHaveBeenCalled();
   expect(await t.query(getRef, { listingId: "h1" })).toBeNull();
+});
+
+it("limits one anonymous viewer to ten uncached preview fetches per hour", async () => {
+  const t = await setup();
+  fetchMock.mockImplementation(() => respond(okBody));
+  await t.run(async ctx => {
+    for (let i = 2; i <= 11; i++) {
+      await ctx.db.insert("listings", { id: `h${i}`, cityId: "provo", kind: "home", name: null, address: `${i} Main St`, lat: 40, lng: -111, value: 1, rent: null, beds: null, sqft: null, yearBuilt: null, units: null, propertyType: null, source: "s", sourceUrl: "u", year: 2025 });
+    }
+  });
+  for (let i = 1; i <= 10; i++) await t.action(fetchRef, { listingId: `h${i}`, viewerKey });
+  const blocked = await t.action(fetchRef, { listingId: "h11", viewerKey });
+  expect(fetchMock).toHaveBeenCalledTimes(10);
+  expect(blocked?.status).toBe("error");
+  expect(await t.query(getRef, { listingId: "h11" })).toBeNull();
 });

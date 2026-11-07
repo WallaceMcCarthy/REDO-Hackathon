@@ -11,6 +11,15 @@ export interface ZillowPreview {
 
 /** Listing ids we already asked the server to fetch this session (one call per listing). */
 const requested = new Set<string>();
+const VIEWER_KEY_STORAGE = 'redo.zillow-preview-viewer';
+
+function viewerKey() {
+  const existing = localStorage.getItem(VIEWER_KEY_STORAGE);
+  if (existing) return existing;
+  const key = crypto.randomUUID();
+  localStorage.setItem(VIEWER_KEY_STORAGE, key);
+  return key;
+}
 
 /**
  * Reads the cached Zillow preview. When there is none and the element attached to `ref`
@@ -36,7 +45,7 @@ export function useZillowPreview<T extends Element = HTMLElement>(listingId: str
   useEffect(() => {
     if (!enabled || !visible || preview !== null || requested.has(listingId)) return;
     requested.add(listingId);
-    fetchPreview({ listingId }).catch(() => { /* the query stays null; the card keeps its aerial photo */ });
+    fetchPreview({ listingId, viewerKey: viewerKey() }).catch(() => { /* the query stays null; the card keeps its aerial photo */ });
   }, [enabled, visible, preview, listingId, fetchPreview]);
 
   return { preview: preview ?? null, ref };
