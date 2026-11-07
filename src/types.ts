@@ -28,4 +28,6 @@ export type { Weights, Filters, TownScore } from '../convex/lib/scoring';
 import type { Filters } from '../convex/lib/scoring';
 
 export type CategoryWeights = Record<Category, number>;
-export type Prefs = { categories: CategoryWeights; filters: Filters };
+/** What the person can spend on a home. Set only by the quiz. Never mirrored into filters, which are town-level caps. */
+export type Budget = { maxValue?: number; maxRent?: number };
+export type Prefs = { categories: CategoryWeights; filters: Filters; budget: Budget };

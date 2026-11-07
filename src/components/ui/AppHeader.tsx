@@ -1,8 +1,10 @@
 import AccountMenu from '../auth/AccountMenu';
 
 const NAV = [
-  { label: 'Homes', route: 'results' },
+  { label: 'Homes', route: '' },
+  { label: 'Areas', route: 'results' },
   { label: 'Roommates', route: 'roommates' },
+  { label: 'Saved', route: 'saved' },
 ];
 
 function Logo() {

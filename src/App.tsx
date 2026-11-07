@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { defaultPrefs } from './prefs';
-import AccountMenu, { openSignIn } from './components/auth/AccountMenu';
+import { openSignIn } from './components/auth/AccountMenu';
 import Quiz from './screens/Quiz';
 import Results from './screens/Results';
 import Roommates from './screens/Roommates';
+import SavedPlaces from './screens/SavedPlaces';
+import { AppHeader } from './components/ui';
 import TownDetail from './screens/TownDetail';
 import AdsSandboxCheckout from './screens/AdsSandboxCheckout';
 import UiKit from './screens/UiKit';
@@ -27,7 +29,7 @@ export default function App() {
 
   return (
     <>
-      {route !== 'ui' && <AccountMenu />}
+      {route !== 'ui' && <AppHeader route={route} />}
       {route === 'ui' ? (
         <UiKit />
       ) : town ? (
@@ -36,6 +38,8 @@ export default function App() {
         <AdsSandboxCheckout onDone={() => go('results')} />
       ) : route === 'roommates' ? (
         <Roommates onSignIn={openSignIn} />
+      ) : route === 'saved' ? (
+        <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
       ) : route === 'results' ? (
         <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} />
       ) : (
