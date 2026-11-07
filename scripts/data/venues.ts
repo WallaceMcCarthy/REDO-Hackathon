@@ -1,18 +1,20 @@
-import { loadTowns } from "./townpop.ts";
-import { overpass, writeMetric } from "./osmlib.ts";
-const main = async () => {
-  const towns = await loadTowns();
+/** Run after restaurants.ts to reuse its cached regional response. */
+import { countNearby, loadCulture, SOURCE_URL, writeCultureMetric } from "./culture.ts";
+
+async function main() {
+  const { towns, osm } = await loadCulture();
   const values: Record<string, number> = {};
-  for (const t of towns) {
-    const q = `[out:json][timeout:60];(nwr["amenity"~"^(theatre|arts_centre|music_venue)$"](around:15000,${t.lat},${t.lng});nwr["tourism"~"^(gallery|museum)$"](around:15000,${t.lat},${t.lng}););out count;`;
-    const j = await overpass(q, `data/raw/venues_${t.id}.json`);
-    values[t.id] = Number(j.elements[0].tags.total);
-    console.log(t.id, values[t.id]);
+  const amenities = new Set(["theatre", "arts_centre", "music_venue"]);
+  for (const town of towns) {
+    values[town.id] = countNearby(town, osm.elements, 15, (tags) => amenities.has(tags.amenity) || tags.tourism === "gallery" || tags.tourism === "museum");
+    console.log(`${town.id}: ${values[town.id]} mapped venues within 15 km`);
   }
-  writeMetric("data/metrics/venues.json", {
-    id: "venues", label: "Arts & culture venues nearby", category: "culture", unit: "venues within 15 km", higherIsBetter: true,
-    description: "Count of theatres, music venues, arts centres, galleries and museums mapped in OpenStreetMap within 15 km of the town center (reflects OSM mapping completeness).",
-    source: "OpenStreetMap via Overpass API", sourceUrl: "https://overpass-api.de/api/interpreter", year: new Date().getFullYear(), values,
+  await writeCultureMetric("venues", {
+    id: "venues", label: "Arts & culture venues nearby", category: "culture", unit: "mapped venues within 15 km", higherIsBetter: true,
+    description: `OSM theatres, music venues, arts centres, galleries and museums within a 15 km straight-line radius of the canonical town center. Neighboring towns can share venues. Mapping completeness varies; ways/relations use bounding-box centers. OSM snapshot ${osm.osm3s.timestamp_osm_base}.`,
+    source: "OpenStreetMap contributors via Overpass", sourceUrl: SOURCE_URL,
+    year: Number(osm.osm3s.timestamp_osm_base.slice(0, 4)), values,
   });
-};
-main();
+}
+
+main().catch((error: unknown) => { console.error(error); process.exitCode = 1; });

@@ -37,11 +37,11 @@ export type TownScore = {
 
 export const PERSONA_WEIGHTS = {
   skier: { ski_access: 5, trails: 4, air_quality: 3, home_value: 2, national_parks: 2 },
-  family: { crime_rate: 5, home_value: 4, air_quality: 4, water_quality: 3, median_income: 3, universities: 2, noise: 2 },
+  family: { crime_rate: 5, home_value: 4, air_quality: 4, water_quality: 3, median_income: 3, university_access: 2, noise: 2 },
   remote_worker: { median_rent: 5, home_value: 4, air_quality: 4, trails: 3, restaurants_per_1k: 3, noise: 2 },
   foodie: { restaurants_per_1k: 5, venues: 4, transit: 3, median_rent: 2 },
   retiree: { crime_rate: 5, air_quality: 5, water_quality: 4, home_value: 3, noise: 3, national_parks: 2 },
-  student: { median_rent: 5, universities: 5, transit: 4, venues: 3, restaurants_per_1k: 2, sports: 2 },
+  student: { median_rent: 5, university_access: 5, transit: 4, venues: 3, restaurants_per_1k: 2, sports: 2 },
 } satisfies Record<string, Weights>;
 
 export type PersonaId = keyof typeof PERSONA_WEIGHTS;

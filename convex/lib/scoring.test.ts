@@ -89,4 +89,12 @@ describe("rankTowns", () => {
       expect(Object.values(persona.weights).every((weight) => weight >= 0 && weight <= 5)).toBe(true);
     }
   });
+
+  it("uses the landed university_access dataset for the student persona", () => {
+    const university = metric("university_access", { alpine: 1, desert: 100, valley: 50 }, false);
+    const ranked = rankTowns(cities, [university], PERSONA_WEIGHTS.student);
+    expect(ranked[0].cityId).toBe("alpine");
+    expect(ranked[0].score).toBe(100);
+    expect(ranked[0].breakdown[0].metricId).toBe("university_access");
+  });
 });
