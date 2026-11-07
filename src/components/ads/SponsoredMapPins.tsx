@@ -6,42 +6,44 @@ import type { CampaignRecord } from '../../data/adsHooks';
 import type { City } from '../../types';
 import { useActivePins, useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { FOCUS } from '../homes/ui';
-import { Badge } from '../ui';
-import AdImage from './AdImage';
 import { adLink, declutter, listingAction } from './placement';
 
-// One ad's footprint, so two never overlap and phone targets stay apart.
-const PIN_WIDTH = 216;
-// Matches w-52 on the link.
-const AD_WIDTH = 208;
-const PIN_HEIGHT = 76;
-// Half the circle, so the circle rather than the message sits over the point.
-const CIRCLE_CENTER = 26;
+// A collapsed marker is a 32px circle; two never overlap and phone targets stay apart.
+const PIN_SIZE = 32;
+const PIN_WIDTH = 40;
+const PIN_HEIGHT = 40;
+// Room the open card needs above the point, so it is not clipped by the top of the map.
+const CARD_ROOM = 150;
+// Matches w-60 on the card.
+const CARD_WIDTH = 240;
+// Half the circle, so the circle sits over the point.
+const CIRCLE_CENTER = PIN_SIZE / 2;
 // Where the map starts naming towns, so it reads as looking at one.
 // Ads and town lookups wait for this zoom, so the statewide map stays about homes.
 const TOWN_ZOOM = 9;
 
-// The tag only has to label the ad. The whole pill is the tap target, so a small tag costs no reach.
-const TAG = '!px-1 !py-0 !text-[10px] !leading-[14px]';
-
 type Located = CampaignRecord & { lat: number; lng: number };
 const isShowable = (c: CampaignRecord): c is Located => c.lat !== undefined && c.lng !== undefined && !!adLink(c);
 
-/** The whole ad is one link: image in a circle, the Sponsored label, and the message beside them. `flip` puts the message on the left. */
-export function MapAd({ pin, flip, onClick }: { pin: CampaignRecord; flip?: boolean; onClick?: () => void }) {
+/** A small accent marker; hover, focus or tap opens a card above it. The whole ad is one link. `flip` aligns the card to the marker's right edge; `below` puts it under the marker when there is no room above. */
+export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip?: boolean; below?: boolean; onClick?: () => void }) {
   return (
     <a
-      {...adLink(pin)} draggable={false} title={pin.body} onClick={onClick}
-      className={`flex w-52 items-center gap-2 rounded-pill bg-surface-raised p-1.5 text-left shadow-raised ${flip ? '-translate-x-[156px] flex-row-reverse pl-3' : 'pr-3'} ${FOCUS}`}
+      {...adLink(pin)} draggable={false} onClick={onClick}
+      aria-label={`Sponsored: ${pin.title}`}
+      className={`group relative block size-8 rounded-pill ${FOCUS}`}
     >
-      <AdImage campaign={pin} box="size-10 shrink-0 rounded-pill" />
-      <span className="min-w-0">
-        <span className="flex gap-1">
-          <Badge tone="sponsored" className={TAG}>{pin.kind === 'job' ? 'Sponsored job' : 'Sponsored'}</Badge>
-          {pin.isSample && <Badge tone="sample" className={TAG} />}
+      <span aria-hidden className="flex size-8 items-center justify-center rounded-pill border-2 border-white bg-rock-800 text-[13px] font-bold leading-none text-white shadow-raised">★</span>
+      <span className={`pointer-events-none invisible absolute z-10 w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
+        <span className="flex flex-col gap-1 rounded-card bg-surface-raised p-3 text-left shadow-raised">
+          <span className="flex items-center gap-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-text-muted">
+            <span>{pin.kind === 'job' ? 'Sponsored job' : 'Sponsored'}</span>
+            {pin.isSample && <span>· Sample</span>}
+          </span>
+          <span className="break-words text-small font-semibold leading-snug text-text">{pin.title}</span>
+          {pin.body && pin.body !== pin.title && <span className="line-clamp-2 break-words text-caption leading-snug text-text-muted">{pin.body}</span>}
+          {(pin.listingId || pin.url) && <span className="text-caption font-semibold text-text underline">{pin.listingId ? listingAction(pin.listingId) : 'Learn more'}</span>}
         </span>
-        <span className="line-clamp-2 break-words text-caption leading-tight text-text">{pin.listingId ? pin.title : pin.body}</span>
-        {pin.listingId && <span className="block text-caption font-semibold leading-tight text-text underline">{listingAction(pin.listingId)}</span>}
       </span>
       {!pin.listingId && <span className="sr-only">(opens in a new tab)</span>}
     </a>
@@ -63,7 +65,7 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
   const pins = fetched ?? lastPins.current;
   const recordImpression = useRecordImpression();
   const recordClick = useRecordClick();
-  const [shown, setShown] = useState<{ pin: Located; flip: boolean }[]>([]);
+  const [shown, setShown] = useState<{ pin: Located; flip: boolean; below: boolean }[]>([]);
   const markers = useRef(new Map<string, maplibregl.Marker>());
   const seen = useRef(new Set<string>());
 
@@ -83,8 +85,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     const sync = () => {
       const bounds = map.getBounds();
       const inView = declutter(map.getZoom() >= TOWN_ZOOM ? located : [], p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
-        // Near the top edge an ad would lose its Sponsored label, so it waits until the map moves.
-        .filter(p => bounds.contains([p.lng, p.lat]) && map.project([p.lng, p.lat]).y >= PIN_HEIGHT);
+        // The marker always shows inside the viewport; only its card flips when there is no room above.
+        .filter(p => bounds.contains([p.lng, p.lat]));
       const ids = new Set(inView.map(p => p._id));
       for (const [id, marker] of markers.current) {
         if (ids.has(id)) continue;
@@ -103,11 +105,15 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
         }
       }
       const mapWidth = map.getContainer().clientWidth;
-      const next = inView.map(pin => ({ pin, flip: map.project([pin.lng, pin.lat]).x + AD_WIDTH - CIRCLE_CENTER > mapWidth }));
+      const next = inView.map(pin => {
+        const { x, y } = map.project([pin.lng, pin.lat]);
+        const flip = x + CARD_WIDTH - CIRCLE_CENTER > mapWidth && x + CIRCLE_CENTER - CARD_WIDTH >= 0;
+        return { pin, flip, below: y < CARD_ROOM };
+      });
       // Convex can return a fresh campaign array after an impression update. Do not publish an
       // equivalent marker layout: that render would retrigger this effect and form an update loop.
       setShown(previous => previous.length === next.length && previous.every((item, index) =>
-        item.pin._id === next[index].pin._id && item.flip === next[index].flip
+        item.pin._id === next[index].pin._id && item.flip === next[index].flip && item.below === next[index].below
       ) ? previous : next);
     };
     sync();
@@ -120,8 +126,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     markers.current.clear();
   }, [map]);
 
-  return shown.map(({ pin, flip }) => {
+  return shown.map(({ pin, flip, below }) => {
     const element = markers.current.get(pin._id)?.getElement();
-    return element ? createPortal(<MapAd pin={pin} flip={flip} onClick={() => void recordClick(pin._id)} />, element, pin._id) : null;
+    return element ? createPortal(<MapAd pin={pin} flip={flip} below={below} onClick={() => void recordClick(pin._id)} />, element, pin._id) : null;
   });
 }

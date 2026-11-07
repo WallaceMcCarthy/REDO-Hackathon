@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { AD_CATEGORIES } from '../../../convex/lib/adCategories';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
-import { Badge, Button, Card } from '../ui';
+import { Button, Card } from '../ui';
 import AdImage from './AdImage';
 import { adLink, listingAction } from './placement';
 
@@ -33,10 +33,10 @@ export default function FeaturedListingSlot({
   return (
     <Card as="article" raised className={`flex flex-col justify-between ${className}`}>
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="sponsored" />
-          {campaign.isSample && <Badge tone="sample" />}
-          <span className="text-caption text-text-muted">{AD_CATEGORIES[campaign.category ?? 'other'].label}</span>
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption font-medium uppercase tracking-wide text-text-muted">
+          <span>Sponsored</span>
+          {campaign.isSample && <span>· Sample</span>}
+          <span className="normal-case tracking-normal">· {AD_CATEGORIES[campaign.category ?? 'other'].label}</span>
         </div>
         <div className="mt-2 flex min-w-0 gap-3">
           <AdImage campaign={campaign} />

@@ -13,13 +13,12 @@ describe('MapAd', () => {
     expect(out).toContain('rel="noopener noreferrer"');
     expect(out).toContain('>Sponsored<');
     expect(out).toContain('Fresh bagels daily');
-    expect(out).toContain('<img src="https://example.com/i.png"');
     expect(out.match(/<a /g)).toHaveLength(1);
   });
 
   it('says Sample on sample ads and keeps Sponsored', () => {
     const out = html(<MapAd pin={{ ...pin, isSample: true }} />);
-    expect(out).toContain('>Sample<');
+    expect(out).toContain('Sample');
     expect(out).toContain('>Sponsored<');
   });
 
@@ -31,7 +30,7 @@ describe('MapAd', () => {
     expect(out).toContain('Asking $500,000 at 1 Main St');
     expect(out).toContain('View home');
     expect(out).toContain('>Sponsored<');
-    expect(out).toContain('>Sample<');
+    expect(out).toContain('Sample');
   });
 
   it('opens a rental in the apartments view and says so', () => {
