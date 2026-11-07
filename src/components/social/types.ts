@@ -15,6 +15,7 @@ export interface CommentItem {
   hidden?: boolean;
   isSample?: boolean;
   canDelete?: boolean;
+  hasReported?: boolean;
   replies?: CommentItem[];
 }
 
