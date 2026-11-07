@@ -74,7 +74,7 @@ it("fetches a preview for a live market listing", async () => {
   fetchMock.mockImplementation(() => respond(okBody));
   const result = await t.action(fetchRef, { listingId: "market:for_sale:120-N-Main" });
   expect(result?.status).toBe("ok");
-  expect(decodeURIComponent(fetchMock.mock.calls[0][0])).toContain("120-N-Main,-Provo,-UT-84601_rb");
+  expect(decodeURIComponent(decodeURIComponent(fetchMock.mock.calls[0][0]))).toContain("120-N-Main,-Provo,-UT-84601_rb");
 });
 
 it("refuses to call out once 45 calls happened in 24h", async () => {
