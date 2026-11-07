@@ -49,7 +49,7 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
   return (
     <main className="min-h-full pb-20">
       <header className="border-b border-rock-100 bg-rock-50">
-        <div className="mx-auto max-w-4xl px-4 pt-6 pb-8 sm:pt-8 sm:pb-10">
+        <div className="mx-auto max-w-4xl px-4 pt-16 pb-8 sm:pt-8 sm:pb-10">
           <BackButton onBack={onBack} />
           <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-xl">

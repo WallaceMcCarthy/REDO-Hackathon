@@ -16,7 +16,7 @@ export default function Roommates({ onSignIn }: { onSignIn?: () => void }) {
   if (isLoading) return <p className="p-4 text-dusk">Loading...</p>;
   if (!isAuthenticated) {
     return (
-      <main className="mx-auto max-w-2xl space-y-3 p-4">
+      <main className="mx-auto max-w-2xl space-y-3 p-4 pt-16 sm:pt-4">
         <h1 className="font-display text-3xl font-bold text-ink">Roommate finder</h1>
         <p className="text-dusk">Sign in to create an optional roommate profile and see people with a similar budget, towns and move-in date.</p>
         <button type="button" onClick={onSignIn} className="min-h-[44px] rounded-lg bg-alpine-500 px-4 text-sm font-semibold text-white hover:bg-alpine-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-alpine-700 focus-visible:ring-offset-2">
@@ -47,7 +47,7 @@ function SignedIn() {
 
   if (mine === undefined || !cities) return <p className="p-4 text-dusk">Loading...</p>;
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
+    <main className="mx-auto max-w-2xl space-y-6 p-4 pt-16 sm:pt-4">
       <h1 className="font-display text-3xl font-bold text-ink">Roommate finder</h1>
       <ProfileForm
         key={mine?.profileId ?? 'new'}

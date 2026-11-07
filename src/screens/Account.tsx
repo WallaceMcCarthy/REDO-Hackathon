@@ -50,7 +50,7 @@ export default function Account({ cities, onBack }: AccountProps) {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
+    <main className="mx-auto max-w-2xl px-4 pb-8 pt-16 sm:py-12">
       <button
         type="button"
         onClick={onBack}

@@ -20,7 +20,7 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
   });
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
+    <main className="mx-auto max-w-5xl px-4 pb-8 pt-16 sm:py-12">
       {/* Header */}
       <div className="flex flex-col gap-4 border-b border-rock-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
