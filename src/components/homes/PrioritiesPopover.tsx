@@ -33,7 +33,7 @@ export default function PrioritiesPopover({ prefs, setPrefs, metrics }: { prefs:
         >
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">What matters to you</h2>
-            <button type="button" onClick={() => setOpen(false)} className={`rounded text-sm font-semibold text-alpine-700 ${FOCUS}`}>Done</button>
+            <button type="button" onClick={() => setOpen(false)} className={`-my-2 -mr-2 min-h-11 min-w-11 rounded px-2 text-sm font-semibold text-alpine-700 ${FOCUS}`}>Done</button>
           </div>
           <CategorySliders value={prefs.categories} onChange={categories => setPrefs({ ...prefs, categories })} />
           {cMax > cMin && (

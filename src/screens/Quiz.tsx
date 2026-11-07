@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import CategorySliders from '../components/CategorySliders';
 import { UtahScene } from '../components/landing/UtahScene';
 import { Button, Card, Field, Input, Segmented } from '../components/ui';
-import { applyPersonas, PERSONAS } from '../prefs';
+import { applyPersonas, parseBudget, PERSONAS } from '../prefs';
 import type { Prefs } from '../types';
 
 const ICONS: Record<string, ReactNode> = {
@@ -18,20 +18,20 @@ const MODES = [
   { value: 'rent', label: 'Rent' },
 ] as const;
 
-export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPrefs: (p: Prefs) => void; onDone: () => void }) {
-  const [picked, setPicked] = useState<string[]>([]);
+export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPrefs: (p: Prefs) => void; onDone: (mode: Mode) => void }) {
+  const picked = prefs.personas ?? [];
+  const [draft, setDraft] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(prefs.budget.maxRent !== undefined ? 'rent' : 'buy');
   const amount = (mode === 'buy' ? prefs.budget.maxValue : prefs.budget.maxRent) ?? '';
 
   const toggle = (id: string) => {
     const next = picked.includes(id) ? picked.filter(p => p !== id) : [...picked, id];
-    setPicked(next);
-    setPrefs({ ...prefs, categories: applyPersonas(next) });
+    setPrefs({ ...prefs, personas: next, categories: applyPersonas(next) });
   };
 
   // The two caps never coexist: switching mode drops the other one, since the scales differ.
   const setBudget = (m: Mode, raw: string) => {
-    const n = Number(raw.replace(/\D/g, '')) || undefined;
+    const n = parseBudget(raw);
     setPrefs({ ...prefs, budget: n === undefined ? {} : m === 'buy' ? { maxValue: n } : { maxRent: n } });
   };
 
@@ -46,23 +46,24 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
           </p>
 
           <Card raised aria-labelledby="budget" className="mt-8 lg:mt-36">
-            <form onSubmit={e => { e.preventDefault(); onDone(); }}>
+            <form onSubmit={e => { e.preventDefault(); onDone(mode); }}>
               <h2 id="budget" className="font-display text-title text-text">Your budget</h2>
               <div className="mt-3 grid gap-4 lg:grid-cols-[16rem_1fr_auto] lg:items-end">
                 <Segmented
                   label="Buying or renting"
                   options={MODES}
                   value={mode}
-                  onChange={m => { setMode(m); setBudget(m, ''); }}
+                  onChange={m => { setMode(m); setDraft(null); setBudget(m, ''); }}
                 />
                 <Field label={mode === 'buy' ? 'Max price' : 'Max rent per month'}>
                   <Input
                     inputMode="numeric"
                     autoComplete="off"
                     aria-describedby="budget-hint"
-                    placeholder={mode === 'buy' ? 'e.g. 500000' : 'e.g. 2000'}
-                    value={amount === '' ? '' : `$${amount.toLocaleString('en-US')}`}
-                    onChange={e => setBudget(mode, e.target.value)}
+                    placeholder={mode === 'buy' ? 'e.g. 500k' : 'e.g. 2000'}
+                    value={draft ?? (amount === '' ? '' : `$${amount.toLocaleString('en-US')}`)}
+                    onChange={e => { setDraft(e.target.value); setBudget(mode, e.target.value); }}
+                    onBlur={() => setDraft(null)}
                   />
                 </Field>
                 <Button type="submit" size="lg">Show my matches</Button>
@@ -125,7 +126,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
         </section>
 
         <div className="mt-stack flex justify-end">
-          <Button size="lg" onClick={onDone} className="w-full sm:w-auto">Show matches with these priorities</Button>
+          <Button size="lg" onClick={() => onDone(mode)} className="w-full sm:w-auto">Show matches with these priorities</Button>
         </div>
       </div>
     </main>

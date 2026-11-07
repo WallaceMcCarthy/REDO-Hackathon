@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { rankTowns } from '../convex/lib/scoring';
-import { defaultPrefs, parsePrefs, toMetricWeights } from './prefs';
+import { defaultPrefs, parseBudget, parsePrefs, toMetricWeights } from './prefs';
 import type { City, Metric } from './types';
 
 const dir = 'data/metrics';
@@ -45,8 +45,17 @@ describe('toMetricWeights', () => {
   });
 });
 
+describe('parseBudget', () => {
+  it.each([
+    ['500000', 500000], ['$500,000', 500000], ['500k', 500000], ['1.2M', 1200000], ['2.5K', 2500], ['$1,500', 1500],
+    ['', undefined], ['abc', undefined], ['0', undefined], ['.', undefined],
+  ])('reads %s', (raw, expected) => {
+    expect(parseBudget(raw)).toBe(expected);
+  });
+});
+
 describe('parsePrefs', () => {
-  const stored = { ...defaultPrefs(), budget: { maxRent: 1500 } };
+  const stored = { ...defaultPrefs(), budget: { maxRent: 1500 }, personas: ['skier'] };
 
   it('restores valid saved prefs', () => {
     expect(parsePrefs(JSON.stringify(stored))).toEqual(stored);
@@ -60,5 +69,9 @@ describe('parsePrefs', () => {
     ['a missing category', JSON.stringify({ ...stored, categories: { cost: 2 } })],
   ])('falls back to defaults for %s', (_, raw) => {
     expect(parsePrefs(raw)).toEqual(defaultPrefs());
+  });
+
+  it('drops persona ids that no longer exist', () => {
+    expect(parsePrefs(JSON.stringify({ ...stored, personas: ['skier', 'retired'] })).personas).toEqual(['skier']);
   });
 });

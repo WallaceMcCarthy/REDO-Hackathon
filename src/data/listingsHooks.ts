@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Listing, ListingKind, Recommendation } from '../../convex/lib/listings';
@@ -31,13 +31,18 @@ export function useListingSearch(params: Omit<ListingSearchOptions, 'offset' | '
     });
     return { items, last: ordered.at(-1)?.[1] };
   }, [loaded, key, result, offset]);
+  // Keep the last list on screen while a slider re-ranks, so the change reads as a re-rank, not a blank page.
+  const shownBefore = useRef<{ kind: unknown; items: typeof items; last: NonNullable<typeof last> } | null>(null);
+  useEffect(() => { if (last) shownBefore.current = { kind: params.kind, items, last }; }, [params.kind, items, last]);
+  const previous = !last && shownBefore.current?.kind === params.kind ? shownBefore.current : null;
+  const shown = previous ?? { items, last };
   return {
-    items,
-    total: last?.total ?? 0,
-    loading: !last,
+    items: shown.items,
+    total: shown.last?.total ?? 0,
+    loading: !shown.last,
     fetching: result === undefined,
-    hasMore: last?.hasMore ?? false,
-    townMedians: last?.townMedians ?? [],
+    hasMore: !previous && (last?.hasMore ?? false),
+    townMedians: shown.last?.townMedians ?? [],
     loadMore: () => {
       if (result && last?.nextCursor != null) setCursor({ key, offset: last.nextOffset ?? offset + result.page.length, value: last.nextCursor });
     },

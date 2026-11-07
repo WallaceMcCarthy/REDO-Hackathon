@@ -34,12 +34,20 @@ export function parsePrefs(raw: string | null): Prefs {
   try {
     const p: unknown = JSON.parse(raw ?? 'null');
     if (!isRecord(p) || !isRecord(p.categories) || !isRecord(p.filters) || !isRecord(p.budget)) return defaultPrefs();
-    const { categories, filters, budget } = p;
+    const { categories, filters, budget, personas } = p;
     const valid = CATEGORIES.every(c => typeof categories[c] === 'number' && categories[c] >= 0 && categories[c] <= 5);
-    return valid ? ({ categories, filters, budget } as Prefs) : defaultPrefs();
+    const picked = Array.isArray(personas) ? personas.filter(id => PERSONAS.some(x => x.id === id)) : [];
+    return valid ? ({ categories, filters, budget, personas: picked } as Prefs) : defaultPrefs();
   } catch {
     return defaultPrefs();
   }
+}
+
+/** Reads what people type into a budget box: 500000, $500,000, 500k or 1.2M. */
+export function parseBudget(raw: string): number | undefined {
+  const match = raw.replace(/[$,\s]/g, '').match(/^(\d*\.?\d*)([km]?)/i);
+  const n = Number(match?.[1]) * { '': 1, k: 1_000, m: 1_000_000 }[(match?.[2] ?? '').toLowerCase() as '' | 'k' | 'm'];
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : undefined;
 }
 
 export function loadPrefs(): Prefs {

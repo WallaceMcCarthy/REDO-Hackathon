@@ -97,10 +97,10 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
           <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </Button>
         <h2 id="auth-title" className="pr-10 font-display text-heading">
-          {signingIn ? 'Welcome back' : 'Create your account'}
+          {signingIn ? 'Sign in' : 'Create your account'}
         </h2>
         <p className="mt-2 text-body text-text-muted">
-          {signingIn ? 'Sign in to see your saved towns.' : 'Save towns and homes, and come back to them later.'}
+          {signingIn ? 'Save homes, comment and message. New here? Choose Create account.' : 'Save homes, comment and message, and come back to them later.'}
         </p>
 
         <div className="mt-6 flex gap-1 rounded-pill bg-surface-sunken p-1" role="group" aria-label="Sign in or create account">
