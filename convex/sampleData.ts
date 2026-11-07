@@ -1,10 +1,16 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { internalMutation } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { AdCategory } from "./lib/adCategories";
-import { buildSampleAds } from "./sampleAds";
+import type { Market } from "./lib/market";
+import { buildListingAd, buildSampleAds, withListingAds, type SampleAd } from "./sampleAds";
 
 const SAMPLE_DURATION_MS = 365 * 24 * 3600 * 1000;
+const LISTING_ADS = 40;
+// 3 in 10 ads are rentals, which lands on 28 homes and 12 rentals.
+const isRentalTurn = (index: number) => [3, 6, 9].includes(index % 10);
+// A row can lack an address or a location, so each town looks a little past its first candidate.
+const LISTING_ROWS_PER_TOWN = 5;
 
 type SampleCampaign = {
   kind: "pin" | "featured" | "job";
@@ -61,6 +67,31 @@ export const SAMPLE_CAMPAIGNS: SampleCampaign[] = [
   sample("job", "services", "sandy", "Hollowbrook Snow Removal Crew", "Seasonal drivers wanted for invented neighborhood routes."),
 ];
 
+/** One real listing per town, biggest towns first: the town's median price, so the ads read like the town and not its cheapest row. */
+async function listingAds(ctx: MutationCtx, cities: Doc<"cities">[], now: number) {
+  const statsFor = (market: Market) => ctx.db.query("marketListingStats").withIndex("by_market", (q) => q.eq("market", market)).take(100);
+  const stats = { for_sale: await statsFor("for_sale"), for_rent: await statsFor("for_rent") };
+  const ads: SampleAd[] = [];
+  for (const city of [...cities].sort((a, b) => b.population - a.population || a.id.localeCompare(b.id))) {
+    if (ads.length === LISTING_ADS) break;
+    const markets: Market[] = isRentalTurn(ads.length) ? ["for_rent", "for_sale"] : ["for_sale", "for_rent"];
+    for (const market of markets) {
+      const prices = stats[market].find((s) => s.cityId === city.id)?.prices ?? [];
+      const rows = await ctx.db
+        .query("marketListings")
+        .withIndex("by_city_market_residential_price", (q) =>
+          q.eq("cityId", city.id).eq("market", market).eq("residential", true).gte("price", prices[prices.length >> 1] ?? 1))
+        .take(LISTING_ROWS_PER_TOWN);
+      const ad = rows.map((row) => buildListingAd(row, city.name, ads.length % 2 ? "pin" : "featured", now)).find(Boolean);
+      if (ad) {
+        ads.push(ad);
+        break;
+      }
+    }
+  }
+  return ads;
+}
+
 export const seedSampleContent = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -75,8 +106,10 @@ export const seedSampleContent = internalMutation({
 
     // Sample ads carry no advertiserUserId, so they sit in nobody's dashboard.
     // Generated rows go in first: the statewide read takes the newest rows, and those should be the hand-written ones.
-    for (const ad of buildSampleAds(now)) await ctx.db.insert("campaigns", ad);
+    // Listing ads follow them, so the statewide read reaches them before invented businesses.
     const cities = await ctx.db.query("cities").collect();
+    const generated = withListingAds(buildSampleAds(now), await listingAds(ctx, cities, now));
+    for (const ad of generated) await ctx.db.insert("campaigns", ad);
     for (const camp of SAMPLE_CAMPAIGNS) {
       const city = cities.find((c) => c.id === camp.cityId);
       if (!city) throw new ConvexError(`Seed cities first: no town ${camp.cityId}`);
@@ -192,7 +225,7 @@ export const seedSampleContent = internalMutation({
 
     return {
       status: "success",
-      sampleCampaignsCount: SAMPLE_CAMPAIGNS.length + buildSampleAds(now).length,
+      sampleCampaignsCount: SAMPLE_CAMPAIGNS.length + generated.length,
       sampleCommentsCount: sampleComments.length,
     };
   },

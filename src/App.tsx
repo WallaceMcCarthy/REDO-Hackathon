@@ -102,7 +102,7 @@ export default function App() {
         ) : path === 'results' ? (
           <Results
             prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')}
-            view={view === 'apartments' || (!homesTown && view === 'areas') ? view : 'homes'} townFilter={homesTown}
+            view={view === 'apartments' || (!homesTown && view === 'areas') ? view : 'homes'} townFilter={homesTown} openListing={params.get('listing')}
           />
         ) : (
           <Quiz prefs={prefs} setPrefs={setPrefs} onDone={mode => go(mode === 'rent' ? 'results?view=apartments' : 'results')} />
