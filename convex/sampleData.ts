@@ -22,25 +22,9 @@ export const seedSampleContent = internalMutation({
       }
     } catch {}
 
-    // 2. Create a fictional demo user ID for sample authors
-    let demoUserId: any;
-    try {
-      const users = (await (ctx.db.query as any)("users").collect()) as any[];
-      demoUserId = users[0]?._id;
-      if (!demoUserId) {
-        demoUserId = await (ctx.db.insert as any)("users", {
-          name: "Sample Demo Persona",
-          email: "demo-persona@example.com",
-        });
-      }
-    } catch {
-      demoUserId = "sample_user_demo";
-    }
-
     // 3. Seed Sample Campaigns (Pins, Featured Slot, Job Opening)
     const sampleCampaigns = [
       {
-        advertiserUserId: demoUserId,
         kind: "job",
         title: "Apply to REDO!",
         body: "We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.",
@@ -56,7 +40,6 @@ export const seedSampleContent = internalMutation({
         isSample: true,
       },
       {
-        advertiserUserId: demoUserId,
         kind: "pin",
         title: "Freddy's Alpine Bakery",
         body: "Handcrafted artisan sourdough and single-origin espresso. Fuel up before heading up the canyon!",
@@ -72,7 +55,6 @@ export const seedSampleContent = internalMutation({
         isSample: true,
       },
       {
-        advertiserUserId: demoUserId,
         kind: "featured",
         title: "Wasatch Crest Mountain Residence",
         body: "Ski-in/ski-out luxury living with panoramic mountain views and modern timber craftsmanship.",
@@ -88,7 +70,6 @@ export const seedSampleContent = internalMutation({
         isSample: true,
       },
       {
-        advertiserUserId: demoUserId,
         kind: "pin",
         title: "Moab Slickrock Outfitters",
         body: "Full-suspension mountain bike rentals, desert gear, and guided trail expeditions.",
@@ -105,7 +86,7 @@ export const seedSampleContent = internalMutation({
       },
     ];
 
-    // Generated ads carry no advertiserUserId, so they never show up in a real account's dashboard.
+    // No sample ad carries advertiserUserId, so none shows up in a real account's dashboard.
     sampleCampaigns.push(...(buildSampleAds(now) as any[]));
 
     for (const camp of sampleCampaigns) {
