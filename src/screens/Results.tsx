@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import CategorySliders from '../components/CategorySliders';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
@@ -25,7 +25,6 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const metrics = useMetrics();
   const ranked = useRank(metrics ? toMetricWeights(prefs.categories, metrics) : {}, prefs.filters);
   const [hovered, setHovered] = useState<string | null>(null);
-  const flip = useFlip();
   const [controlsOpen] = useState(isWide);
 
   const rows = useMemo<Row[] | undefined>(() => {
@@ -38,6 +37,8 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
     }).map((r, i) => ({ ...r, rank: i + 1 }));
   }, [cities, metrics, ranked]);
 
+  const flip = useFlip(rows);
+
   // Each slider spans the real data, so its lowest stop still leaves at least one town.
   const caps = useMemo(() => CAPS.flatMap(cap => {
     const values = Object.values(metrics?.find(m => m.id === cap.metricId)?.values ?? {});
@@ -46,10 +47,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
     return [{ ...cap, min: stop(Math.min(...values)), max: stop(Math.max(...values)) }];
   }), [metrics]);
 
-  const hoverFromPin = (id: string | null) => {
+  const hoverFromPin = useCallback((id: string | null) => {
     setHovered(id);
     if (id && isWide()) document.getElementById(`town-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  };
+  }, []);
+  const openRef = useRef(onOpenTown);
+  openRef.current = onOpenTown;
+  const openFromPin = useCallback((id: string) => openRef.current(id), []);
 
   const filtered = CAPS.some(cap => prefs.filters[cap.key] !== undefined);
   const clearFilters = () => setPrefs({ ...prefs, filters: {} });
@@ -57,7 +61,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   return (
     <main className="xl:sticky xl:top-0 xl:grid xl:h-dvh xl:grid-cols-[18rem_minmax(0,28rem)_minmax(0,1fr)]">
       <section aria-label="Map of ranked towns" className="sticky top-0 isolate z-10 order-first h-56 border-b border-rock-100 sm:h-80 xl:static xl:order-last xl:h-full xl:border-b-0">
-        <ResultsMap rows={rows ?? []} hovered={hovered} onHover={hoverFromPin} onOpen={onOpenTown} />
+        <ResultsMap rows={rows ?? []} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} />
       </section>
 
       <aside className="border-b border-rock-100 p-5 xl:overflow-y-auto xl:border-b-0 xl:border-r">

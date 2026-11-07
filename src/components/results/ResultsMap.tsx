@@ -1,6 +1,6 @@
 import L from 'leaflet';
-import { useEffect, useRef } from 'react';
-import { MapContainer, Marker, TileLayer, Tooltip } from 'react-leaflet';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from 'react-leaflet';
 import type { Row } from './types';
 
 const UTAH_BOUNDS: L.LatLngBoundsExpression = [[37, -114], [42, -109]];
@@ -20,10 +20,10 @@ function pinIcon(rank: number) {
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
       html: numbered
-        ? `<div class="flex size-full items-center justify-center rounded-full border-2 border-sand font-bold shadow-md transition-transform duration-200 group-[.active]:scale-125 group-[.active]:border-ink ${
+        ? `<div class="flex size-full items-center justify-center rounded-full border-2 border-sand font-bold transition-transform duration-200 group-[.active]:scale-125 group-[.active]:border-ink ${
           top ? 'bg-rock-500 text-base text-white' : 'bg-alpine-700 text-xs text-white'
         }">${rank}</div>`
-        : '<div class="flex size-full items-center justify-center"><div class="size-3 rounded-full border border-sand bg-alpine-500 shadow transition-transform duration-200 group-[.active]:scale-150 group-[.active]:border-ink"></div></div>',
+        : '<div class="flex size-full items-center justify-center"><div class="size-3 rounded-full border border-sand bg-alpine-500 transition-transform duration-200 group-[.active]:scale-150 group-[.active]:border-ink"></div></div>',
     });
     icons.set(rank, icon);
   }
@@ -32,38 +32,73 @@ function pinIcon(rank: number) {
 
 type Props = { rows: Row[]; hovered: string | null; onHover: (id: string | null) => void; onOpen: (id: string) => void };
 
-export default function ResultsMap({ rows, hovered, onHover, onOpen }: Props) {
-  const markers = useRef(new Map<string, L.Marker>());
+/** Tracks whether a zoom is in flight so pins sliding under a still cursor do not fire hover. */
+function ZoomGate({ zooming }: { zooming: { current: boolean } }) {
+  useMapEvents({
+    zoomstart: () => { zooming.current = true; },
+    zoomend: () => { zooming.current = false; },
+  });
+  return null;
+}
+
+type PinProps = {
+  id: string; name: string; lat: number; lng: number; rank: number; active: boolean;
+  zooming: { current: boolean }; onHover: (id: string | null) => void; onOpen: (id: string) => void;
+};
+
+const Pin = memo(function Pin({ id, name, lat, lng, rank, active, zooming, onHover, onOpen }: PinProps) {
+  const marker = useRef<L.Marker | null>(null);
+  const title = `${rank}. ${name}`;
 
   useEffect(() => {
     // react-leaflet does not refresh a marker's title when it changes, so keep the accessible name in step with the rank.
-    rows.forEach(({ city, rank }) => {
-      const el = markers.current.get(city.id)?.getElement();
-      el?.classList.toggle('active', city.id === hovered);
-      el?.setAttribute('title', `${rank}. ${city.name}`);
-    });
-  });
+    marker.current?.getElement()?.setAttribute('title', title);
+  }, [title]);
+
+  useEffect(() => {
+    marker.current?.getElement()?.classList.toggle('active', active);
+  }, [active]);
+
+  const handlers = useMemo(() => ({
+    mouseover: () => { if (!zooming.current) onHover(id); },
+    mouseout: () => { if (!zooming.current) onHover(null); },
+    click: () => onOpen(id),
+  }), [id, zooming, onHover, onOpen]);
+
+  const position = useMemo<L.LatLngTuple>(() => [lat, lng], [lat, lng]);
 
   return (
-    <MapContainer bounds={UTAH_BOUNDS} boundsOptions={{ padding: [10, 10] }} minZoom={5} zoomSnap={0.25} className="size-full bg-alpine-50" scrollWheelZoom>
+    <Marker ref={marker} position={position} icon={pinIcon(rank)} title={title} zIndexOffset={active ? 1000 : 100 - rank} eventHandlers={handlers}>
+      <Tooltip direction="top" offset={TOOLTIP_OFFSET}>{name}</Tooltip>
+    </Marker>
+  );
+});
+
+const TOOLTIP_OFFSET: L.PointTuple = [0, -14];
+const BOUNDS_OPTIONS = { padding: [10, 10] } as L.FitBoundsOptions;
+
+export default memo(function ResultsMap({ rows, hovered, onHover, onOpen }: Props) {
+  const zooming = useRef(false);
+  const open = useCallback((id: string) => onOpen(id), [onOpen]);
+
+  return (
+    <MapContainer
+      bounds={UTAH_BOUNDS} boundsOptions={BOUNDS_OPTIONS} minZoom={5}
+      zoomSnap={0.5} zoomDelta={1} wheelPxPerZoomLevel={120}
+      className="size-full bg-alpine-50" scrollWheelZoom
+    >
+      <ZoomGate zooming={zooming} />
       <TileLayer
-        className="saturate-50"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution="&copy; OpenStreetMap contributors &copy; CARTO"
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        subdomains="abcd"
       />
       {rows.map(({ city, rank }) => (
-        <Marker
-          key={city.id}
-          ref={m => { if (m) markers.current.set(city.id, m); else markers.current.delete(city.id); }}
-          position={[city.lat, city.lng]}
-          icon={pinIcon(rank)}
-          title={`${rank}. ${city.name}`}
-          zIndexOffset={city.id === hovered ? 1000 : 100 - rank}
-          eventHandlers={{ mouseover: () => onHover(city.id), mouseout: () => onHover(null), click: () => onOpen(city.id) }}
-        >
-          <Tooltip direction="top" offset={[0, -14]}>{city.name}</Tooltip>
-        </Marker>
+        <Pin
+          key={city.id} id={city.id} name={city.name} lat={city.lat} lng={city.lng} rank={rank}
+          active={city.id === hovered} zooming={zooming} onHover={onHover} onOpen={open}
+        />
       ))}
     </MapContainer>
   );
-}
+});

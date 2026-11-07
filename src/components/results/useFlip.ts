@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 
 /** FLIP reorder animation for a list. Returns a ref-callback factory keyed by item id; the list container must be positioned. */
-export function useFlip() {
+export function useFlip(deps: unknown) {
   const els = useRef(new Map<string, HTMLElement>());
   const tops = useRef(new Map<string, number>());
 
@@ -19,7 +19,8 @@ export function useFlip() {
       }
     });
     tops.current = next;
-  });
+    // Only re-measure when the list changes, not on hover re-renders.
+  }, [deps]);
 
   return (id: string) => (el: HTMLElement | null) => {
     if (el) els.current.set(id, el);
