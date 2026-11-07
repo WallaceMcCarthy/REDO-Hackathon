@@ -3,7 +3,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { requireUserId } from "./lib/auth";
+import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { redoClient, selectPaymentClient } from "./lib/payments";
 import { priceCents, type CampaignKind } from "./lib/pricing";
 
@@ -364,40 +364,59 @@ export const fulfillStripePayment = internalMutation({
   },
 });
 
+const MAX_EVENTS_PER_CAMPAIGN_HOUR = 600;
+const VIEWER_KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
+async function recordAdEvent(
+  ctx: MutationCtx,
+  campaignId: Id<"campaigns">,
+  kind: "impression" | "click",
+  clientViewerKey: string,
+) {
+  if (!VIEWER_KEY_RE.test(clientViewerKey)) throw new Error("Invalid viewer key");
+  const userId = await getOptionalUserId(ctx);
+  const viewerKey = userId ? `user:${userId}` : `anon:${clientViewerKey}`;
+
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign) return;
+  const now = Date.now();
+  if (campaign.status !== "active" || campaign.endsAt <= now) return;
+  // Self-view metric inflation prevention
+  if (userId && campaign.advertiserUserId === userId) return;
+
+  const bucket = Math.floor(now / 3600000);
+  const existing = await ctx.db
+    .query("adEvents")
+    .withIndex("by_campaign_kind_viewer_bucket", (q) =>
+      q.eq("campaignId", campaignId).eq("kind", kind).eq("viewerKey", viewerKey).eq("bucket", bucket),
+    )
+    .first();
+  if (existing) return;
+
+  const inHour = await ctx.db
+    .query("adEvents")
+    .withIndex("by_campaign_kind_bucket", (q) =>
+      q.eq("campaignId", campaignId).eq("kind", kind).eq("bucket", bucket),
+    )
+    .take(MAX_EVENTS_PER_CAMPAIGN_HOUR);
+  if (inHour.length >= MAX_EVENTS_PER_CAMPAIGN_HOUR) return;
+
+  await ctx.db.insert("adEvents", { campaignId, kind, viewerKey, bucket });
+  if (kind === "impression") {
+    await ctx.db.patch(campaignId, { impressions: (campaign.impressions || 0) + 1 });
+  } else {
+    await ctx.db.patch(campaignId, { clicks: (campaign.clicks || 0) + 1 });
+  }
+}
+
 export const recordImpression = mutation({
-  args: {
-    campaignId: v.id("campaigns"),
-  },
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return;
-
-    // Self-view metric inflation prevention
-    if (campaign.advertiserUserId === userId) return;
-
-    await ctx.db.patch(args.campaignId, {
-      impressions: (campaign.impressions || 0) + 1,
-    });
-  },
+  args: { campaignId: v.id("campaigns"), viewerKey: v.string() },
+  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "impression", args.viewerKey),
 });
 
 export const recordClick = mutation({
-  args: {
-    campaignId: v.id("campaigns"),
-  },
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return;
-
-    // Self-click metric inflation prevention
-    if (campaign.advertiserUserId === userId) return;
-
-    await ctx.db.patch(args.campaignId, {
-      clicks: (campaign.clicks || 0) + 1,
-    });
-  },
+  args: { campaignId: v.id("campaigns"), viewerKey: v.string() },
+  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "click", args.viewerKey),
 });
 
 /**

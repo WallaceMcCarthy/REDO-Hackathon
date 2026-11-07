@@ -93,6 +93,25 @@ export function usePaymentProvider(): 'redo' | 'stripe' | undefined {
   return result?.provider;
 }
 
+let memoryViewerKey: string | null = null;
+const newKey = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '')
+    : Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+/** One anonymous viewer key per browser; falls back to an in-memory key if storage is unavailable. */
+export function getViewerKey(): string {
+  try {
+    const existing = localStorage.getItem('utahfit-viewer');
+    if (existing && /^[A-Za-z0-9_-]{8,64}$/.test(existing)) return existing;
+    const key = newKey();
+    localStorage.setItem('utahfit-viewer', key);
+    return key;
+  } catch {
+    return (memoryViewerKey ??= newKey());
+  }
+}
+
 export function useRecordImpression() {
   const mutationFn = (api as any).ads?.recordImpression;
   const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
@@ -101,7 +120,7 @@ export function useRecordImpression() {
     async (campaignId: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
       } catch {
         // Silently ignore if unauthenticated session
       }
@@ -118,7 +137,7 @@ export function useRecordClick() {
     async (campaignId: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
       } catch {
         // Silently ignore if unauthenticated session
       }
