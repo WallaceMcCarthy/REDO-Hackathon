@@ -162,14 +162,14 @@ export const addComment = mutation({
 });
 
 /** Shared by the feed: only call after authenticating the reporting user. */
-export async function recordContentReport(ctx: MutationCtx, targetType: "comment" | "post", targetId: string, userId: Id<"users">): Promise<boolean> {
+export async function recordContentReport(ctx: MutationCtx, targetType: "comment" | "post" | "message", targetId: string, userId: Id<"users">): Promise<boolean> {
   const existing = await ctx.db.query("contentReports").withIndex("by_target_user", (q) => q.eq("targetType", targetType).eq("targetId", targetId).eq("userId", userId)).first();
   if (existing) return false;
   await ctx.db.insert("contentReports", { targetType, targetId, userId });
   return true;
 }
 
-export async function deleteReportsFor(ctx: MutationCtx, targetType: "comment" | "post", targetId: string): Promise<void> {
+export async function deleteReportsFor(ctx: MutationCtx, targetType: "comment" | "post" | "message", targetId: string): Promise<void> {
   const reports = await ctx.db.query("contentReports").withIndex("by_target", (q) => q.eq("targetType", targetType).eq("targetId", targetId)).collect();
   for (const report of reports) await ctx.db.delete(report._id);
 }
