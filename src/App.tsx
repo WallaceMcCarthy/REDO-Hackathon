@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { defaultPrefs } from './prefs';
-import AccountMenu from './components/auth/AccountMenu';
+import AccountMenu, { openSignIn } from './components/auth/AccountMenu';
 import Quiz from './screens/Quiz';
 import Results from './screens/Results';
+import Roommates from './screens/Roommates';
 import TownDetail from './screens/TownDetail';
 import type { Prefs } from './types';
 
@@ -25,6 +26,8 @@ export default function App() {
       <AccountMenu />
       {town ? (
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
+      ) : route === 'roommates' ? (
+        <Roommates onSignIn={openSignIn} />
       ) : route === 'results' ? (
         <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} />
       ) : (
