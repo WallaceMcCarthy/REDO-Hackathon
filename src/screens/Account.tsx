@@ -164,6 +164,7 @@ export default function Account({ onBack, onSignIn }: AccountProps) {
   return (
     <main className="mx-auto max-w-2xl px-gutter pb-section pt-stack">
       {back}
+      {(deleted || loading || !isAuthenticated) && <h1 className="sr-only">Your profile</h1>}
       {deleted ? (
         <EmptyState className="mt-4" title="Your account has been deleted" description="Your profile and data are gone. You can keep browsing without an account." />
       ) : loading ? (

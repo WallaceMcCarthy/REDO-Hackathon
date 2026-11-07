@@ -25,7 +25,7 @@ export default function TownCard({ row, active, medianValue, medianRent, onOpen,
       <div className="flex items-start gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-rock-100 text-sm font-bold text-rock-800 tabular-nums" aria-label={`Rank ${rank}`}>{rank}</span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-display text-xl leading-tight text-ink">{city.name}</h3>
+          <h2 className="truncate font-display text-xl leading-tight text-ink">{city.name}</h2>
           <p className="text-xs text-dusk">{city.county} County</p>
         </div>
       </div>
