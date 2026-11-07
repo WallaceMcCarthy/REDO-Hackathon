@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
+import { useConvexAuth } from 'convex/react';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
@@ -13,9 +14,11 @@ import PrioritiesPopover from '../components/homes/PrioritiesPopover';
 import Segmented, { type View } from '../components/homes/Segmented';
 import { BTN_PRIMARY, FOCUS } from '../components/homes/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
-import { openConversation, useMessagesActions } from '../data/messagesHooks';
 import { toMetricWeights } from '../prefs';
 import type { Prefs } from '../types';
+import { openSignIn } from '../components/auth/AccountMenu';
+import { useMessagesActions } from '../data/messagesHooks';
+import ConversationView from '../components/messages/ConversationView';
 
 type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null };
 
@@ -40,6 +43,8 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const weights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
   const ranked = useRank(weights, prefs.filters);
   const wide = useWide();
+  const { isAuthenticated } = useConvexAuth();
+  const { startConversation } = useMessagesActions();
 
   const [sort, setSort] = useState<Sort>('fit');
   const [rentMax, setRentMax] = useState<number | undefined>();
@@ -48,6 +53,34 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [listings, setListings] = useState<Listing[] | undefined>();
   const [recs, setRecs] = useState<Recommendation[] | undefined>();
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveConversationId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeConversationId]);
+
+  const handleMessageUser = useCallback(
+    async (userId: string, listingId: string) => {
+      if (!isAuthenticated) {
+        openSignIn();
+        return;
+      }
+      try {
+        const convoId = await startConversation(userId, listingId);
+        if (convoId) {
+          setActiveConversationId(convoId);
+        }
+      } catch (err) {
+        console.error('Failed to start conversation:', err);
+      }
+    },
+    [isAuthenticated, startConversation],
+  );
 
   const kind = view === 'apartments' ? 'apartment' : 'home';
   const budget = view === 'apartments' ? rentMax : prefs.filters.maxHomeValue;
@@ -89,11 +122,6 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     if (l.cityId) setHovered(l.cityId);
   }, []);
 
-  const { startConversation } = useMessagesActions();
-  const messageUser = (userId: string, listingId: string) => {
-    void startConversation(userId, listingId).then(openConversation);
-  };
-
   const closePanel = useCallback(() => setSelectedListing(null), []);
   const selIndex = selectedListing && recs ? recs.findIndex(r => r.listing.id === selectedListing.id) : -1;
   const step = (d: number) => {
@@ -114,7 +142,8 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
       index={selIndex} total={recs?.length}
       onPrev={recs && selIndex > 0 ? () => step(-1) : undefined}
       onNext={recs && selIndex >= 0 && selIndex < recs.length - 1 ? () => step(1) : undefined}
-      onClose={closePanel} onOpenTown={onOpenTown} onMessageUser={messageUser}
+      onClose={closePanel} onOpenTown={onOpenTown}
+      onMessageUser={handleMessageUser}
     />
   ) : null;
 
@@ -221,6 +250,26 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
         </section>
       </div>
       {!wide && panel}
+
+      {/* Floating conversation modal when messaging a commenter/user */}
+      {activeConversationId && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Direct message conversation"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveConversationId(null);
+          }}
+        >
+          <div className="relative flex h-[85vh] max-h-[680px] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-rock-100 bg-white shadow-2xl">
+            <ConversationView
+              conversationId={activeConversationId}
+              onBack={() => setActiveConversationId(null)}
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

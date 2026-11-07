@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-11-07T02:57:07.033Z",
+  "geography": "2024 census tract, Utah",
+  "surveyPeriod": "2020–2024 ACS5-year",
+  "year": 2024,
+  "geometryUrl": "https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_49_tract_500k.zip",
+  "geometryMethod": "Official1:500,000 cartographic boundaries; NAD83 transformed to WGS84/RFC7946,5decimalcoordinates; no town interpolation or additional simplification.",
+  "metrics": {
+    "home_value": {
+      "table": "B25077",
+      "unit": "USD",
+      "universe": "Owner-occupied housing units",
+      "sourceUrl": "https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/acsdt5y2024-b25077.dat"
+    },
+    "median_rent": {
+      "table": "B25064",
+      "unit": "USD/month",
+      "universe": "Renter-occupied housing units paying cash rent; gross rent includes contract rent plus utilities",
+      "sourceUrl": "https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/acsdt5y2024-b25064.dat"
+    }
+  },
+  "uncertainty": "MOEs are published ACS90% margins of error. Negative suppression sentinels and nonnumeric observations remain null; never substituted from nearby towns. ACS medians describe surveyed occupied housing, not asking prices or current available listings. The2024 median jam codes2000001(homevalue) and3501(rent) become2000000 and3500 with corresponding *_bound:at_least; display these as $2,000,000+ and $3,500+, never exact estimates. Original downloaded values are preserved in data/raw/tracts/.",
+  "annotationDocumentation": "https://www.census.gov/data/developers/data-sets/acs-1year/notes-on-acs-estimate-and-annotation-values.html",
+  "tractCount": 716,
+  "measuredHomeValues": 697,
+  "measuredRents": 676,
+  "bytes": 1417923
+}

@@ -489,7 +489,7 @@ test('listing panel comments, direct message, unread badge, and DMs die with the
   await shotPanel(b.page, 'reply');
 
   await ownComment.getByRole('button', { name: 'Message' }).first().click();
-  await expect(b.page).toHaveURL(/#\/messages\/.+/);
+  await expect(b.page.getByRole('dialog', { name: 'Direct message conversation' })).toBeVisible();
   await b.page.getByPlaceholder(/Enter to send/).fill(`dm ${RUN}`);
   await b.page.getByPlaceholder(/Enter to send/).press('Enter');
   await expect(b.page.getByText(`dm ${RUN}`).last()).toBeVisible();
