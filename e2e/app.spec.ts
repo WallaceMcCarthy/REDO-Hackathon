@@ -17,10 +17,10 @@ test.describe('Utah Fit', () => {
   test('1. landing loads clean and a persona reaches results', async ({ page }) => {
     const w = watch(page);
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find the Utah town');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find a home in Utah');
     await page.getByRole('button', { name: /Skier/ }).click();
     await expect(page.getByRole('button', { name: /Skier/ })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Show my towns' }).click();
+    await page.getByRole('button', { name: 'Show my matches' }).click();
     await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
     await page.waitForLoadState('networkidle');
     expect(w.errors, 'console errors').toEqual([]);

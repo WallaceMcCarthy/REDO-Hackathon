@@ -24,8 +24,8 @@ test.describe('Task #35: Phone & Tablet UX Audit (390px and 768px)', () => {
 
         await checkNoHorizontalOverflow(page, 'Quiz');
 
-        // Check Show my towns button tap target
-        const btn = page.getByRole('button', { name: 'Show my towns' });
+        // Check Show my matches button tap target
+        const btn = page.getByRole('button', { name: 'Show my matches' });
         await expect(btn).toBeVisible();
         const box = await btn.boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);

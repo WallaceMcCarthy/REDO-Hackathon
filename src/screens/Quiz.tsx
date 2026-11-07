@@ -38,7 +38,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-gutter pb-section">
+    <main className="mx-auto max-w-6xl px-gutter pb-section">
       <section className="grid gap-stack pt-section lg:grid-cols-[1.1fr_1fr] lg:items-end lg:gap-section">
         <div>
           <h1 className="font-display text-display break-words text-text">Find a home in Utah that fits how you live</h1>

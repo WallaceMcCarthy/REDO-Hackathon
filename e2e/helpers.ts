@@ -14,7 +14,7 @@ export async function openControls(page: Page) {
 export async function gotoResults(page: Page, persona = 'Skier') {
   await page.goto('/');
   await page.getByRole('button', { name: persona, exact: false }).first().click();
-  await page.getByRole('button', { name: 'Show my towns' }).click();
+  await page.getByRole('button', { name: 'Show my matches' }).click();
   await expect(page).toHaveURL(/#\/results$/);
   await expect(page.getByText(/towns ranked|towns match/)).toBeVisible();
 }
