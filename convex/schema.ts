@@ -5,6 +5,7 @@ import { adsTables } from "./adsSchema";
 import { feedTables } from "./feedSchema";
 import { roommateTables } from "./roommateSchema";
 import { socialTables } from "./socialSchema";
+import { zillowPreviewTables } from "./zillowPreviewsSchema";
 
 export default defineSchema({
   ...authTables,
@@ -12,6 +13,7 @@ export default defineSchema({
   ...feedTables,
   ...roommateTables,
   ...adsTables,
+  ...zillowPreviewTables,
   profiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),
