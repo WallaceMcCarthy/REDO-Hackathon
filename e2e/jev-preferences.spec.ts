@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+test.skip(process.env.E2E_JEV_FIXTURE !== '1', 'Requires the Vite dev-only synthetic Jev fixture; no provider calls.');
 // Uses a Vite dev server; fixtures never enter the production build and spend no API calls.
 test('submitting a description sets priorities and preserves settings that were not mentioned', async ({ page }, testInfo) => {
   await page.goto('/e2e/fixtures/jev.html');
