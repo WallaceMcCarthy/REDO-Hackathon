@@ -5,13 +5,14 @@ import { safeHttpsHref } from './safeHttpsHref';
 export const REDO_IT = {
   title: 'REDO IT',
   body: 'We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.',
-  url: 'https://www.linkedin.com/company/redo-tech/',
-  lat: 40.5247,
-  lng: -111.8638,
+  url: 'https://getredo.com/careers',
+  // REDO headquarters, 14761 Future Way, Draper, UT 84020.
+  lat: 40.4837,
+  lng: -111.89126,
 };
 
 /** The fixed REDO marker replaces every REDO campaign, including the old Salt Lake City job sample. */
-export const isRedoCampaign = (c: { url: string }) => c.url === REDO_IT.url || c.url.startsWith('https://getredo.com/');
+export const isRedoCampaign = (c: { url: string }) => c.url.startsWith('https://getredo.com/') || c.url.includes('linkedin.com/company/redo-tech');
 
 const isRental = (listingId: string) => listingId.startsWith('market:for_rent:');
 
