@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { gotoResults, showList } from './helpers';
 
+test.skip(process.env.E2E_RURAL_FIXTURE !== '1', 'Requires isolated localhost rural fixtures and UTAH_STATEWIDE_ENABLED.');
+
 test('rural Utah listings show asking amounts without fabricated town scores or links', async ({ page }, testInfo) => {
   await gotoResults(page);
   await showList(page);
