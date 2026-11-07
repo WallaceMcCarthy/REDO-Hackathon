@@ -134,6 +134,10 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
 
   // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
   const validUrl = validateHttpsUrl(args.url);
+  if (args.cityId) {
+    const city = await ctx.db.query("cities").withIndex("by_cityId", q => q.eq("id", args.cityId!)).first();
+    if (!city) throw new ConvexError("Campaign city must be a known Utah town");
+  }
 
   // 4. Duration bounds
   const durationDays = Math.round(args.durationDays);
@@ -439,6 +443,12 @@ export const confirmCheckout = action({
 
 const MAX_EVENTS_PER_CAMPAIGN_HOUR = 600;
 const VIEWER_KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
+const EVENT_RETENTION_HOURS = 24 * 14;
+
+async function hashViewerKey(value: string) {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
+}
 
 async function recordAdEvent(
   ctx: MutationCtx,
@@ -448,7 +458,7 @@ async function recordAdEvent(
 ) {
   if (!VIEWER_KEY_RE.test(clientViewerKey)) throw new Error("Invalid viewer key");
   const userId = await getOptionalUserId(ctx);
-  const viewerKey = userId ? `user:${userId}` : `anon:${clientViewerKey}`;
+  const viewerKey = await hashViewerKey(userId ? `user:${userId}` : `anon:${clientViewerKey}`);
 
   const campaign = await ctx.db.get(campaignId);
   if (!campaign) return;
@@ -458,6 +468,10 @@ async function recordAdEvent(
   if (userId && campaign.advertiserUserId === userId) return;
 
   const bucket = Math.floor(now / 3600000);
+  const expired = await ctx.db.query("adEvents")
+    .withIndex("by_campaign_kind_bucket", q => q.eq("campaignId", campaignId).eq("kind", kind).lt("bucket", bucket - EVENT_RETENTION_HOURS))
+    .collect();
+  await Promise.all(expired.map(event => ctx.db.delete(event._id)));
   const existing = await ctx.db
     .query("adEvents")
     .withIndex("by_campaign_kind_viewer_bucket", (q) =>
