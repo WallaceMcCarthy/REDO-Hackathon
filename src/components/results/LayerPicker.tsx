@@ -102,8 +102,8 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
             tabIndex={0}
             onKeyDown={onKeyDown}
             onScroll={onScroll}
-            style={{ scrollSnapType: 'y mandatory', paddingBlock: `calc(50% - ${ITEM / 2}px)` }}
-            className="h-28 overflow-y-auto overscroll-contain rounded-lg bg-white/70 px-1 [scrollbar-width:none] sm:h-40 [&::-webkit-scrollbar]:hidden"
+            style={{ scrollSnapType: 'y mandatory' }}
+            className="h-28 py-[38px] sm:py-[62px] overflow-y-auto overscroll-contain rounded-lg bg-white/70 px-1 [scrollbar-width:none] sm:h-40 [&::-webkit-scrollbar]:hidden"
           >
             {items.map((option, index) => {
               const distance = Math.abs(index - selectedIndex);
