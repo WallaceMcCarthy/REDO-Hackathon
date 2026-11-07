@@ -27,9 +27,9 @@ export interface SavedListingItem {
 export interface UserProfile {
   userId?: string;
   displayName: string;
-  cityId?: string;
-  moveBy?: string;
-  budget?: number;
-  household?: number;
+  cityId?: string | null;
+  moveBy?: string | null;
+  budget?: number | null;
+  household?: number | null;
   isSample?: boolean;
 }

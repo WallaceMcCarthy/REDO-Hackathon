@@ -36,10 +36,10 @@ export default function Account({ cities, onBack }: AccountProps) {
     try {
       await updateProfile({
         displayName: displayName.trim(),
-        cityId: cityId || undefined,
-        moveBy: moveBy || undefined,
-        budget: budget === '' ? undefined : Number(budget),
-        household: household === '' ? undefined : Number(household),
+        cityId: cityId || null,
+        moveBy: moveBy || null,
+        budget: budget === '' ? null : Number(budget),
+        household: household === '' ? null : Number(household),
       });
       setStatusMsg('Profile updated successfully!');
     } catch (err) {
