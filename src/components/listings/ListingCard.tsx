@@ -6,6 +6,7 @@ import { useZillowPreview } from './useZillowPreview';
 import SavedButton from '../social/SavedButton';
 import { Badge } from '../ui';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
+import { shouldFetchListingPreview } from './previewPolicy';
 
 export { zillowUrl };
 
@@ -29,7 +30,7 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
   const fit = isRec(item) && item.townScore !== null ? Math.max(0, Math.min(100, Math.round(item.townScore))) : undefined;
   const apt = listing.kind === 'apartment';
   const live = !!listing.market;
-  const { preview, ref } = useZillowPreview<HTMLElement>(listing.id, listing.kind === 'home');
+  const { preview, ref } = useZillowPreview<HTMLElement>(listing.id, shouldFetchListingPreview(listing.kind));
   const zUrl = zillowUrl(listing.address, cityName, listing.kind);
 
   const financials = formatListingFinancials(listing);
