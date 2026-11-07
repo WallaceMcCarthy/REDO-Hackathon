@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { useIsSaved, useToggleSaved } from '../../data/socialHooks';
+import { openSignIn } from '../auth/AccountMenu';
 
 interface SavedButtonProps {
   listingId: string;
@@ -18,6 +20,7 @@ export default function SavedButton({
   const [saved, setSaved] = useState(initialSaved);
   const [busy, setBusy] = useState(false);
   const toggleSaved = useToggleSaved();
+  const { isAuthenticated, isLoading } = useConvexAuth();
 
   useEffect(() => {
     if (typeof isSavedFromServer === 'boolean') {
@@ -28,6 +31,7 @@ export default function SavedButton({
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (busy) return;
+    if (!isLoading && !isAuthenticated) return openSignIn();
 
     const nextSaved = !saved;
     setSaved(nextSaved);
@@ -44,9 +48,7 @@ export default function SavedButton({
       // Revert optimistic state on failure
       setSaved(saved);
       onToggle?.(saved);
-      if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) {
-        alert('Please sign in to save places to your profile.');
-      }
+      if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) openSignIn();
     } finally {
       setBusy(false);
     }
@@ -58,15 +60,15 @@ export default function SavedButton({
       onClick={handleClick}
       aria-label={saved ? 'Remove from saved places' : 'Save to my places'}
       title={saved ? 'Remove from saved places' : 'Save to my places'}
-      className={`group relative flex size-8 items-center justify-center rounded-full border transition-all duration-150 before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-alpine-500 ${
+      className={`group relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill border transition-colors ${
         saved
-          ? 'border-rose-200 bg-rose-50 text-rose-600 shadow-sm'
-          : 'border-rock-200 bg-white/90 text-rock-400 hover:border-rock-300 hover:text-rose-500'
+          ? 'border-primary bg-rock-100 text-primary'
+          : 'border-border-strong bg-surface-raised text-text-muted hover:text-primary'
       } ${className}`}
     >
       <svg
-        className={`size-4 transition-transform duration-150 group-active:scale-90 ${
-          saved ? 'fill-rose-500 scale-110' : 'fill-none stroke-current stroke-2'
+        className={`size-5 transition-transform duration-150 group-active:scale-90 ${
+          saved ? 'fill-current' : 'fill-none stroke-current stroke-2'
         }`}
         viewBox="0 0 24 24"
       >

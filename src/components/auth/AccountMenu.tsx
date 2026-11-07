@@ -24,11 +24,9 @@ export default function AccountMenu({ inline = false }: { inline?: boolean }) {
   }, []);
 
   return (
-    <div className={inline ? 'flex items-center gap-2' : 'fixed right-3 top-3 z-40 flex items-center gap-2 text-sm'}>
+    <div className={inline ? 'flex items-center gap-2' : 'fixed right-3 top-3 z-40 flex items-center gap-2'}>
       {!inline && (
-        <a href="#/roommates" className="rounded-full bg-white/90 px-3 py-1.5 font-medium shadow dark:bg-neutral-900/90">
-          Roommates
-        </a>
+        <Button href="#/roommates" variant="secondary" size="sm">Roommates</Button>
       )}
       {isLoading ? null : isAuthenticated ? (
         <div className="flex items-center gap-1 rounded-pill border border-border bg-surface pl-4 text-small text-text">
