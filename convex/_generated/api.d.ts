@@ -16,6 +16,7 @@ import type * as cities from "../cities.js";
 import type * as cleanup from "../cleanup.js";
 import type * as feedSchema from "../feedSchema.js";
 import type * as http from "../http.js";
+import type * as jev from "../jev.js";
 import type * as lib_adCategories from "../lib/adCategories.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_email from "../lib/email.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   cleanup: typeof cleanup;
   feedSchema: typeof feedSchema;
   http: typeof http;
+  jev: typeof jev;
   "lib/adCategories": typeof lib_adCategories;
   "lib/auth": typeof lib_auth;
   "lib/email": typeof lib_email;
