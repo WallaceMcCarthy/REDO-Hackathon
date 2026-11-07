@@ -13,16 +13,16 @@ const day = (ms: number) => new Date(ms).toLocaleDateString();
 export function campaignPlacement(
   c: Pick<CampaignRecord, 'status' | 'endsAt' | 'cityId'>,
   townName: string | undefined,
-  provider: 'redo' | 'stripe' | undefined,
+  provider: 'none' | 'stripe' | undefined,
   now: number,
 ): Placement {
   if (c.status === 'pending_payment') {
     return {
       label: 'Pending payment',
-      text: 'Not visible yet. Nobody can see this campaign until its payment is verified.',
+      text: `Not visible yet. Nobody can see this campaign${provider === 'stripe' ? ' until it is paid for' : ''}.`,
       next: provider === 'stripe'
         ? 'Next step: pay at checkout. If you left checkout, create the campaign again.'
-        : 'Next step: wait for payments to open. They are not connected yet, so nothing was charged and this campaign cannot go live.',
+        : 'Next step: publish it again with the form. Ads no longer need payment.',
     };
   }
   if (c.status === 'expired' || c.endsAt <= now) {

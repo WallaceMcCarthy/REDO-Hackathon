@@ -55,7 +55,7 @@ export function useMyCampaigns(): CampaignRecord[] | undefined {
 
 export function useCreateCheckout() {
   const actionFn = (api as any).ads?.createCheckout;
-  const run = useAction(actionFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0, provider: 'redo' })));
+  const run = useAction(actionFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0, provider: 'none' })));
 
   return useCallback(
     async (params: {
@@ -72,7 +72,7 @@ export function useCreateCheckout() {
       durationDays: number;
     }) => {
       if (!actionFn) return null;
-      return (await run(params)) as { campaignId: string; checkoutUrl: string; amount: number; provider: 'redo' | 'stripe' };
+      return (await run(params)) as { campaignId: string; checkoutUrl: string; amount: number; provider: 'none' | 'stripe' };
     },
     [run, actionFn],
   );
@@ -92,9 +92,9 @@ export function useConfirmCheckout() {
   );
 }
 
-export function usePaymentProvider(): 'redo' | 'stripe' | undefined {
+export function usePaymentProvider(): 'none' | 'stripe' | undefined {
   const queryFn = (api as any).ads?.paymentProvider;
-  const result = useQuery(queryFn, queryFn ? {} : 'skip') as { provider: 'redo' | 'stripe' } | undefined;
+  const result = useQuery(queryFn, queryFn ? {} : 'skip') as { provider: 'none' | 'stripe' } | undefined;
   return result?.provider;
 }
 

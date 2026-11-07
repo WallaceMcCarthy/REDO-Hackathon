@@ -1,6 +1,7 @@
 // Residential potable GPCD per town's retail water system, Utah DWRe 2022 Municipal & Industrial Water Use.
 // Run: npx -y tsx scripts/data/water_usage.ts
 import { writeFileSync } from "node:fs";
+import { townList, writeMethodology } from "./lib.ts";
 import { cached } from "./towns.ts";
 
 const SVC = "https://services.arcgis.com/ZzrwjTRez6FJiOq4/arcgis/rest/services/2022_MnIReport_Data_gdb/FeatureServer/0";
@@ -30,7 +31,8 @@ for (const [id, name] of Object.entries(MAP)) {
 }
 writeFileSync("data/metrics/water_usage.json", JSON.stringify({
   id: "water_usage", label: "Residential water use", category: "environment", unit: "gallons per capita per day (residential potable)", higherIsBetter: false,
-  description: `System-level residential potable gallons per capita per day (GPCD) for the town's retail culinary water system, 2022 data. Potable only: towns with separate pressurized-irrigation (secondary) water (e.g. Lehi, Saratoga Springs) look low. Approximate system matches where the town has no own system: ${proxies.join("; ")}.`,
+  description: `Residential drinking-water use in gallons per person per day for the town's water system, 2022 data. Potable water only, so towns that also use a separate irrigation system (such as Lehi and Saratoga Springs) look lower than they are. ${townList(proxies.map((p) => p.split("->")[0]))} use a nearby system's figure.`,
   source: "Utah Division of Water Resources, Municipal & Industrial Water Use 2022", sourceUrl: "https://dwre-utahdnr.opendata.arcgis.com/pages/municipal-and-industrial", year: 2022, values,
 }, null, 2));
 console.log(values);
+writeMethodology("water_usage", `System-level residential potable gallons per capita per day (GPCD) for the town's retail culinary water system, 2022 data. Potable only: towns with separate pressurized-irrigation (secondary) water (e.g. Lehi, Saratoga Springs) look low. Approximate system matches where the town has no own system: ${proxies.join("; ")}.`);

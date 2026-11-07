@@ -1,6 +1,7 @@
 // Health-based SDWA violations in the last 5 years per town's public water system (EPA SDWIS via Envirofacts).
 // Run: npx -y tsx scripts/data/water_quality.ts
 import { writeFileSync } from "node:fs";
+import { townList, writeMethodology } from "./lib.ts";
 import { cached } from "./towns.ts";
 
 const PWS: Record<string, [string, string]> = {
@@ -35,6 +36,7 @@ for (const [id, [pwsid, name]] of Object.entries(PWS)) {
 console.log(values);
 writeFileSync("data/metrics/water_quality.json", JSON.stringify({
   id: "water_quality", label: "Drinking water quality", category: "environment", unit: "health-based violations, last 5 years", higherIsBetter: false,
-  description: `Count of EPA SDWIS health-based violations (MCL, treatment technique, etc.; is_health_based_ind=Y) whose compliance period began on/after ${cutoff.toISOString().slice(0, 10)} for the town's primary community water system. Systems used (town=PWSID): ${detail.join(", ")}. Approximate matches (town served partly by this wholesale/neighbor system): ${approx.join("; ")}. Counts are per system, not normalised by size.`,
+  description: `Number of health-based drinking water violations in the last five years for the town's main community water system, from EPA records. Counts are per system and not adjusted for size. ${townList(approx.map((p) => p.split("->")[0]))} are matched to a nearby supplier that only partly serves them.`,
   source: "EPA SDWIS via Envirofacts (data.epa.gov/efservice VIOLATION table)", sourceUrl: "https://www.epa.gov/enviro/sdwis-model", year: new Date().getFullYear(), values,
 }, null, 2));
+writeMethodology("water_quality", `Count of EPA SDWIS health-based violations (MCL, treatment technique, etc.; is_health_based_ind=Y) whose compliance period began on/after ${cutoff.toISOString().slice(0, 10)} for the town's primary community water system. Systems used (town=PWSID): ${detail.join(", ")}. Approximate matches (town served partly by this wholesale/neighbor system): ${approx.join("; ")}. Counts are per system, not normalised by size.`);

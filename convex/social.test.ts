@@ -126,6 +126,18 @@ describe("authenticated social endpoints", () => {
     expect(await t.run((ctx) => ctx.db.query("contentReports").collect())).toEqual([]);
   });
 
+  it("leaves replies under a hidden comment out of the listing count", async () => {
+    const { t, alice, bob } = await setup();
+    const targetId = "county-parcel-1";
+    const target = { targetType: "listing" as const, targetId };
+    const parentId = await alice.mutation(refs.add, { ...target, body: "Root" });
+    await bob.mutation(refs.add, { ...target, body: "Reply", parentId });
+    const counts = makeFunctionReference<"query">("social:commentCounts");
+    expect(await t.query(counts, { targetType: "listing", targetIds: [targetId] })).toEqual({ [targetId]: 2 });
+    await t.run((ctx) => ctx.db.patch(parentId, { hidden: true }));
+    expect(await t.query(counts, { targetType: "listing", targetIds: [targetId] })).toEqual({});
+  });
+
   it("rejects comments on hidden posts and removes comments/reports in the feed deletion cascade", async () => {
     const { t, users, alice, bob } = await setup();
     const postId = await t.run((ctx) => ctx.db.insert("posts", { cityId: "provo", userId: users[0], body: "A post", likes: 0, reports: 0, hidden: false, isSample: false }));

@@ -4,7 +4,7 @@
   "category": "culture",
   "unit": "mapped venues within 15 km",
   "higherIsBetter": true,
-  "description": "OSM theatres, music venues, arts centres, galleries and museums within a 15 km straight-line radius of the canonical town center. Neighboring towns can share venues. Mapping completeness varies; ways/relations use bounding-box centers. OSM snapshot 2026-11-07T01:08:28Z.",
+  "description": "Mapped theatres, music venues, arts centres, galleries and museums within 15 km of the town center. Neighboring towns can share venues. OpenStreetMap coverage varies from place to place.",
   "source": "OpenStreetMap contributors via Overpass",
   "sourceUrl": "https://overpass-api.de/api/interpreter",
   "year": 2026,

@@ -4,7 +4,7 @@
   "category": "community",
   "unit": "% change in county jobs, 2021 to 2024",
   "higherIsBetter": true,
-  "description": "Change in annual-average employment (all industries, all ownerships) in the town's county from 2021 to 2024, from the BLS Quarterly Census of Employment and Wages. QCEW does not publish these towns separately, so every town takes its county's value.",
+  "description": "Change in the number of jobs in the town's county from 2021 to 2024, from the Bureau of Labor Statistics. The data is county-level, so every town in a county shows the same number.",
   "source": "U.S. Bureau of Labor Statistics, Quarterly Census of Employment and Wages (county annual averages)",
   "sourceUrl": "https://www.bls.gov/cew/",
   "year": 2024,

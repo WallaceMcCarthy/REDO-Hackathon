@@ -4,7 +4,7 @@
   "category": "culture",
   "unit": "within 5 km per 1,000 town residents",
   "higherIsBetter": true,
-  "description": "OSM restaurant/cafe features within a 5 km straight-line radius of the town center, divided by the full town population from data/cities.json. This is nearby access per resident, not an administrative-boundary business density. Neighboring towns can share venues. Mapping completeness varies; ways/relations use bounding-box centers. OSM snapshot 2026-11-07T01:08:28Z.",
+  "description": "Mapped restaurants and cafes within 5 km of the town center, per 1,000 residents of the town. It measures nearby access, so neighboring towns can share restaurants. OpenStreetMap coverage varies from place to place.",
   "source": "OpenStreetMap contributors via Overpass; canonical town population from ACS",
   "sourceUrl": "https://overpass-api.de/api/interpreter",
   "year": 2026,

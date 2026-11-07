@@ -4,7 +4,7 @@
   "category": "cost",
   "unit": "USD/year",
   "higherIsBetter": true,
-  "description": "Median household income (U.S. Census Bureau American Community Survey 5-year estimates, table S1901), as reported per place; every one of the 42 towns has a place-level ACS estimate, so no county-level proxy was needed.",
+  "description": "Median household income in each town, from the Census Bureau's American Community Survey (5-year estimates).",
   "source": "U.S. Census Bureau, American Community Survey 5-Year Estimates (Table S1901)",
   "sourceUrl": "https://data.census.gov/table/ACSST5Y2023.S1901",
   "year": 2023,

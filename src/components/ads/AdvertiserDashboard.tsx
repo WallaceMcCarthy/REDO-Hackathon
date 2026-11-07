@@ -22,6 +22,7 @@ interface AdvertiserDashboardProps {
 
 export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashboardProps) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const signedOut = !isLoading && !isAuthenticated;
   const campaigns = useMyCampaigns();
   const createCheckout = useCreateCheckout();
   const provider = usePaymentProvider();
@@ -43,7 +44,6 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [durationDays, setDurationDays] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
-  const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!paidSessionId) return;
@@ -74,13 +74,13 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   // Rate card: Map pin = $5/day ($500 cents), Featured = $10/day ($1000 cents), Job = $7/day ($700 cents)
   const ratePerDay = kind === 'featured' ? 10 : kind === 'job' ? 7 : 5;
   const totalCost = ratePerDay * durationDays;
+  const durationLabel = (days: number) => (isStripe ? `${days} days ($${ratePerDay * days})` : `${days} days`);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!category || !title.trim() || !url.trim() || submitting) return;
     setSubmitting(true);
     setCheckoutNotice(null);
-    setPendingCheckoutUrl(null);
 
     try {
       const res = await createCheckout({
@@ -100,12 +100,8 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         window.location.href = res.checkoutUrl;
         return;
       }
-      if (res?.checkoutUrl) {
-        setPendingCheckoutUrl(res.checkoutUrl);
-        setCheckoutNotice(
-          'Campaign created as pending payment. Nothing was charged and it is not live.'
-        );
-        // Clear form
+      if (res) {
+        setCheckoutNotice('Your ad is live. It is labelled Sponsored and listed under Your campaigns.');
         setCategory('');
         setTitle('');
         setBody('');
@@ -127,18 +123,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         actions={<Button variant="secondary" size="sm" onClick={onBack}>Back to results</Button>}
       />
 
-      {isStripe ? (
+      {isStripe && (
         <Card role="note" className="mt-stack bg-surface-sunken">
           <p className="text-small font-semibold text-text">Test mode: use card 4242 4242 4242 4242</p>
           <p className="mt-1 text-caption text-text-muted">
             Payments run through Stripe test mode, so no real money moves. Any future expiry and any CVC work.
-          </p>
-        </Card>
-      ) : (
-        <Card role="note" className="mt-stack bg-surface-sunken">
-          <p className="text-small font-semibold text-text">Sandbox: REDO payments are not connected yet. No charge is made.</p>
-          <p className="mt-1 text-caption text-text-muted">
-            Campaigns stay in pending payment and never go live until the backend receives a verified REDO webhook.
           </p>
         </Card>
       )}
@@ -160,7 +149,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       )}
       {returnedCanceled && (
         <Card role="status" className="mt-stack">
-          <p className="text-small text-text">Checkout canceled. Your campaign stays pending until paid.</p>
+          <p className="text-small text-text">Checkout canceled. You were not charged. To run this ad, fill in the form again.</p>
         </Card>
       )}
 
@@ -168,7 +157,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         <section aria-labelledby="campaigns-heading" className="min-w-0 space-y-stack">
           <h2 id="campaigns-heading" className="font-display text-title text-text">Your campaigns</h2>
 
-          {!isLoading && !isAuthenticated ? (
+          {signedOut ? (
             <EmptyState title="Sign in to see your campaigns" description="You need an account to create and track campaigns." action={<Button onClick={openSignIn}>Sign in</Button>} />
           ) : campaigns === undefined ? (
             <div aria-busy="true" className="space-y-3">
@@ -204,9 +193,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                     </div>
                     <p className="mt-2 line-clamp-2 break-words text-small text-text-muted">{c.body}</p>
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-small sm:grid-cols-4">
-                      <div><dt className="text-text-muted">Impressions</dt><dd className="font-semibold text-text">{c.impressions}</dd></div>
+                      <div><dt className="text-text-muted">Views</dt><dd className="font-semibold text-text">{c.impressions}</dd></div>
                       <div><dt className="text-text-muted">Clicks</dt><dd className="font-semibold text-text">{c.clicks}</dd></div>
-                      <div><dt className="text-text-muted">CTR</dt><dd className="font-semibold text-text">{ctr}%</dd></div>
+                      <div><dt className="text-text-muted">Click rate</dt><dd className="font-semibold text-text">{ctr}%</dd></div>
                       <div><dt className="text-text-muted">Ends</dt><dd className="font-semibold text-text">{new Date(c.endsAt).toLocaleDateString()}</dd></div>
                     </dl>
                   </Card>
@@ -215,7 +204,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
             </ul>
           )}
           <p className="text-caption text-text-muted">
-            Impressions and clicks are tracked server-side for authenticated visitors. Self-views are excluded.
+            Views and clicks count each visitor once an hour. Your own views do not count.
           </p>
         </section>
 
@@ -223,15 +212,23 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
           <h2 id="create-heading" className="font-display text-title text-text">Create a campaign</h2>
           <p className="mt-1 text-small text-text-muted">Any Utah business or employer can reach people researching a town.</p>
 
+          {signedOut && (
+            <div className="mt-stack rounded-control bg-surface-sunken p-3">
+              <p className="text-small font-semibold text-text">Sign in to publish your ad</p>
+              <p className="mt-1 text-small text-text-muted">You can fill in the form first. What you type stays here while you sign in.</p>
+              <Button variant="secondary" size="sm" className="mt-2" onClick={openSignIn}>Sign in</Button>
+            </div>
+          )}
+
           <form onSubmit={handleCreate} className="mt-stack space-y-stack">
-            <Field label="Location" hint={`Shown in the Sponsored section of ${selectedCity ? `the ${selectedCity.name} town page` : 'every town page'} once payment is verified.`}>
+            <Field label="Location" hint={`Shown in the Sponsored section of ${selectedCity ? `the ${selectedCity.name} town page` : 'every town page'}${isStripe ? ' once paid' : ''}.`}>
               <Select value={cityId} onChange={(e) => setCityId(e.target.value)}>
                 <option value="">All Utah towns</option>
                 {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </Field>
 
-            <Field label="Image URL" hint="Optional. HTTPS only.">
+            <Field label="Image URL" hint="Optional. Must start with https://">
               <Input type="url" maxLength={500} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
             </Field>
 
@@ -243,7 +240,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               <Textarea required minLength={5} maxLength={300} rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Short pitch or offer" />
             </Field>
 
-            <Field label="Link" hint="HTTPS only.">
+            <Field label="Link" hint="Must start with https://">
               <Input type="url" required maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/promo" />
             </Field>
 
@@ -261,33 +258,35 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
 
             <Field label="Duration">
               <Select value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value))}>
-                <option value={7}>7 days (${ratePerDay * 7})</option>
-                <option value={14}>14 days (${ratePerDay * 14})</option>
-                <option value={30}>30 days (${ratePerDay * 30})</option>
+                {[7, 14, 30].map((days) => <option key={days} value={days}>{durationLabel(days)}</option>)}
               </Select>
             </Field>
 
-            <div className="rounded-control bg-surface-sunken p-3 text-small">
-              <div className="flex justify-between font-semibold text-text">
-                <span>Listed price</span>
-                <span>${totalCost}.00 USD</span>
+            {isStripe ? (
+              <div className="rounded-control bg-surface-sunken p-3 text-small">
+                <div className="flex justify-between font-semibold text-text">
+                  <span>Listed price</span>
+                  <span>${totalCost}.00 USD</span>
+                </div>
+                <p className="mt-1 text-caption text-text-muted">Billed securely via Stripe (test mode).</p>
               </div>
-              <p className="mt-1 text-caption text-text-muted">
-                {isStripe ? 'Billed securely via Stripe (test mode).' : 'Not charged yet. REDO is not connected.'}
+            ) : provider === 'none' && (
+              <p className="rounded-control bg-surface-sunken p-3 text-small text-text">
+                No payment needed. Your ad goes live as soon as you publish it. You can have up to 5 live ads at a time.
               </p>
-            </div>
+            )}
 
             {checkoutNotice && (
               <p role="status" className="rounded-control border border-border-strong bg-surface-sunken p-3 text-small text-text">{checkoutNotice}</p>
             )}
 
-            {pendingCheckoutUrl && (
-              <Button href={pendingCheckoutUrl} variant="secondary" fullWidth>View sandbox checkout info</Button>
+            {signedOut ? (
+              <Button fullWidth onClick={openSignIn}>Sign in to continue</Button>
+            ) : (
+              <Button type="submit" fullWidth loading={submitting} disabled={provider === undefined}>
+                {submitting ? 'Publishing...' : isStripe ? `Pay $${totalCost} with Stripe` : 'Publish ad'}
+              </Button>
             )}
-
-            <Button type="submit" fullWidth loading={submitting}>
-              {submitting ? 'Creating...' : isStripe ? `Pay $${totalCost} with Stripe` : 'Create campaign (pending payment)'}
-            </Button>
           </form>
         </Card>
       </div>

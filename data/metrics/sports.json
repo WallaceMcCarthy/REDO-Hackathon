@@ -4,7 +4,7 @@
   "category": "culture",
   "unit": "km to nearest pro or NCAA D1 venue",
   "higherIsBetter": false,
-  "description": "Straight-line km from town center to the nearest pro or NCAA Division I venue: Delta Center; America First Field; Rice-Eccles Stadium; LaVell Edwards Stadium; Maverik Center; Jon M. Huntsman Center; Dee Events Center; Stewart Stadium; Romney Stadium; Greater Zion Stadium; Cedar City: Eccles Coliseum; Utah Valley: UCCU Center; Smith Spectrum; Marriott Center.",
+  "description": "Straight-line distance in km from the town center to the nearest professional or NCAA Division I sports venue in Utah, such as the Delta Center or Rice-Eccles Stadium. It is not driving distance.",
   "source": "Venue coordinates from Wikipedia",
   "sourceUrl": "https://en.wikipedia.org/wiki/List_of_sports_venues_in_Utah",
   "year": 2025,

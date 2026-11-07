@@ -4,7 +4,7 @@
   "category": "safety",
   "unit": "NIBRS crimes against persons + property per 1,000 residents",
   "higherIsBetter": false,
-  "description": "Reported NIBRS offenses against persons and against property (excludes crimes against society, e.g. drug offenses) divided by the reporting agency's stable resident population, x1000, from the Utah BCI Crime in Utah 2024 report. 'Persons' includes simple assault, so this is broader than UCR violent+index property. Notes: millcreek uses Unified Police Dept. of Greater Salt Lake (shared/county jurisdiction rate); bountiful uses 2023 report (no 2024 data submitted); holladay uses Unified Police Dept. of Greater Salt Lake (shared/county jurisdiction rate); eagle-mountain uses Utah County Sheriff (shared/county jurisdiction rate); midway uses Wasatch County Sheriff (shared/county jurisdiction rate).",
+  "description": "Reported crimes against people and property per 1,000 residents, from Utah's 2024 state crime report. Crimes against people include simple assault, so the rate runs higher than a count of serious violent crime. Millcreek, Holladay, Eagle Mountain, and Midway share a county or regional police agency's area-wide rate, and Bountiful uses 2023 data.",
   "source": "Utah BCI (DPS) Crime in Utah 2024 report, NIBRS Crimes Against Totals",
   "sourceUrl": "https://bci.utah.gov/wp-content/uploads/2024-Crime-in-Utah-Report.pdf",
   "year": 2024,

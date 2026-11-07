@@ -2,6 +2,7 @@
 // or commercial/military airport with an IATA code (OSM aeroway=aerodrome). NOT measured decibels.
 // Run: npx -y tsx scripts/data/noise.ts
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { writeMethodology } from "./lib.ts";
 import { loadTowns } from "./towns.ts";
 
 const Q = '[out:json][timeout:90];area["ISO3166-2"="US-UT"]->.a;(way(area.a)["highway"="motorway"]["ref"~"^I "];nwr(area.a)["aeroway"="aerodrome"]["iata"];);out geom;';
@@ -35,6 +36,7 @@ for (const t of loadTowns()) {
 console.log(roads.length, "interstate ways;", airports.length, "airports\n", values);
 writeFileSync("data/metrics/noise.json", JSON.stringify({
   id: "noise", label: "Quiet (distance from highway/airport noise)", category: "environment", unit: "km to nearest interstate or airport", higherIsBetter: true,
-  description: `PROXY, not measured noise: straight-line distance from the town center point to the nearest interstate highway (OSM highway=motorway with ref 'I-') or airport with an IATA code (OSM aeroway=aerodrome), whichever is closer. Larger = farther from major transport noise sources. Measured at a single city-center point, so large towns that span highways are understated. Components (km, interstate/airport): ${info.join(" ")}.`,
+  description: `A proxy for quiet, not measured noise. It is the straight-line distance in km from the town center to the nearest interstate or airport, whichever is closer, so larger means farther from major transport noise. It uses one center point, so large towns that span a highway read quieter than they are.`,
   source: "OpenStreetMap contributors via Overpass API (derived distances)", sourceUrl: "https://www.openstreetmap.org/copyright", year: new Date().getFullYear(), values,
 }, null, 2));
+writeMethodology("noise", `PROXY, not measured noise: straight-line distance from the town center point to the nearest interstate highway (OSM highway=motorway with ref 'I-') or airport with an IATA code (OSM aeroway=aerodrome), whichever is closer. Larger = farther from major transport noise sources. Measured at a single city-center point, so large towns that span highways are understated. Components (km, interstate/airport): ${info.join(" ")}.`);

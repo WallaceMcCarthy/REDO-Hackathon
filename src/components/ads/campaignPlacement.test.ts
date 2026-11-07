@@ -10,7 +10,7 @@ describe('campaignPlacement', () => {
     expect(stripe.text).toMatch(/^Not visible yet/);
     expect(stripe.next).toMatch(/pay at checkout/);
     expect(stripe.link).toBeUndefined();
-    expect(campaignPlacement(c, 'Provo', 'redo', NOW).next).toMatch(/cannot go live/);
+    expect(campaignPlacement(c, 'Provo', 'none', NOW).next).toMatch(/publish it again/);
   });
 
   it('links an active campaign to its town page', () => {

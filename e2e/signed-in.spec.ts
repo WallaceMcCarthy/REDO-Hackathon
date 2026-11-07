@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 
 // Creates real accounts, so it refuses to run unless VITE_CONVEX_URL names a local Convex.
@@ -10,10 +9,6 @@ const PASSWORD = 'correct-horse-9';
 const XSS = '<img src=x onerror=alert(1)>';
 const TOWN = 'provo';
 const TOWN_NAME = 'Provo';
-
-// Matches are capped at the top 20, so each run picks a random town to stay out of other runs' way.
-const TOWNS: { name: string }[] = JSON.parse(readFileSync('data/cities.json', 'utf8'));
-const MATE_TOWN = TOWNS[Math.floor(Math.random() * TOWNS.length)].name;
 
 const A = { email: `a-${RUN}@example.test`, name: `Alice ${RUN}` };
 const B = { email: `b-${RUN}@example.test`, name: `Bob ${RUN}` };
@@ -231,71 +226,6 @@ test('report a post by someone else', async ({ browser }) => {
   await b.ctx.close();
 });
 
-test('roommates: match, request, accept, contact only after accept', async ({ browser }) => {
-  const a = await newUser(browser);
-  const b = await newUser(browser);
-  await a.page.goto('/');
-  await signIn(a.page, A.email, PASSWORD);
-  await expect(a.page.getByRole('button', { name: 'Sign out' })).toBeVisible();
-  await b.page.goto('/');
-  await signIn(b.page, B.email, PASSWORD);
-  await expect(b.page.getByRole('button', { name: 'Sign out' })).toBeVisible();
-
-  const fill = async (page: Page, bio: string, contact: string) => {
-    await page.goto('/#/roommates');
-    await expect(page.getByRole('heading', { name: 'Join the roommate finder' })).toBeVisible();
-    await page.getByRole('button', { name: MATE_TOWN, exact: true }).click();
-    await page.getByRole('button', { name: 'Quiet' }).click();
-    await page.getByLabel(/Short bio/).fill(bio);
-    await page.getByLabel(/^Contact/).fill(contact);
-    await page.getByRole('button', { name: 'Create profile' }).click();
-    await expect(page.getByRole('heading', { name: 'Your roommate profile' })).toBeVisible();
-  };
-  await fill(a.page, `bioA ${RUN} ${XSS}`, `alice-contact-${RUN}`);
-  await fill(b.page, `bioB ${RUN}`, `bob-contact-${RUN}`);
-  await expect(a.page.locator('img[src="x"]')).toHaveCount(0);
-
-  // B sees A as a match with hostile bio as text
-  const match = b.page.locator('li', { hasText: `bioA ${RUN}` });
-  await expect(match).toHaveCount(1);
-  await expect(match).toContainText(XSS);
-  await expect(match.locator('img')).toHaveCount(0);
-  await expect(match).not.toContainText(`alice-contact-${RUN}`);
-  await match.getByRole('button', { name: 'Request to connect' }).click();
-  await expect(b.page.getByRole('status').filter({ hasText: 'Request sent.' })).toBeVisible();
-  await expect(match).toHaveCount(0);
-
-  // A sees the request, no contact yet
-  await a.page.reload();
-  const req = a.page.locator('li', { hasText: `bioB ${RUN}` });
-  await expect(req).toHaveCount(1);
-  await expect(a.page.getByText(`bob-contact-${RUN}`)).toHaveCount(0);
-  await req.getByRole('button', { name: 'Accept' }).click();
-  await expect(a.page.getByText(`bob-contact-${RUN}`)).toBeVisible();
-
-  // B sees A's contact only now
-  await expect(b.page.getByText(`alice-contact-${RUN}`)).toBeVisible();
-  await expect(b.page.getByText(`bob-contact-${RUN}`)).toHaveCount(0);
-  // A is no longer in B's matches
-  await expect(b.page.getByRole('region', { name: 'Your matches' }).locator('li', { hasText: `bioA ${RUN}` })).toHaveCount(0);
-
-  for (const u of [a, b]) {
-    u.page.removeAllListeners('dialog');
-    u.page.on('dialog', d => void d.accept());
-    await u.page.getByRole('button', { name: 'Delete profile' }).click();
-    await expect(u.page.getByRole('heading', { name: 'Join the roommate finder' })).toBeVisible();
-  }
-  await a.ctx.close();
-  await b.ctx.close();
-});
-
-test('roommates: signed-out sees prompt only', async ({ page }) => {
-  await page.goto('/#/roommates');
-  await expect(page.getByRole('heading', { name: 'Roommate finder' })).toBeVisible();
-  await page.getByRole('button', { name: 'Sign in or create an account' }).click();
-  await expect(modal(page)).toBeVisible();
-});
-
 test('account bio-like hostile display name renders as text', async ({ browser }) => {
   const { ctx, page, w } = await newUser(browser);
   await page.goto('/');
@@ -317,7 +247,6 @@ test('app header does not cover page controls', async ({ browser }) => {
   await signUp(page, `c-${RUN}@example.test`);
   const bar = page.locator('header').first();
   const pages: [string, () => ReturnType<Page['locator']>][] = [
-    ['/#/roommates', () => page.getByRole('heading', { level: 1 })],
     ['/#/account', () => page.getByRole('button', { name: /Back to results/ })],
     [`/#/town/${TOWN}`, () => page.getByRole('button', { name: 'Back to results' })],
   ];
@@ -404,7 +333,6 @@ test('signed-in screens have no sideways scroll', async ({ browser }, info) => {
   const screens: [string, string, RegExp | string][] = [
     ['account', '/#/account', 'Your Profile'],
     ['saved', '/#/saved', 'My saved places'],
-    ['roommates', '/#/roommates', 'Join the roommate finder'],
     ['advertise', '/#/advertise', 'Advertiser dashboard'],
     ['town', `/#/town/${TOWN}`, `Ask the locals in ${TOWN_NAME}`],
   ];
@@ -433,7 +361,7 @@ test('advertiser form shows validation text, never a raw Convex error', async ({
   await page.getByLabel('Business name').fill('Test campaign');
   await page.getByLabel('Message').fill('A short pitch');
   await page.getByLabel('Link').fill('http://example.test');
-  await page.locator('main form').getByRole('button', { name: /checkout|campaign|create/i }).click();
+  await page.locator('main form').getByRole('button', { name: /publish|pay/i }).click();
   await expect(page.getByText('Destination URL must use HTTPS protocol (https://)')).toBeVisible();
   await expect(page.getByText(/\[CONVEX|Uncaught|Server Error/)).toHaveCount(0);
   await ctx.close();
@@ -523,18 +451,4 @@ test('listing panel comments, direct message, unread badge, and DMs die with the
   await expect(b.page.getByText(`dm ${RUN}`)).toHaveCount(0);
   await a.ctx.close();
   await b.ctx.close();
-});
-
-test('roommate profile form shows readable errors', async ({ browser }) => {
-  const { ctx, page } = await newUser(browser);
-  await signUp(page, `d-${RUN}@example.test`);
-  await page.goto('/#/roommates');
-  await page.getByLabel(/^Contact/).fill('x@example.test');
-  await page.getByRole('button', { name: 'Create profile' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Pick 1 to 10 towns.');
-  await page.getByRole('button', { name: TOWN_NAME, exact: true }).click();
-  await page.getByLabel('Budget min ($/mo)').fill('2000');
-  await page.getByRole('button', { name: 'Create profile' }).click();
-  await expect(page.getByRole('alert')).toContainText("Minimum budget can't be above maximum.");
-  await ctx.close();
 });

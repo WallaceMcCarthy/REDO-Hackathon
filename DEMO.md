@@ -62,7 +62,7 @@ You land on the **Apartments** view: "Showing 60 apartments in 8 areas · 128 ma
 
 ## 2:40 to 3:00. Accounts, then close
 
-Click **Messages**, then **Saved**, then the heart on a home. Each asks you to sign in or create an account. Click **Advertise**. The page shows "Sandbox: REDO payments are not connected yet. No charge is made."
+Click **Messages**, then **Saved**, then the heart on a home. Each asks you to sign in or create an account. Click **Advertise**. The page asks you to sign in before you can publish an ad.
 
 > Saving, comments, messages, roommates and ads need an account. Ads are always labelled Sponsored, and nothing goes live until a payment is confirmed.
 
@@ -79,7 +79,7 @@ These need an account or create real data, so no step above runs them. `e2e/sign
 - Posting a comment, posting to a town feed, and reporting.
 - Sending a message.
 - Creating a roommate profile or a connection.
-- Creating an ad campaign and the sandbox checkout.
+- Publishing an ad and seeing it on its town page.
 
 ## Avoid in a live demo
 

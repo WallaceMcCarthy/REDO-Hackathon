@@ -16,12 +16,10 @@ const SCREENS: { name: string; path: string; ready: (page: Page) => ReturnType<P
   { name: 'town-homes', path: '/#/results?town=provo', ready: p => p.getByRole('button', { name: 'Provo (clear)' }) },
   { name: 'town', path: '/#/town/provo', ready: p => p.getByRole('heading', { level: 1, name: 'Provo' }) },
   { name: 'town-not-found', path: '/#/town/nowhere', ready: p => p.getByText('We couldn’t find that town') },
-  { name: 'roommates', path: '/#/roommates', ready: p => p.getByRole('heading', { name: 'Roommate finder' }) },
   { name: 'saved', path: '/#/saved', ready: p => p.getByRole('heading', { name: 'My saved places' }) },
   { name: 'account', path: '/#/account', ready: p => p.getByText('Sign in to see your profile') },
   { name: 'messages', path: '/#/messages', ready: p => p.getByText('Sign in to view messages') },
   { name: 'advertise', path: '/#/advertise', ready: p => p.getByRole('button', { name: 'Back to results' }) },
-  { name: 'ads-checkout', path: '/#/ads-sandbox-checkout?campaignId=test_123&amount=3500&title=Sample+Campaign', ready: p => p.getByText(/Sandbox: REDO payments are not connected yet/) },
   { name: 'ui-kit', path: '/#/ui', ready: p => p.locator('main') },
 ];
 

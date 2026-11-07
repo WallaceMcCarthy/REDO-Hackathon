@@ -11,6 +11,28 @@ const modules = {
 
 const deleteTestAccountsRef = makeFunctionReference<"mutation">("cleanup:deleteTestAccounts");
 
+describe("cleanup:normalizeAccountEmails", () => {
+  const ref = makeFunctionReference<"mutation">("cleanup:normalizeAccountEmails");
+  const account = (t: ReturnType<typeof convexTest>, email: string) => t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { email });
+    await ctx.db.insert("authAccounts", { userId, provider: "password", providerAccountId: email, secret: "hash" });
+    return userId;
+  });
+
+  it("lowercases accounts, reports clashes untouched, and changes nothing on a rerun", async () => {
+    const t = convexTest(schema, modules);
+    const mixed = await account(t, "Mixed@Example.Test");
+    await account(t, "Twin@Example.Test");
+    await account(t, "twin@example.test");
+
+    expect(await t.mutation(ref, {})).toEqual({ changed: 1, clashes: ["Twin@Example.Test"] });
+    expect(await t.mutation(ref, {})).toEqual({ changed: 0, clashes: ["Twin@Example.Test"] });
+    const ids = await t.run(async (ctx) => (await ctx.db.query("authAccounts").collect()).map((a) => a.providerAccountId));
+    expect(ids.sort()).toEqual(["Twin@Example.Test", "mixed@example.test", "twin@example.test"]);
+    expect((await t.run((ctx) => ctx.db.get(mixed)))?.email).toBe("mixed@example.test");
+  });
+});
+
 describe("cleanup:deleteTestAccounts", () => {
   it("deletes user and associated profile and saved rows", async () => {
     const t = convexTest(schema, modules);

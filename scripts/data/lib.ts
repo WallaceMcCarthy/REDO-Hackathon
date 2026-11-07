@@ -47,3 +47,14 @@ export async function wikiCoords(titles: string[]): Promise<Record<string, [numb
   writeFileSync(cache, JSON.stringify(have, null, 1));
   return have;
 }
+
+const METHODOLOGY = "data/metrics-methodology.json";
+export const readMethodology = (): Record<string, string> => (existsSync(METHODOLOGY) ? JSON.parse(readFileSync(METHODOLOGY, "utf8")) : {});
+/** The technical record behind a metric's short user-facing description (queries, components, snapshots). */
+export function writeMethodology(id: string, text: string) {
+  const all = { ...readMethodology(), [id]: text };
+  writeFileSync(METHODOLOGY, JSON.stringify(Object.fromEntries(Object.entries(all).sort(([a], [b]) => a.localeCompare(b))), null, 2) + "\n");
+}
+/** "west-valley-city", "millcreek" -> "West Valley City and Millcreek" */
+export const townList = (ids: string[]) =>
+  new Intl.ListFormat("en").format(ids.map((i) => i.split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ")));

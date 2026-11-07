@@ -4,7 +4,7 @@
   "category": "cost",
   "unit": "years of median household income",
   "higherIsBetter": false,
-  "description": "Median home value divided by median household income: roughly how many years of the typical household's income it takes to buy the typical home here. Derived entirely from this repo's existing home_value.json and median_income.json (both 2023 Census ACS 5-year estimates), no new data retrieved. Lower is more affordable.",
+  "description": "Median home value divided by median household income, roughly how many years of the typical household's income it takes to buy the typical home. Both come from the Census American Community Survey. Lower is more affordable.",
   "source": "Derived from this repo's home_value and median_income metrics (Census ACS 5-year estimates)",
   "sourceUrl": "https://data.census.gov/table/ACSDP5Y2023.DP04",
   "year": 2023,

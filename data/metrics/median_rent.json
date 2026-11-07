@@ -4,7 +4,7 @@
   "category": "cost",
   "unit": "USD/month",
   "higherIsBetter": false,
-  "description": "Median gross rent (U.S. Census Bureau American Community Survey 5-year estimates, table DP04), as reported per place; every one of the 42 towns has a place-level ACS estimate, so no county-level proxy was needed. Small towns' estimates carry wider margins of error given smaller renter-occupied samples.",
+  "description": "Median monthly rent including utilities, from the Census Bureau's American Community Survey (5-year estimates). Small towns' figures are less precise because fewer renters were surveyed.",
   "source": "U.S. Census Bureau, American Community Survey 5-Year Estimates (Table DP04)",
   "sourceUrl": "https://data.census.gov/table/ACSDP5Y2023.DP04",
   "year": 2023,

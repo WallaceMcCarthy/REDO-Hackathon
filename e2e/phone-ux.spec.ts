@@ -48,20 +48,6 @@ test.describe('Task #35: Phone & Tablet UX Audit (390px and 768px)', () => {
         await page.screenshot({ path: `screenshots/${vp.name}-towndetail.png`, fullPage: false });
       });
 
-      test('3. Ads sandbox checkout screen has no overflow and clear notices', async ({ page }) => {
-        await page.goto('/#/ads-sandbox-checkout?campaignId=test_123&amount=3500&title=Sample+Campaign');
-        await page.waitForLoadState('domcontentloaded');
-        await expect(page.getByText(/Sandbox: REDO payments are not connected yet/)).toBeVisible();
-
-        await checkNoHorizontalOverflow(page, 'AdsSandboxCheckout');
-
-        const backBtn = page.getByRole('button', { name: /Return to dashboard/ });
-        await expect(backBtn).toBeVisible();
-        const box = await backBtn.boundingBox();
-        expect(box?.height).toBeGreaterThanOrEqual(44);
-
-        await page.screenshot({ path: `screenshots/${vp.name}-ads-checkout.png`, fullPage: false });
-      });
     });
   }
 });
