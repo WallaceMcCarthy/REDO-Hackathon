@@ -31,7 +31,7 @@ export default function AccountMenu() {
           <Button variant="ghost" size="sm" onClick={() => void signOut()}>Sign out</Button>
         </div>
       ) : (
-        <Button size="sm" onClick={() => setShowModal(true)}>Sign in</Button>
+        <Button variant="secondary" size="sm" onClick={() => setShowModal(true)}>Sign in</Button>
       )}
       {showModal && <AuthModal onClose={() => setShowModal(false)} />}
     </div>
