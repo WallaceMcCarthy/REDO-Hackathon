@@ -50,5 +50,6 @@ export function marketToListing(row: MarketInput & { cityId: string | null; impo
     beds: row.beds, baths: row.baths, sqft: row.sqft, yearBuilt: row.yearBuilt, units: null, propertyType: row.propertyType,
     source: "RentCast active listing snapshot", sourceUrl: "https://www.rentcast.io/", sourceId: row.rcId,
     year: new Date(row.importedAt).getUTCFullYear(), market: row.market, askingPrice: row.price, listedDate: row.listedDate,
-    daysOnMarket: row.daysOnMarket, priceKind: rental ? "asking_rent" : "asking_price", rentKind: rental ? "asking" : null };
+    daysOnMarket: row.daysOnMarket, marketCity: row.city, zip: row.zip,
+    priceKind: rental ? "asking_rent" : "asking_price", rentKind: rental ? "asking" : null };
 }

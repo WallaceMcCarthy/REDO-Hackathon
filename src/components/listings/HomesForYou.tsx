@@ -120,7 +120,9 @@ export default function HomesForYou(p: Props) {
         {fetching ? 'Loading more…' : 'Load more'}
       </button>}
       <p className="mt-6 text-xs text-dusk">
-        Public records: values are county assessor estimates; rents are HUD fair market rents for 2-bedroom units. Not asking prices or active sales.
+        {items.some(item => item.listing.market)
+          ? 'Active listing prices are asking amounts from the latest snapshot. Availability can change. Estimated records fill gaps where fewer live listings match.'
+          : 'Estimated records: home values are assessor estimates and apartment amounts are area rent benchmarks. These records do not indicate availability.'}
       </p>
     </div>
   );

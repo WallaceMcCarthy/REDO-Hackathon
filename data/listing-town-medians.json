@@ -1,0 +1,296 @@
+[
+  {
+    "cityId": "salt-lake-city",
+    "medianValue": 559995,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "west-valley-city",
+    "medianValue": 458500,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "west-jordan",
+    "medianValue": 634100,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 24
+  },
+  {
+    "cityId": "provo",
+    "medianValue": 589100,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "orem",
+    "medianValue": 480450,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "sandy",
+    "medianValue": 764450,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 22
+  },
+  {
+    "cityId": "st-george",
+    "medianValue": 393200,
+    "medianRent": 1485,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "ogden",
+    "medianValue": 368354.5,
+    "medianRent": 1532,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "layton",
+    "medianValue": 464000.22,
+    "medianRent": 1532,
+    "homeCount": 80,
+    "apartmentCount": 27
+  },
+  {
+    "cityId": "south-jordan",
+    "medianValue": 709750,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 6
+  },
+  {
+    "cityId": "lehi",
+    "medianValue": 671100,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "millcreek",
+    "medianValue": 598250,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 38
+  },
+  {
+    "cityId": "taylorsville",
+    "medianValue": 443350,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 24
+  },
+  {
+    "cityId": "herriman",
+    "medianValue": 630150,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 3
+  },
+  {
+    "cityId": "logan",
+    "medianValue": 415671,
+    "medianRent": 1169,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "murray",
+    "medianValue": 511050,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "draper",
+    "medianValue": 752150,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 16
+  },
+  {
+    "cityId": "bountiful",
+    "medianValue": null,
+    "medianRent": 1532,
+    "homeCount": 0,
+    "apartmentCount": 29
+  },
+  {
+    "cityId": "riverton",
+    "medianValue": 677400,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 4
+  },
+  {
+    "cityId": "spanish-fork",
+    "medianValue": 558900,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 2
+  },
+  {
+    "cityId": "roy",
+    "medianValue": 406450,
+    "medianRent": 1532,
+    "homeCount": 80,
+    "apartmentCount": 7
+  },
+  {
+    "cityId": "pleasant-grove",
+    "medianValue": 567050,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "cedar-city",
+    "medianValue": 380119,
+    "medianRent": 1098,
+    "homeCount": 80,
+    "apartmentCount": 35
+  },
+  {
+    "cityId": "kaysville",
+    "medianValue": 610499.6,
+    "medianRent": 1532,
+    "homeCount": 80,
+    "apartmentCount": 4
+  },
+  {
+    "cityId": "cottonwood-heights",
+    "medianValue": 777100,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 11
+  },
+  {
+    "cityId": "holladay",
+    "medianValue": 889750,
+    "medianRent": 1748,
+    "homeCount": 80,
+    "apartmentCount": 10
+  },
+  {
+    "cityId": "eagle-mountain",
+    "medianValue": 541500,
+    "medianRent": null,
+    "homeCount": 80,
+    "apartmentCount": 0
+  },
+  {
+    "cityId": "saratoga-springs",
+    "medianValue": 622250,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 10
+  },
+  {
+    "cityId": "american-fork",
+    "medianValue": 565750,
+    "medianRent": 1355,
+    "homeCount": 80,
+    "apartmentCount": 40
+  },
+  {
+    "cityId": "park-city",
+    "medianValue": 3226518.5,
+    "medianRent": 1808,
+    "homeCount": 80,
+    "apartmentCount": 17
+  },
+  {
+    "cityId": "heber-city",
+    "medianValue": 559625,
+    "medianRent": 1457,
+    "homeCount": 80,
+    "apartmentCount": 5
+  },
+  {
+    "cityId": "midway",
+    "medianValue": 1176585,
+    "medianRent": null,
+    "homeCount": 80,
+    "apartmentCount": 0
+  },
+  {
+    "cityId": "moab",
+    "medianValue": 497848,
+    "medianRent": 1409,
+    "homeCount": 80,
+    "apartmentCount": 6
+  },
+  {
+    "cityId": "vernal",
+    "medianValue": 293965,
+    "medianRent": 933,
+    "homeCount": 80,
+    "apartmentCount": 11
+  },
+  {
+    "cityId": "price",
+    "medianValue": null,
+    "medianRent": 933,
+    "homeCount": 0,
+    "apartmentCount": 9
+  },
+  {
+    "cityId": "tooele",
+    "medianValue": 408037.5,
+    "medianRent": 1203,
+    "homeCount": 80,
+    "apartmentCount": 14
+  },
+  {
+    "cityId": "brigham-city",
+    "medianValue": 213968,
+    "medianRent": 1012,
+    "homeCount": 80,
+    "apartmentCount": 33
+  },
+  {
+    "cityId": "richfield",
+    "medianValue": 317423,
+    "medianRent": 933,
+    "homeCount": 80,
+    "apartmentCount": 5
+  },
+  {
+    "cityId": "kanab",
+    "medianValue": 422982,
+    "medianRent": 1401,
+    "homeCount": 80,
+    "apartmentCount": 9
+  },
+  {
+    "cityId": "hurricane",
+    "medianValue": 435800,
+    "medianRent": 1485,
+    "homeCount": 80,
+    "apartmentCount": 9
+  },
+  {
+    "cityId": "washington",
+    "medianValue": 465200,
+    "medianRent": 1485,
+    "homeCount": 80,
+    "apartmentCount": 21
+  },
+  {
+    "cityId": "ephraim",
+    "medianValue": 450934.5,
+    "medianRent": 999,
+    "homeCount": 80,
+    "apartmentCount": 16
+  }
+]

@@ -1,4 +1,4 @@
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { marketRowValidator } from "./marketSchema";
 import { normalizeMarketRow, type Market } from "./lib/market";
@@ -19,7 +19,7 @@ async function updateStats(ctx: MutationCtx, changes: Map<string, Delta>) {
     const entries = new Map((existing?.yearOrder ?? []).map(entry => [entry.rcId, entry]));
     for (const id of delta.remove) entries.delete(id);
     for (const entry of delta.add) entries.set(entry.rcId, entry);
-    const yearOrder = [...entries.values()].sort((a, b) => b.yearBuilt - a.yearBuilt || a.price - b.price || a.rcId.localeCompare(b.rcId));
+    const yearOrder = [...entries.values()].sort((a, b) => b.yearBuilt - a.yearBuilt || a.price - b.price || (a.rcId < b.rcId ? -1 : a.rcId > b.rcId ? 1 : 0));
     const prices = yearOrder.map(entry => entry.price).sort((a, b) => a - b);
     const value = { cityId: delta.cityId, market: delta.market, prices, yearOrder, updatedAt: Date.now() };
     if (existing) await ctx.db.replace(existing._id, value); else await ctx.db.insert("marketListingStats", value);
@@ -57,3 +57,10 @@ export const clearMarketListingsBatch = internalMutation({
     return { deleted: rows.length, done: rows.length < 1000 };
   },
 });
+
+export const marketImportStatus = internalQuery({ args: {}, handler: async ctx => {
+  const [rows, stats] = await Promise.all([ctx.db.query("marketListings").take(1), ctx.db.query("marketListingStats").take(100)]);
+  return { hasRecords: rows.length > 0, exampleRcId: rows[0]?.rcId ?? null, pricedResidential: stats.reduce((sum, row) => sum + row.prices.length, 0),
+    rankedPricedResidential: stats.filter(row => row.cityId !== null).reduce((sum, row) => sum + row.prices.length, 0),
+    newestIndexReady: stats.every(row => row.yearOrder !== undefined), townsAndMarkets: stats.length };
+} });

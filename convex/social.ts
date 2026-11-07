@@ -6,10 +6,12 @@ import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { checkOwner, checkParent, cleanComment, nextReportState, type CommentTarget } from "./lib/social";
 import { commentTarget } from "./socialSchema";
 import { withListingMetadata } from "./lib/listings";
+import { findMarketListing } from "./marketSearch";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
 async function findListing(ctx: ReadCtx, listingId: string) {
+  if (listingId.startsWith("market:")) return findMarketListing(ctx, listingId);
   // Public record IDs survive reseeding; Convex-generated document IDs do not.
   return ctx.db.query("listings").withIndex("by_listingId", (q) => q.eq("id", listingId)).first();
 }

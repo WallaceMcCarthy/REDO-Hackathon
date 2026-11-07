@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { requireUserId } from "./lib/auth";
 import { withListingMetadata } from "./lib/listings";
 import { deleteReportsFor, recordContentReport } from "./social";
+import { findMarketListing } from "./marketSearch";
 
 type Ctx = QueryCtx | MutationCtx;
 async function participant(ctx: Ctx, conversationId: Id<"conversations">) {
@@ -22,7 +23,7 @@ const conversationsOf = async (ctx: Ctx, userId: Id<"users">) => {
   ]);
   return [...a, ...b].sort((a, b) => b.lastMessageAt - a.lastMessageAt || a._id.localeCompare(b._id));
 };
-const listingOf = (ctx: Ctx, listingId: string) => ctx.db.query("listings").withIndex("by_listingId", q => q.eq("id", listingId)).first();
+const listingOf = (ctx: Ctx, listingId: string) => listingId.startsWith("market:") ? findMarketListing(ctx, listingId) : ctx.db.query("listings").withIndex("by_listingId", q => q.eq("id", listingId)).first();
 const blockOf = (ctx: Ctx, userId: Id<"users">, blockedUserId: Id<"users">) => ctx.db.query("userBlocks").withIndex("by_pair", q => q.eq("userId", userId).eq("blockedUserId", blockedUserId)).first();
 async function requireUnblocked(ctx: Ctx, a: Id<"users">, b: Id<"users">) {
   if ((await blockOf(ctx, a, b)) || (await blockOf(ctx, b, a))) throw new ConvexError("Conversation not available.");

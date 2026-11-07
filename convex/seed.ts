@@ -1,6 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-export { insertMarketListings, clearMarketListingsBatch } from "./marketSeed";
+export { insertMarketListings, clearMarketListingsBatch, marketImportStatus } from "./marketSeed";
 
 const listingValidator = v.object({
   id: v.string(),

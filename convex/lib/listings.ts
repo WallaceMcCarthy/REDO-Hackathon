@@ -32,6 +32,8 @@ export type Listing = {
   daysOnMarket?: number | null;
   priceKind?: "asking_price" | "asking_rent";
   sourceId?: string;
+  marketCity?: string | null;
+  zip?: string | null;
 };
 
 /** Existing apartment source beds=2 means the benchmark size, not a unit attribute. */
