@@ -1,0 +1,316 @@
+{
+  "generatedAt": "2026-11-07T01:39:30.140Z",
+  "source": "https://gis.utah.gov/products/sgid/cadastre/parcels/",
+  "municipalSource": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/UtahMunicipalBoundaries/FeatureServer/0",
+  "methodology": "Up to 60 improved residential assessor parcels per town; 4x4 municipal-extent grid, up to 150 source candidates per cell, centroid-in-municipality check, round-robin selection across occupied cells. If building sizes are absent, source year-built or improvement value must establish a building; unavailable sqft stays null. Excludes multi-unit records where unit count is known. This is a spatial sample of public records, not homes advertised for sale. year is CURRENT_ASOF snapshot year, not independently verified assessment tax year. Missing bedrooms are null. No owner data retrieved.",
+  "count": 2400,
+  "bytes": 1442710,
+  "coverage": {
+    "salt-lake-city": {
+      "count": 60,
+      "examined": 1483,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "west-valley-city": {
+      "count": 60,
+      "examined": 2251,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "west-jordan": {
+      "count": 60,
+      "examined": 2379,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "provo": {
+      "count": 60,
+      "examined": 1587,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "orem": {
+      "count": 60,
+      "examined": 2318,
+      "occupiedCells": 14,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "sandy": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 11,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "st-george": {
+      "count": 60,
+      "examined": 2118,
+      "occupiedCells": 13,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Washington_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "layton": {
+      "count": 60,
+      "examined": 2001,
+      "occupiedCells": 11,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Davis_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "ogden": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 13,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Weber_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "south-jordan": {
+      "count": 60,
+      "examined": 2248,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "lehi": {
+      "count": 60,
+      "examined": 2250,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "millcreek": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "taylorsville": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "herriman": {
+      "count": 60,
+      "examined": 1870,
+      "occupiedCells": 10,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "logan": {
+      "count": 60,
+      "examined": 2097,
+      "occupiedCells": 11,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Cache_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "murray": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "draper": {
+      "count": 60,
+      "examined": 1676,
+      "occupiedCells": 8,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "spanish-fork": {
+      "count": 60,
+      "examined": 2211,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "riverton": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "pleasant-grove": {
+      "count": 60,
+      "examined": 1939,
+      "occupiedCells": 13,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "roy": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 14,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Weber_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "kaysville": {
+      "count": 60,
+      "examined": 1200,
+      "occupiedCells": 8,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Davis_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "cedar-city": {
+      "count": 60,
+      "examined": 2151,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Iron_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "cottonwood-heights": {
+      "count": 60,
+      "examined": 2400,
+      "occupiedCells": 11,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "holladay": {
+      "count": 60,
+      "examined": 2257,
+      "occupiedCells": 14,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_SaltLake_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "eagle-mountain": {
+      "count": 60,
+      "examined": 1552,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "saratoga-springs": {
+      "count": 60,
+      "examined": 1950,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "american-fork": {
+      "count": 60,
+      "examined": 2168,
+      "occupiedCells": 15,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Utah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "park-city": {
+      "count": 60,
+      "examined": 1632,
+      "occupiedCells": 11,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Summit_LIR/FeatureServer/0",
+      "allowMissingSqft": true
+    },
+    "heber-city": {
+      "count": 60,
+      "examined": 1429,
+      "occupiedCells": 8,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Wasatch_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "midway": {
+      "count": 60,
+      "examined": 1719,
+      "occupiedCells": 15,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Wasatch_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "moab": {
+      "count": 60,
+      "examined": 1196,
+      "occupiedCells": 8,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Grand_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "vernal": {
+      "count": 60,
+      "examined": 1828,
+      "occupiedCells": 13,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Uintah_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "tooele": {
+      "count": 60,
+      "examined": 1415,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Tooele_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "brigham-city": {
+      "count": 60,
+      "examined": 991,
+      "occupiedCells": 8,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_BoxElder_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "richfield": {
+      "count": 60,
+      "examined": 1311,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Sevier_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "kanab": {
+      "count": 60,
+      "examined": 1223,
+      "occupiedCells": 13,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Kane_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "hurricane": {
+      "count": 60,
+      "examined": 1800,
+      "occupiedCells": 12,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Washington_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "washington": {
+      "count": 60,
+      "examined": 1768,
+      "occupiedCells": 10,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Washington_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "ephraim": {
+      "count": 60,
+      "examined": 340,
+      "occupiedCells": 9,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Sanpete_LIR/FeatureServer/0",
+      "allowMissingSqft": false
+    },
+    "bountiful": {
+      "count": 0,
+      "examined": 0,
+      "occupiedCells": 0,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Davis_LIR/FeatureServer/0",
+      "allowMissingSqft": true,
+      "sourceAvailability": {
+        "parcelsInMunicipalBoundingBox": 21335,
+        "withValue": 0,
+        "withSqft": 0,
+        "withClass": 0
+      }
+    },
+    "price": {
+      "count": 0,
+      "examined": 0,
+      "occupiedCells": 0,
+      "layer": "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Parcels_Carbon_LIR/FeatureServer/0",
+      "allowMissingSqft": true,
+      "sourceAvailability": {
+        "parcelsInMunicipalBoundingBox": 6018,
+        "withValue": 0,
+        "withSqft": 0,
+        "withClass": 5983
+      }
+    }
+  }
+}
