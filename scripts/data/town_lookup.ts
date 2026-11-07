@@ -36,3 +36,15 @@ export function requireAllTowns(values: Record<string, number>): Record<string, 
   if (missing.length) throw new Error(`no source value for: ${missing.join(", ")}`);
   return values;
 }
+
+/** County name (no " County") -> 3-digit county FIPS for Utah, from the Census county estimates file. */
+export async function utahCountyFips(): Promise<Record<string, string>> {
+  const lines = (await cached("https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/totals/co-est2024-alldata.csv", "data/raw/popest/co-est2024-alldata.csv")).split(/\r?\n/).filter(Boolean);
+  const h = csvLine(lines[0]);
+  const out: Record<string, string> = {};
+  for (const l of lines.slice(1)) {
+    const r = csvLine(l);
+    if (r[h.indexOf("SUMLEV")] === "050" && r[h.indexOf("STATE")] === "49") out[r[h.indexOf("CTYNAME")].replace(/ County$/, "")] = r[h.indexOf("COUNTY")];
+  }
+  return out;
+}
