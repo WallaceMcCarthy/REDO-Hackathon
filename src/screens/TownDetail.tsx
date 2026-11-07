@@ -1,5 +1,6 @@
 import MetricRow from '../components/detail/MetricRow';
 import TownListings from '../components/listings/TownListings';
+import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import CommentsThread from '../components/social/CommentsThread';
 import { useCities, useMetrics, useRank } from '../data/hooks';
 import { CATEGORY_LABELS, toMetricWeights } from '../prefs';
@@ -78,9 +79,15 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
       <div className="mx-auto max-w-4xl px-4">
         <TownListings cityId={id} cityName={town.name} />
 
-        <div className="mt-12 border-t border-rock-200 pt-8">
-          <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
-        </div>
+        <SafeSectionBoundary>
+
+          <div className="mt-12 border-t border-rock-200 pt-8">
+
+            <CommentsThread targetType="town" targetId={id} title={`Local insights & community for ${town.name}`} />
+
+          </div>
+
+        </SafeSectionBoundary>
 
         {groups.map(({ category, items }) => (
           <section key={category} className="mt-10" aria-labelledby={`cat-${category}`}>

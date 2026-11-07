@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Listing, Recommendation } from '../../../convex/lib/listings';
 import { formatListingFinancials } from './types';
+import SafeSectionBoundary from '../SafeSectionBoundary';
 import SavedButton from '../social/SavedButton';
 
 interface ListingCardProps {
@@ -76,7 +77,7 @@ export default function ListingCard({
                 #{townRank} match {townScore != null && `(${Math.round(townScore)}%)`}
               </span>
             )}
-            <SavedButton listingId={listing.id} />
+            <SafeSectionBoundary><SavedButton listingId={listing.id} /></SafeSectionBoundary>
           </div>
         </div>
 
