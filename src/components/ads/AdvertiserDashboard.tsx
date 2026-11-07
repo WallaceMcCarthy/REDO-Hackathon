@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
-import { useCreateCampaign, useMyCampaigns } from '../../data/adsHooks';
+import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
 import type { City } from '../../types';
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Select, Skeleton, Textarea } from '../ui';
 
@@ -20,7 +20,15 @@ interface AdvertiserDashboardProps {
 export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashboardProps) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const campaigns = useMyCampaigns();
-  const createCampaign = useCreateCampaign();
+  const createCheckout = useCreateCheckout();
+  const provider = usePaymentProvider();
+  const isStripe = provider === 'stripe';
+  const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const paidSessionId = hashParams.get('paid');
+  const returnedPaid = hashParams.has('paid');
+  const confirmCheckout = useConfirmCheckout();
+  const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
+  const returnedCanceled = hashParams.has('canceled');
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
   const [title, setTitle] = useState('');
@@ -31,6 +39,29 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [submitting, setSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!paidSessionId) return;
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        let status: string;
+        try {
+          status = await confirmCheckout(paidSessionId);
+        } catch {
+          status = 'error';
+        }
+        if (cancelled) return;
+        setConfirmStatus(status);
+        if (status !== 'unpaid' || attempt === 2) return;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidSessionId]);
 
   const selectedCity = cities.find((c) => c.id === cityId);
 
@@ -46,7 +77,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
     setPendingCheckoutUrl(null);
 
     try {
-      const res = await createCampaign({
+      const res = await createCheckout({
         kind,
         title: title.trim(),
         body: body.trim(),
@@ -57,6 +88,10 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         durationDays,
       });
 
+      if (res?.provider === 'stripe' && res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
       if (res?.checkoutUrl) {
         setPendingCheckoutUrl(res.checkoutUrl);
         setCheckoutNotice(
@@ -82,12 +117,42 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         actions={<Button variant="secondary" size="sm" onClick={onBack}>Back to results</Button>}
       />
 
-      <Card role="note" className="mt-stack bg-surface-sunken">
-        <p className="text-small font-semibold text-text">Sandbox: REDO payments are not connected yet. No charge is made.</p>
-        <p className="mt-1 text-caption text-text-muted">
-          Campaigns stay in pending payment and never go live until the backend receives a verified REDO webhook.
-        </p>
-      </Card>
+      {isStripe ? (
+        <Card role="note" className="mt-stack bg-surface-sunken">
+          <p className="text-small font-semibold text-text">Test mode: use card 4242 4242 4242 4242</p>
+          <p className="mt-1 text-caption text-text-muted">
+            Payments run through Stripe test mode, so no real money moves. Any future expiry and any CVC work.
+          </p>
+        </Card>
+      ) : (
+        <Card role="note" className="mt-stack bg-surface-sunken">
+          <p className="text-small font-semibold text-text">Sandbox: REDO payments are not connected yet. No charge is made.</p>
+          <p className="mt-1 text-caption text-text-muted">
+            Campaigns stay in pending payment and never go live until the backend receives a verified REDO webhook.
+          </p>
+        </Card>
+      )}
+
+      {returnedPaid && (
+        <Card role="status" className="mt-stack">
+          <p className="text-small font-semibold text-text">
+            {confirmStatus === 'active'
+              ? 'Payment confirmed. Your ad is live.'
+              : confirmStatus === 'unpaid'
+                ? 'Payment not completed yet, so we could not confirm it. Check back shortly.'
+                : confirmStatus === 'not_found'
+                  ? 'We could not find that checkout for your account.'
+                  : confirmStatus === 'error'
+                    ? 'Payment received, but we could not confirm it just now. Your ad goes live once confirmed.'
+                    : 'Payment received. Confirming with Stripe...'}
+          </p>
+        </Card>
+      )}
+      {returnedCanceled && (
+        <Card role="status" className="mt-stack">
+          <p className="text-small text-text">Checkout canceled. Your campaign stays pending until paid.</p>
+        </Card>
+      )}
 
       <div className="mt-section grid gap-section lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section aria-labelledby="campaigns-heading" className="min-w-0 space-y-stack">
@@ -114,7 +179,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                     </div>
                     <h3 className="mt-2 break-words font-semibold text-text">{c.title}</h3>
                     {c.status === 'pending_payment' && (
-                      <p className="mt-1 text-caption text-text-muted">Awaiting verified REDO webhook. Not live.</p>
+                      <p className="mt-1 text-caption text-text-muted">{isStripe ? 'Awaiting payment confirmation. Not live.' : 'Awaiting verified REDO webhook. Not live.'}</p>
                     )}
                     <p className="mt-2 line-clamp-2 break-words text-small text-text-muted">{c.body}</p>
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-small sm:grid-cols-4">
@@ -191,7 +256,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                 <span>Listed price</span>
                 <span>${totalCost}.00 USD</span>
               </div>
-              <p className="mt-1 text-caption text-text-muted">Not charged yet. REDO is not connected.</p>
+              <p className="mt-1 text-caption text-text-muted">
+                {isStripe ? 'Billed securely via Stripe (test mode).' : 'Not charged yet. REDO is not connected.'}
+              </p>
             </div>
 
             {checkoutNotice && (
@@ -203,7 +270,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
             )}
 
             <Button type="submit" fullWidth loading={submitting}>
-              {submitting ? 'Creating...' : 'Create campaign (pending payment)'}
+              {submitting ? 'Creating...' : isStripe ? `Pay $${totalCost} with Stripe` : 'Create campaign (pending payment)'}
             </Button>
           </form>
         </Card>
