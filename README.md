@@ -65,10 +65,16 @@ All metrics are cited from authoritative public datasets. No numbers are invente
 
 | Metric | Category | Source | Year | Unit | Coverage |
 | :--- | :--- | :--- | :---: | :--- | :---: |
+| **Air quality** (`air_quality`) | `environment` | [EPA Air Quality System (AQS) annual concentration by monitor](https://aqs.epa.gov/aqsweb/airdata/download_files.html#Annual) | 2025 | µg/m³ PM2.5 (annual mean) | 42/42 towns |
+| **Average commute** (`commute_minutes`) | `transit` | [U.S. Census Bureau, 2020–2024 ACS 5-year estimates (B08013 / B08303)](https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/) | 2024 | minutes | 42/42 towns |
+| **Crime rate** (`crime_rate`) | `safety` | [Utah BCI (DPS) Crime in Utah 2024 report, NIBRS Crimes Against Totals](https://bci.utah.gov/wp-content/uploads/2024-Crime-in-Utah-Report.pdf) | 2024 | NIBRS crimes against persons + property per 1,000 residents | 42/42 towns |
 | **National & State parks** (`national_parks`) | `outdoors` | [National Park Service & Utah State Parks](https://www.nps.gov/state/ut/index.htm) | 2025 | miles | 42/42 towns |
+| **Quiet (distance from highway/airport noise)** (`noise`) | `environment` | [OpenStreetMap contributors via Overpass API (derived distances)](https://www.openstreetmap.org/copyright) | 2026 | km to nearest interstate or airport | 42/42 towns |
 | **Ski resort access** (`ski_access`) | `outdoors` | [Ski Utah & OpenStreetMap Road Network](https://www.skiutah.com/resorts) | 2025 | minutes | 42/42 towns |
 | **Hiking & biking trails** (`trails`) | `outdoors` | [OpenStreetMap Overpass API (highway=path|footway|cycleway, route=hiking)](https://overpass-api.de/) | 2025 | trails within 20km | 42/42 towns |
 | **Public transit departures** (`transit`) | `transit` | [Utah Transit Authority (UTA) Open GTFS Data & Regional Transit Agencies](https://www.rideuta.com/Developer-Resources/Data-Feeds) | 2025 | weekly departures per 1k residents | 42/42 towns |
+| **Drinking water quality** (`water_quality`) | `environment` | [EPA SDWIS via Envirofacts (data.epa.gov/efservice VIOLATION table)](https://www.epa.gov/enviro/sdwis-model) | 2026 | health-based violations, last 5 years | 42/42 towns |
+| **Residential water use** (`water_usage`) | `environment` | [Utah Division of Water Resources, Municipal & Industrial Water Use 2022](https://dwre-utahdnr.opendata.arcgis.com/pages/municipal-and-industrial) | 2022 | gallons per capita per day (residential potable) | 42/42 towns |
 
 <!-- sources:end -->
 
