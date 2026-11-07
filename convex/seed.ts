@@ -77,3 +77,16 @@ export const replaceListings = internalMutation({
     return { inserted: listings.length };
   },
 });
+
+/**
+ * Deletes up to 1000 listings per call so a reset stays under Convex's per-function read limit (4096).
+ * scripts/seed.ts calls this until it returns 0, then loads listings with reset: false.
+ */
+export const clearListingsBatch = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const batch = await ctx.db.query("listings").take(1000);
+    for (const doc of batch) await ctx.db.delete(doc._id);
+    return batch.length;
+  },
+});
