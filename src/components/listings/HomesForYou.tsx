@@ -30,11 +30,16 @@ interface Props {
 
 export default function HomesForYou(p: Props) {
   const { kind, maxPrice, sort, towns, townFilter } = p;
-  const { items, total, loading, fetching, hasMore, loadMore } = useListingSearch({
+  const { items: allItems, total, loading, fetching, hasMore: moreRaw, loadMore } = useListingSearch({
     weights: p.weights, filters: { maxCommuteMinutes: p.filters.maxCommuteMinutes }, kind, sort,
     maxValue: kind === 'home' ? maxPrice : undefined, maxRent: kind === 'apartment' ? maxPrice : undefined,
     cityIds: townFilter ? [townFilter] : undefined,
   });
+
+  // EXPERIMENT: keep only the 100 best (search order is already ranked).
+  const items = useMemo(() => allItems.slice(0, 100), [allItems]);
+  const hasMore = moreRaw && allItems.length < 100;
+  useEffect(() => { if (hasMore && !fetching && !loading) loadMore(); }, [hasMore, fetching, loading, loadMore]);
 
   // The visible card order (grouped by town, see `grouped` below) can differ
   // from `items`' own order (round-robin by town rank). Next/Prev in
@@ -100,7 +105,7 @@ export default function HomesForYou(p: Props) {
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-dusk" aria-live="polite">
         <span>
-          Showing {items.length} {noun} {scoredAreas ? `in ${scoredAreas} ${scoredAreas === 1 ? 'area' : 'areas'}${cityIds.includes('') ? ' and other Utah locations' : ''}` : 'across Utah'} · {total} matches
+          Top {items.length} {noun} {scoredAreas ? `in ${scoredAreas} ${scoredAreas === 1 ? 'area' : 'areas'}${cityIds.includes('') ? ' and other Utah locations' : ''}` : 'across Utah'} · best of {total} matches
         </span>
         {townFilter && (
           <button type="button" onClick={p.onClearTown} className={`rounded-full bg-alpine-50 px-3 py-1 text-xs font-semibold text-alpine-700 hover:bg-alpine-100 ${FOCUS}`}>
