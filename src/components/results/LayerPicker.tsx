@@ -31,6 +31,21 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
     dialRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'center' });
   }, [selected?.id]);
 
+  // Scrolling is the choice: when the dial settles, the option at its centre becomes the layer.
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const onScroll = () => {
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => {
+      const dial = dialRef.current;
+      if (!dial) return;
+      const box = dial.getBoundingClientRect();
+      const middle = box.top + box.height / 2;
+      const distance = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return Math.abs(r.top + r.height / 2 - middle); };
+      const centred = [...dial.querySelectorAll<HTMLElement>('[role="option"]')].sort((a, b) => distance(a) - distance(b))[0];
+      if (centred && centred.getAttribute('aria-selected') !== 'true') centred.click();
+    }, 140);
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
@@ -57,6 +72,7 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
           aria-label="Map heatmap layer"
           tabIndex={0}
           onKeyDown={onKeyDown}
+          onScroll={onScroll}
           className="max-h-28 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-lg bg-white/70 px-1 py-8 [scrollbar-width:thin] sm:max-h-40"
         >
           {groups.map(group => (
