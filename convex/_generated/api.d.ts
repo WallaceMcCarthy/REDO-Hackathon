@@ -16,6 +16,7 @@ import type * as feedSchema from "../feedSchema.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_feed from "../lib/feed.js";
+import type * as lib_listingSearch from "../lib/listingSearch.js";
 import type * as lib_listings from "../lib/listings.js";
 import type * as lib_payments from "../lib/payments.js";
 import type * as lib_roommateRules from "../lib/roommateRules.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/feed": typeof lib_feed;
+  "lib/listingSearch": typeof lib_listingSearch;
   "lib/listings": typeof lib_listings;
   "lib/payments": typeof lib_payments;
   "lib/roommateRules": typeof lib_roommateRules;
