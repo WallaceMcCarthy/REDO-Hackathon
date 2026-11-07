@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { useConvexAuth } from 'convex/react';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
@@ -11,8 +12,6 @@ import FilterBar, { type Sort } from '../components/homes/FilterBar';
 import ListErrorBoundary from '../components/homes/ListErrorBoundary';
 import PrioritiesPopover from '../components/homes/PrioritiesPopover';
 import Segmented, { type View } from '../components/homes/Segmented';
-import AdvertiserDashboard from '../components/ads/AdvertiserDashboard';
-import SavedPlaces from './SavedPlaces';
 import { BTN_PRIMARY, FOCUS } from '../components/homes/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
 import { toMetricWeights } from '../prefs';
@@ -21,7 +20,7 @@ import { openSignIn } from '../components/auth/AccountMenu';
 import { useMessagesActions } from '../data/messagesHooks';
 import ConversationView from '../components/messages/ConversationView';
 
-type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; initialView?: 'main' | 'saved' | 'ads' };
+type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null };
 
 const NONE: never[] = [];
 const WIDE = '(min-width: 1024px)';
@@ -38,7 +37,7 @@ function useWide() {
   return wide;
 }
 
-export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initialView = 'main' }: Props) {
+export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, townFilter }: Props) {
   const cities = useCities();
   const metrics = useMetrics();
   const weights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
@@ -47,11 +46,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
   const { isAuthenticated } = useConvexAuth();
   const { startConversation } = useMessagesActions();
 
-  const [view, setView] = useState<View>('homes');
-  const [viewMode, setViewMode] = useState<'main' | 'saved' | 'ads'>(initialView);
   const [sort, setSort] = useState<Sort>('fit');
-  const [rentMax, setRentMax] = useState<number | undefined>();
-  const [townFilter, setTownFilter] = useState<string | null>(null);
   const [pane, setPane] = useState<'list' | 'map'>('list');
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
@@ -87,10 +82,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
   );
 
   const kind = view === 'apartments' ? 'apartment' : 'home';
-  const budget = view === 'apartments' ? rentMax : prefs.filters.maxHomeValue;
+  const budget = view === 'apartments' ? prefs.budget.maxRent : prefs.budget.maxValue;
   const setBudget = (n?: number) => {
-    if (view === 'apartments') setRentMax(n);
-    else setPrefs({ ...prefs, filters: { ...prefs.filters, maxHomeValue: n } });
+    if (view === 'apartments') {
+      setPrefs({ ...prefs, budget: { ...prefs.budget, maxRent: n } });
+    } else {
+      setPrefs({ ...prefs, budget: { ...prefs.budget, maxValue: n } });
+    }
   };
 
   const rows = useMemo<Row[] | undefined>(() => {
@@ -152,11 +150,14 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
   ) : null;
 
   const changeView = (v: View) => {
-    setView(v);
     setSelectedListing(null);
-    if (v !== 'areas') setTownFilter(null);
+    window.location.hash = v === 'homes' ? '/results' : `/results?view=${v}`;
   };
-  const seeHomes = (id: string) => { setTownFilter(id); setView('homes'); setSelectedListing(null); setPane('list'); };
+  const seeHomes = (id: string) => {
+    setSelectedListing(null);
+    setPane('list');
+    window.location.hash = `/results?town=${encodeURIComponent(id)}`;
+  };
 
   const showMap = wide || pane === 'map';
   const filtered = prefs.filters.maxHomeValue !== undefined || prefs.filters.maxCommuteMinutes !== undefined;
@@ -192,12 +193,9 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
     </>
   );
 
-  if (viewMode === 'ads') return <AdvertiserDashboard cities={cities ?? []} onBack={() => { setViewMode('main'); if (/^#\/?ads/.test(window.location.hash)) window.location.hash = '/results'; }} />;
-  if (viewMode === 'saved') return <SavedPlaces onBack={() => setViewMode('main')} onOpenTown={openFromPin} />;
-
   return (
-    <main className="flex h-dvh flex-col">
-      <header className="z-30 shrink-0 border-b border-rock-100 bg-sand py-2.5 pl-4 pr-28">
+    <main className="flex min-h-0 flex-1 flex-col">
+      <header className="z-30 shrink-0 border-b border-rock-100 bg-sand px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="sr-only">Where you would fit in Utah</h1>
           <Segmented value={view} onChange={changeView} />
@@ -206,12 +204,9 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
           <button type="button" onClick={onRestart} className={`ml-auto hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
             Change my answers
           </button>
-          <button type="button" onClick={() => setViewMode('saved')} className={`hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
-            Saved
-          </button>
-          <button type="button" onClick={() => setViewMode('ads')} className={`hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
+          <a href="#/advertise" className={`hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
             Advertise
-          </button>
+          </a>
           <div role="group" aria-label="List or map" className="ml-auto inline-flex rounded-lg bg-rock-100 p-1 lg:hidden">
             {(['list', 'map'] as const).map(p => (
               <button
@@ -234,7 +229,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
             <ListErrorBoundary key={view}>
               <HomesForYou
                 kind={kind} weights={weights} filters={prefs.filters} maxPrice={budget} sort={sort}
-                towns={towns} townFilter={townFilter} onClearTown={() => setTownFilter(null)}
+                towns={towns} townFilter={townFilter} onClearTown={() => changeView('homes')}
                 onBrowseAreas={() => changeView('areas')} onRaiseBudget={() => setBudget(undefined)}
                 selectedId={selectedListing?.id} onSelect={selectListing} onHoverCity={setHovered}
                 onOpenTown={onOpenTown} onListings={setListings} onRecs={setRecs}
@@ -245,11 +240,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
 
         <section aria-label="Map" className={`relative isolate h-full ${pane === 'list' ? 'hidden lg:block' : ''}`}>
           {showMap && (
+            <SafeSectionBoundary fallback={<p className="p-6 text-sm text-dusk">The map needs WebGL, which this browser has turned off. The list still works.</p>}>
             <ResultsMap
               rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered}
               onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectListing}
               focus={view === 'areas' ? 'towns' : 'listings'} selectedListingId={selectedListing?.id}
             />
+            </SafeSectionBoundary>
           )}
           {wide && panel}
         </section>
@@ -262,12 +259,12 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initia
           role="dialog"
           aria-modal="true"
           aria-label="Direct message conversation"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) setActiveConversationId(null);
           }}
         >
-          <div className="relative flex h-[85vh] max-h-[680px] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-rock-200 bg-white shadow-2xl">
+          <div className="relative flex h-[85vh] max-h-[680px] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-rock-100 bg-white shadow-2xl">
             <ConversationView
               conversationId={activeConversationId}
               onBack={() => setActiveConversationId(null)}

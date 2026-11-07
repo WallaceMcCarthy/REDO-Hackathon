@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as ads from "../ads.js";
 import type * as adsSchema from "../adsSchema.js";
 import type * as auth from "../auth.js";
@@ -26,6 +27,8 @@ import type * as lib_scoring from "../lib/scoring.js";
 import type * as lib_social from "../lib/social.js";
 import type * as lib_zillow from "../lib/zillow.js";
 import type * as listings from "../listings.js";
+import type * as messages from "../messages.js";
+import type * as messagesSchema from "../messagesSchema.js";
 import type * as metrics from "../metrics.js";
 import type * as posts from "../posts.js";
 import type * as profiles from "../profiles.js";
@@ -46,6 +49,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   ads: typeof ads;
   adsSchema: typeof adsSchema;
   auth: typeof auth;
@@ -64,6 +68,8 @@ declare const fullApi: ApiFromModules<{
   "lib/social": typeof lib_social;
   "lib/zillow": typeof lib_zillow;
   listings: typeof listings;
+  messages: typeof messages;
+  messagesSchema: typeof messagesSchema;
   metrics: typeof metrics;
   posts: typeof posts;
   profiles: typeof profiles;

@@ -20,12 +20,14 @@ export const socialTables = {
   })
     .index("by_target", ["targetType", "targetId"])
     .index("by_target_parent", ["targetType", "targetId", "parentId"])
-    .index("by_parent", ["parentId"]),
+    .index("by_parent", ["parentId"])
+    .index("by_user", ["userId"]),
   contentReports: defineTable({
     targetType: v.union(v.literal("comment"), v.literal("post"), v.literal("message")),
     targetId: v.string(),
     userId: v.id("users"),
   })
     .index("by_target_user", ["targetType", "targetId", "userId"])
-    .index("by_target", ["targetType", "targetId"]),
+    .index("by_target", ["targetType", "targetId"])
+    .index("by_user", ["userId"]),
 };

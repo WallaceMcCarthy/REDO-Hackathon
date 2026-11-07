@@ -18,5 +18,7 @@ export const feedTables = {
   postLikes: defineTable({
     postId: v.id("posts"),
     userId: v.id("users"),
-  }).index("by_post_user", ["postId", "userId"]),
+  })
+    .index("by_post_user", ["postId", "userId"])
+    .index("by_user", ["userId"]),
 };

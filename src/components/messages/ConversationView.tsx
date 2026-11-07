@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ConvexError } from 'convex/values';
 import { useMessagesActions, useThread, type InboxItem } from '../../data/messagesHooks';
 
 interface ConversationViewProps {
@@ -54,8 +55,8 @@ export default function ConversationView({
     try {
       await sendMessage(conversationId, text);
       setDraft('');
-    } catch (err: any) {
-      setSendError(err.message || 'Failed to deliver message.');
+    } catch (err) {
+      setSendError(err instanceof ConvexError ? String(err.data) : 'Failed to deliver message. Try again.');
     } finally {
       setSending(false);
     }
@@ -74,7 +75,7 @@ export default function ConversationView({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Thread Header */}
-      <div className="flex items-center justify-between border-b border-rock-200 px-4 py-3 bg-white">
+      <div className="flex items-center justify-between border-b border-rock-100 px-4 py-3 bg-white">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
@@ -87,7 +88,7 @@ export default function ConversationView({
             </button>
           )}
 
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alpine-100 text-sm font-bold text-alpine-800">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-alpine-100 text-sm font-bold text-alpine-900">
             {otherName.charAt(0).toUpperCase()}
           </div>
 
@@ -144,7 +145,7 @@ export default function ConversationView({
           <div className="py-12 text-center text-xs text-dusk">
             <span>👋</span>
             <p className="mt-2 font-medium">Say hello to {otherName}!</p>
-            <p className="mt-0.5 text-[11px] text-rock-400">
+            <p className="mt-0.5 text-[11px] text-dusk">
               Discuss rent, schedules, or coordinate a meetup.
             </p>
           </div>
@@ -160,14 +161,14 @@ export default function ConversationView({
                 <div
                   className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed break-words [overflow-wrap:anywhere] ${
                     isMine
-                      ? 'bg-alpine-600 text-white rounded-tr-xs shadow-sm'
+                      ? 'bg-alpine-700 text-white rounded-tr-xs shadow-sm'
                       : 'bg-rock-100 text-ink rounded-tl-xs'
                   }`}
                 >
                   {/* Strict plain text rendering to prevent XSS */}
                   <span className="whitespace-pre-wrap">{msg.body}</span>
                 </div>
-                <span className="mt-1 px-1 text-[10px] text-rock-400">
+                <span className="mt-1 px-1 text-[10px] text-dusk">
                   {formatMessageTime(msg.createdAt)}
                 </span>
               </div>
@@ -184,7 +185,7 @@ export default function ConversationView({
       )}
 
       {/* Composer */}
-      <form onSubmit={handleSend} className="border-t border-rock-200 p-3 bg-white">
+      <form onSubmit={handleSend} className="border-t border-rock-100 p-3 bg-white">
         <div className="flex items-end gap-2">
           <textarea
             rows={1}
@@ -193,17 +194,17 @@ export default function ConversationView({
             onKeyDown={handleKeyDown}
             placeholder={`Message ${otherName}... (Enter to send)`}
             maxLength={2000}
-            className="flex-1 min-h-[44px] max-h-32 resize-none rounded-xl border border-rock-200 p-2.5 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
+            className="flex-1 min-h-[44px] max-h-32 resize-none rounded-xl border border-rock-100 p-2.5 text-xs text-ink placeholder:text-dusk focus:border-alpine-500 focus:outline-none"
           />
           <button
             type="submit"
             disabled={!draft.trim() || sending}
-            className="inline-flex min-h-[44px] min-w-[64px] items-center justify-center rounded-xl bg-alpine-600 px-4 py-2 text-xs font-semibold text-white transition-opacity hover:bg-alpine-700 focus-visible:outline-2 focus-visible:outline-alpine-500 disabled:opacity-40 cursor-pointer"
+            className="inline-flex min-h-[44px] min-w-[64px] items-center justify-center rounded-xl bg-alpine-700 px-4 py-2 text-xs font-semibold text-white transition-opacity hover:bg-alpine-700 focus-visible:outline-2 focus-visible:outline-alpine-500 disabled:opacity-40 cursor-pointer"
           >
             {sending ? '...' : 'Send'}
           </button>
         </div>
-        <div className="mt-1 flex justify-between px-1 text-[10px] text-rock-400">
+        <div className="mt-1 flex justify-between px-1 text-[10px] text-dusk">
           <span>Shift+Enter for new line</span>
           <span>{draft.length}/2000</span>
         </div>

@@ -5,6 +5,7 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import Composer from './Composer';
 import PostCard from './PostCard';
+import { Button, Card, EmptyState, Skeleton } from '../ui';
 
 interface Props {
   cityId: string;
@@ -37,9 +38,9 @@ export default function TownFeed({ cityId, cityName, onSignIn, renderComments }:
   };
 
   return (
-    <section aria-labelledby="town-feed-heading" className="mt-12 border-t border-rock-100 pt-8">
-      <h2 id="town-feed-heading" className="font-display text-2xl font-bold text-ink">Ask the locals in {cityName}</h2>
-      <p className="mt-0.5 mb-4 text-xs text-dusk">Questions and tips from people who live here or are moving here.</p>
+    <section aria-labelledby="town-feed-heading" className="mt-section">
+      <h2 id="town-feed-heading" className="font-display text-heading text-text">Ask the locals in {cityName}</h2>
+      <p className="mt-1 mb-4 text-small text-text-muted">Questions and tips from people who live here or are moving here.</p>
 
       {isAuthenticated ? (
         <Composer
@@ -53,27 +54,25 @@ export default function TownFeed({ cityId, cityName, onSignIn, renderComments }:
           }}
         />
       ) : (
-        <div className="rounded-2xl border border-rock-100 bg-rock-50 p-4 text-sm text-dusk">
-          Sign in to post, like, or comment.{' '}
-          {onSignIn && (
-            <button type="button" onClick={onSignIn} className="cursor-pointer font-semibold text-alpine-700 underline focus-visible:outline-2 focus-visible:outline-alpine-500">
-              Sign in
-            </button>
-          )}
-        </div>
+        <Card className="flex flex-wrap items-center justify-between gap-3 bg-surface-sunken">
+          <p className="text-small text-text-muted">Sign in to post, like, or comment.</p>
+          {onSignIn && <Button variant="secondary" size="sm" onClick={onSignIn}>Sign in</Button>}
+        </Card>
       )}
 
-      <p role="status" aria-live="polite" className="mt-3 min-h-5 text-sm text-rock-600">{notice}</p>
+      <p role="status" aria-live="polite" className="mt-3 min-h-5 text-small text-text-muted">{notice}</p>
 
       {posts === undefined ? (
         <div className="mt-2 space-y-3" role="status" aria-busy="true">
           <span className="sr-only">Loading posts</span>
-          {[0, 1].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-rock-100/70" />)}
+          {[0, 1].map((i) => <Skeleton key={i} className="h-24 rounded-card" />)}
         </div>
       ) : posts.length === 0 ? (
-        <p className="mt-2 rounded-2xl border border-dashed border-rock-300 p-6 text-center text-dusk">
-          No posts yet. Be the first to ask a question or share a tip about {cityName}.
-        </p>
+        <EmptyState
+          className="mt-2"
+          title="No posts yet"
+          description={`Be the first to ask a question or share a tip about ${cityName}.`}
+        />
       ) : (
         <ul className="mt-2 space-y-3">
           {posts.map((p) => {

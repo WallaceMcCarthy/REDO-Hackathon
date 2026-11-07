@@ -49,6 +49,18 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Keyboard users opened this from a card: move focus in, and hand it back to the card on close.
+  const panelRef = useRef<HTMLElement>(null);
+  const id = listing.id;
+  useEffect(() => {
+    panelRef.current?.focus({ preventScroll: true });
+    return () => {
+      if (document.activeElement === document.body) {
+        document.querySelector<HTMLElement>(`[data-listing-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+      }
+    };
+  }, [id]);
+
   // Swipe down to dismiss (sheet only).
   const startY = useRef<number | null>(null);
   const [dy, setDy] = useState(0);
@@ -69,11 +81,13 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
 
   return (
     <aside
+      ref={panelRef}
+      tabIndex={-1}
       aria-label={`Details for ${address}`}
       data-testid="listing-panel"
       {...swipe}
       style={variant === 'sheet' && dy ? { transform: `translateY(${dy}px)`, transition: 'none' } : undefined}
-      className={`${shell} overflow-y-auto overscroll-contain bg-white shadow-2xl ring-1 ring-black/10`}
+      className={`${shell} overflow-y-auto overscroll-contain bg-white outline-none shadow-2xl ring-1 ring-black/10`}
     >
       {variant === 'sheet' && <div className="sticky top-0 z-10 flex justify-center bg-white pb-1 pt-2"><span className="h-1 w-10 rounded-full bg-rock-300" /></div>}
       <div className="relative">
@@ -139,7 +153,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
           helper="Looking for roommates? Say what you're after. Others interested in this place can reply or message you."
           placeholder="Looking for roommates? Say what you're after..."
           onMessageUser={onMessageUser}
-          className="mt-4"
+          className="mt-4 !border-0 !bg-transparent !p-0 !shadow-none"
         />
       </div>
     </aside>

@@ -22,7 +22,7 @@ export const PERSONAS: Persona[] = [
   { id: 'foodie', label: 'Foodie', tagline: 'Restaurants and nights out', categories: { culture: 5, transit: 3, community: 2 } },
 ];
 
-export const defaultPrefs = (): Prefs => ({ categories: flat(2), filters: {} });
+export const defaultPrefs = (): Prefs => ({ categories: flat(2), filters: {}, budget: {} });
 
 /** Personas stack: each category takes the highest value any picked persona gives it. */
 export function applyPersonas(ids: string[]): CategoryWeights {
@@ -35,6 +35,11 @@ export function applyPersonas(ids: string[]): CategoryWeights {
   return out;
 }
 
+// Sliders were balanced with three Cost metrics. Extra affordability metrics refine Cost, so they share that weight instead of adding to it.
+const COST_METRICS_BASELINE = 3;
+
 export function toMetricWeights(categories: CategoryWeights, metrics: Metric[]): Weights {
-  return Object.fromEntries(metrics.map(m => [m.id, categories[m.category]]));
+  const costMetrics = metrics.filter(m => m.category === 'cost').length;
+  const costScale = Math.min(1, COST_METRICS_BASELINE / costMetrics);
+  return Object.fromEntries(metrics.map(m => [m.id, categories[m.category] * (m.category === 'cost' ? costScale : 1)]));
 }

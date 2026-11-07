@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -26,19 +26,19 @@ export const UTAH_BOUNDS = {
 export function validateHttpsUrl(rawUrl: string): string {
   const trimmed = (rawUrl || "").trim();
   if (!trimmed) {
-    throw new Error("Destination URL is required");
+    throw new ConvexError("Destination URL is required");
   }
   if (trimmed.length > 500) {
-    throw new Error("Destination URL exceeds maximum length of 500 characters");
+    throw new ConvexError("Destination URL exceeds maximum length of 500 characters");
   }
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new Error("Invalid destination URL format");
+    throw new ConvexError("Invalid destination URL format");
   }
   if (parsed.protocol !== "https:") {
-    throw new Error("Destination URL must use HTTPS protocol (https://)");
+    throw new ConvexError("Destination URL must use HTTPS protocol (https://)");
   }
   return parsed.toString();
 }
@@ -123,13 +123,13 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
   // 1. Title validation
   const title = args.title.trim();
   if (title.length < 3 || title.length > 80) {
-    throw new Error("Campaign title must be between 3 and 80 characters");
+    throw new ConvexError("Campaign title must be between 3 and 80 characters");
   }
 
   // 2. Body validation
   const body = args.body.trim();
   if (body.length < 5 || body.length > 300) {
-    throw new Error("Campaign description must be between 5 and 300 characters");
+    throw new ConvexError("Campaign description must be between 5 and 300 characters");
   }
 
   // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
@@ -138,7 +138,7 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
   // 4. Duration bounds
   const durationDays = Math.round(args.durationDays);
   if (durationDays < 1 || durationDays > 90) {
-    throw new Error("Campaign duration must be between 1 and 90 days");
+    throw new ConvexError("Campaign duration must be between 1 and 90 days");
   }
 
   // 5. Geographic validation for map pins
@@ -152,7 +152,7 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
         args.lng < UTAH_BOUNDS.minLng ||
         args.lng > UTAH_BOUNDS.maxLng
       ) {
-        throw new Error(
+        throw new ConvexError(
           `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
         );
       }
@@ -442,6 +442,12 @@ export const fulfillRedoPayment = internalMutation({
       status: "succeeded",
       rawEventId: args.rawEventId,
     });
+
+    if (!campaign.advertiserUserId) {
+      // The advertiser deleted their account mid-checkout: keep the money on record, never go live.
+      await ctx.db.patch(args.campaignId, { redoPaymentId: args.redoPaymentId });
+      return { status: "recorded_without_activation" };
+    }
 
     await ctx.db.patch(args.campaignId, {
       status: "active",
