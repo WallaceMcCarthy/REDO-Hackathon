@@ -3,7 +3,7 @@ import type { PoiKind } from './PoiLayer';
 const OPTIONS: { kind: PoiKind; label: string; shape: string; color: string }[] = [
   { kind: 'restaurant', label: 'Food', shape: '◆', color: '#be4b32' },
   { kind: 'trail', label: 'Trails', shape: '▲', color: '#28786f' },
-  { kind: 'ski', label: 'Ski', shape: '✦', color: '#3b62a3' },
+  { kind: 'ski', label: 'Ski', shape: '●', color: '#3b62a3' },
   { kind: 'school', label: 'Schools', shape: '■', color: '#76509b' },
 ];
 

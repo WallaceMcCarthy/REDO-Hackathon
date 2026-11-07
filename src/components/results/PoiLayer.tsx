@@ -8,7 +8,7 @@ type PoiFile = { version: 1; sources: Record<PoiKind, string>; points: PoiPoint[
 
 const SOURCE_ID = 'nearby-pois';
 const KINDS: PoiKind[] = ['restaurant', 'trail', 'ski', 'school'];
-const SHAPES: Record<PoiKind, string> = { restaurant: '◆', trail: '▲', ski: '✦', school: '■' };
+const SHAPES: Record<PoiKind, string> = { restaurant: '◆', trail: '▲', ski: '●', school: '■' };
 const COLORS: Record<PoiKind, string> = { restaurant: '#be4b32', trail: '#28786f', ski: '#3b62a3', school: '#76509b' };
 const layerId = (kind: PoiKind) => `nearby-pois-${kind}`;
 
@@ -54,9 +54,10 @@ export default function PoiLayer({ map, enabled }: Props) {
             filter: ['==', ['get', 'kind'], kind],
             layout: {
               visibility: enabled.has(kind) ? 'visible' : 'none',
-              'text-field': SHAPES[kind], 'text-font': ['Noto Sans Bold'],
+              // The map font has no star glyph. Ski resorts are few, so they also carry their name.
+              'text-field': kind === 'ski' ? ['concat', SHAPES[kind], ' ', ['get', 'name']] : SHAPES[kind], 'text-font': ['Noto Sans Bold'],
               'text-size': ['interpolate', ['linear'], ['zoom'], 10, 15, 14, 21],
-              'text-allow-overlap': false, 'text-padding': 3,
+              'text-allow-overlap': kind === 'ski', 'text-padding': 3,
             },
             paint: { 'text-color': COLORS[kind], 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
           });
