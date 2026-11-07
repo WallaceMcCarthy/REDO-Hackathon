@@ -6,7 +6,10 @@ const NAV = [
   { label: 'Areas', route: 'results?view=areas' },
   { label: 'Messages', route: 'messages' },
   { label: 'Saved', route: 'saved' },
+  { label: 'Advertise', route: 'advertise' },
 ];
+
+const BUILD_ID = import.meta.env.VITE_BUILD_ID as string | undefined;
 
 function Logo() {
   return (
@@ -16,7 +19,11 @@ function Logo() {
         <path d="M1 26l9-14 5 7 4-5 12 12z" className="fill-alpine-700" />
         <path d="M1 26l7-6 4 3 5-4 6 4 8 3z" className="fill-primary" />
       </svg>
-      Utah Fit
+      <span className="flex flex-col leading-none">
+        Utah Fit
+        {/* Lets anyone see how fresh the live site is. VITE_BUILD_ID is set at deploy time. */}
+        {BUILD_ID && <span className="mt-0.5 font-sans text-[10px] font-normal text-text-muted">{BUILD_ID}</span>}
+      </span>
     </a>
   );
 }
@@ -30,7 +37,7 @@ export function AppHeader({ route }: { route?: string }) {
     <header className="relative z-header border-b border-border bg-surface sm:sticky sm:top-0">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 px-gutter py-1.5">
         <Logo />
-        <nav aria-label="Main" className="order-last flex w-full gap-1 sm:order-none sm:mr-auto sm:w-auto">
+        <nav aria-label="Main" className="order-last flex w-full gap-1 overflow-x-auto sm:order-none sm:mr-auto sm:w-auto">
           {NAV.map(item => (
             <a
               key={item.route}

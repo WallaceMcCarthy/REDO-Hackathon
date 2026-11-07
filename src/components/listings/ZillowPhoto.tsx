@@ -19,15 +19,10 @@ export default function ZillowPhoto({ listing, preview, fallbackUrl, rounded = '
   const address = listing.address || listing.name || 'the property';
   return (
     <div className={`relative aspect-[16/10] w-full overflow-hidden bg-rock-100 ${rounded}`}>
-      <a
-        href={preview?.pageUrl ?? fallbackUrl} target="_blank" rel="noopener noreferrer"
-        onClick={e => e.stopPropagation()} aria-label={`Open ${address} on Zillow`} className="block size-full"
-      >
-        <img
-          src={imageUrl} alt={`Photo of ${address} from Zillow`} referrerPolicy="no-referrer" loading="lazy"
-          draggable={false} onError={() => setFailed(true)} className="size-full object-cover"
-        />
-      </a>
+      <img
+        src={imageUrl} alt={`Photo of ${address} from Zillow`} referrerPolicy="no-referrer" loading="lazy"
+        draggable={false} onError={() => setFailed(true)} className="size-full object-cover"
+      />
       <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">Photo · Zillow</span>
     </div>
   );
