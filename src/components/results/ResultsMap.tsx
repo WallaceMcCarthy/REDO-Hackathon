@@ -88,10 +88,15 @@ export default memo(function ResultsMap({ rows, hovered, onHover, onOpen }: Prop
       className="size-full bg-alpine-50" scrollWheelZoom
     >
       <ZoomGate zooming={zooming} />
+      {/* Esri light gray canvas: keyless and fast. CARTO basemaps now require an API key. */}
       <TileLayer
-        attribution="&copy; OpenStreetMap contributors &copy; CARTO"
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        subdomains="abcd"
+        attribution="Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+        maxNativeZoom={16}
+      />
+      <TileLayer
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+        maxNativeZoom={16}
       />
       {rows.map(({ city, rank }) => (
         <Pin
