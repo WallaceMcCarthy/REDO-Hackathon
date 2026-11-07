@@ -83,7 +83,7 @@ export function useCreateCheckout() {
   const run = useAction(actionFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0, provider: 'none' })));
 
   return useCallback(
-    async (params: { body: string; url: string; imageUrl: string; lat: number; lng: number; free?: boolean }) => {
+    async (params: { body: string; url: string; imageUrl: string; lat?: number; lng?: number; listingId?: string; free?: boolean }) => {
       if (!actionFn) return null;
       return (await run(params)) as { campaignId: string; checkoutUrl: string; amount: number; provider: 'none' | 'stripe' };
     },

@@ -9,6 +9,7 @@ import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { redoClient, selectPaymentClient } from "./lib/payments";
 import { isInUtah, nearestTown, UTAH_BOUNDS } from "./lib/adLocation";
 import { DEFAULT_AD_DAYS, FREE_AD_DAYS, priceCents, type CampaignKind } from "./lib/pricing";
+import { findListing } from "./social";
 
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 
@@ -216,8 +217,29 @@ function titleFromMessage(body: string) {
   return line.length <= MAX_TITLE ? line : `${line.slice(0, MAX_TITLE - 1).trimEnd()}…`;
 }
 
+type SponsoredListing = NonNullable<Awaited<ReturnType<typeof findListing>>>;
+
+/** Everything a listing ad states as fact comes from the listing, so a client cannot misplace it or misprice its title. */
+function listingAdFields({ id, address, name, lat, lng, cityId, kind, value, rent }: SponsoredListing, message: string) {
+  const price = rent ? `$${rent.toLocaleString("en-US")}/mo` : value ? `$${value.toLocaleString("en-US")}` : null;
+  const summary = [address ?? name ?? (kind === "home" ? "Home for sale" : "Apartment for rent"), price].filter(Boolean).join(", ");
+  return {
+    title: titleFromMessage(summary),
+    body: message.trim() || summary,
+    // Never opened in the app, since listingId takes the click. It is the shareable form of the same link.
+    url: `https://cmascope.com/#/results?listing=${encodeURIComponent(id)}`,
+    lat,
+    lng,
+    cityId,
+  };
+}
+
 /** Validate client input and insert a pending_payment campaign priced server-side. */
-async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args: CampaignInput) {
+async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, input: CampaignInput) {
+  const listing = input.listingId ? await findListing(ctx, input.listingId) : null;
+  if (input.listingId && !listing) throw new ConvexError("That listing is no longer available");
+  const args = listing ? { ...input, ...listingAdFields(listing, input.body) } : input;
+
   // 1. Body validation
   const body = args.body.trim();
   if (body.length < 5 || body.length > 300) {
@@ -250,7 +272,8 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
       `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
     );
   }
-  if (!imageUrl) {
+  // Listings store no photo of their own, so a listing ad without an image shows the initial-letter fallback.
+  if (!imageUrl && !listing) {
     throw new ConvexError("Enter an image URL");
   }
 

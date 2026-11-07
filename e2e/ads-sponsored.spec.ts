@@ -293,6 +293,81 @@ test('a new ad is a labelled image circle on the results map, and a click opens 
   await context.close();
 });
 
+// Needs these two rows of public/data/map-points-*.json imported into marketListings on the local Convex.
+const LISTINGS = {
+  desktop: { search: 'Dahlia Ln, Unit 32', address: '10039 N Dahlia Ln, Unit 32, Cedar Hills, UT 84062', town: 'american-fork', view: '' },
+  mobile: { search: '104 N Main St', address: '104 N Main St, Unit 303, Richfield, UT 84701', town: 'richfield', view: 'view=apartments' },
+};
+
+test('a home or apartment can be sponsored, and its ad opens the listing in the app', async ({ page, browser }, info) => {
+  test.skip(!process.env.E2E_LISTINGS_SET, 'needs the sample rows in marketListings');
+  const mobile = info.project.name === 'mobile';
+  const { search, address, town, view } = LISTINGS[mobile ? 'mobile' : 'desktop'];
+  const ranked = async () => {
+    const fresh = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const reader = await fresh.newPage();
+    await gotoAreas(reader);
+    const names = await cardNames(reader, 42);
+    await fresh.close();
+    return names;
+  };
+  const organic = await ranked();
+
+  await signUp(page, `listing-${RUN}-${info.project.name}@example.test`);
+  await page.goto('/#/advertise');
+  const form = page.locator('main form');
+  await form.getByRole('radio', { name: 'A home or apartment' }).click();
+  await expect(form.getByRole('region', { name: 'Map for placing your ad' })).toHaveCount(0);
+  await expect(form.getByLabel('Link')).toHaveCount(0);
+  await form.getByRole('button', { name: 'Publish ad' }).click();
+  await expect(page.getByText('Choose a home or apartment from the list.')).toBeVisible();
+
+  await form.getByLabel('Find a home or apartment').fill(search);
+  await form.getByRole('button', { name: new RegExp(address) }).click();
+  await expect(form.getByText('Sponsoring')).toBeVisible();
+  await expect(page.getByText('Choose a home or apartment from the list.')).toHaveCount(0);
+  expect(await noSideScroll(page)).toBe(true);
+  await shot(page, 'listing-form', info.project.name);
+  await form.getByRole('button', { name: 'Publish ad' }).click();
+  await expect(page.getByText('Your ad is live.')).toBeVisible();
+  expect(await ranked(), 'a sponsored listing never moves a town').toEqual(organic);
+
+  const context = await browser.newContext({ viewport: page.viewportSize()!, isMobile: mobile, hasTouch: mobile });
+  const visitor = await context.newPage();
+  let opened = 0;
+  await gotoResults(visitor);
+  await visitor.goto(`/#/results?town=${town}`);
+  await showMap(visitor);
+  context.on('page', () => { opened += 1; });
+  const ad = visitor.locator('.maplibregl-marker a').filter({ hasText: address });
+  await expect(ad).toBeVisible();
+  await expect(ad.getByText('Sponsored', { exact: true })).toBeVisible();
+  await expect(ad.getByTestId('ad-image-fallback')).toBeVisible();
+  await expect(ad).not.toHaveAttribute('target', '_blank');
+  await shot(visitor, 'listing-pin', info.project.name);
+  await ad.click();
+  const panel = visitor.getByTestId('listing-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText(address.split(',')[0]);
+  expect(opened, 'the listing opens in the app, not a new tab').toBe(0);
+  expect(await noSideScroll(visitor)).toBe(true);
+  await shot(visitor, 'listing-panel', info.project.name);
+
+  await panel.getByRole('button', { name: /close/i }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(visitor).not.toHaveURL(/listing=/);
+  if (view) await expect(visitor).toHaveURL(new RegExp(view));
+
+  // A fresh tab, because closing the panel steps history back just after this point.
+  const townPage = await context.newPage();
+  await townPage.goto(`/#/town/${town}`);
+  const card = sponsored(townPage).getByRole('article').filter({ hasText: address }).first();
+  await expect(card.getByText('Sponsored', { exact: true })).toBeVisible();
+  await card.getByRole('link', { name: /View (home|rental)/ }).click();
+  await expect(townPage.getByTestId('listing-panel')).toBeVisible();
+  await context.close();
+});
+
 // Run on its own against a Convex with a fake STRIPE_SECRET_KEY: the rest of this file needs none set.
 test('with Stripe on, a free ad skips checkout and goes live for a day', async ({ page }, info) => {
   test.skip(!process.env.E2E_STRIPE_SET, 'needs STRIPE_SECRET_KEY on the local Convex');
