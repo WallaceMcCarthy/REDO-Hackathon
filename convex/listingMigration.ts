@@ -31,7 +31,12 @@ export const migrateLegacyApartmentReferences = internalMutation({
       }
       verified.set(mapping.oldId, target.id);
     }
-    const report = { dryRun, verifiedMappings: verified.size, skipped, savedUpdated: 0, savedDeduplicated: 0, commentsUpdated: 0, conversationContextsUpdated: 0, conversationContextsSkipped: 0 };
+    const unresolved = (id: string | null) => !!id && /^apt-(?!lihtc-|mf-|osm-)[a-z-]+-\d+$/.test(id) && !verified.has(id);
+    const report = { dryRun, verifiedMappings: verified.size, skipped, savedUpdated: 0, savedDeduplicated: 0, commentsUpdated: 0, conversationContextsUpdated: 0, conversationContextsSkipped: 0,
+      unresolvedSaved: saves.filter(row => unresolved(row.listingId)).length,
+      unresolvedComments: comments.filter(row => row.targetType === "listing" && unresolved(row.targetId)).length,
+      unresolvedConversationContexts: conversations.filter(row => unresolved(row.contextListingId)).length,
+    };
     const savedPairs = new Set(saves.map(row => `${row.userId}|${row.listingId}`));
     for (const row of saves) {
       const listingId = verified.get(row.listingId);

@@ -29,7 +29,7 @@ it("previews and migrates only verified identities, preserves threads and dedupl
   });
   const ref = makeFunctionReference<"mutation">("listingMigration:migrateLegacyApartmentReferences");
   const preview = await t.mutation(ref, {});
-  expect(preview).toMatchObject({ dryRun: true, verifiedMappings: 1, savedUpdated: 1, savedDeduplicated: 1, commentsUpdated: 2, conversationContextsUpdated: 1 });
+  expect(preview).toMatchObject({ dryRun: true, verifiedMappings: 1, savedUpdated: 1, savedDeduplicated: 1, commentsUpdated: 2, conversationContextsUpdated: 1, unresolvedSaved: 2, unresolvedComments: 0, unresolvedConversationContexts: 0 });
   const savedBefore = await t.run(ctx => ctx.db.query("saved").collect());
   expect(savedBefore).toHaveLength(5);
   expect(savedBefore.filter(s => s.listingId === mapping.oldId)).toHaveLength(2);
@@ -44,4 +44,20 @@ it("previews and migrates only verified identities, preserves threads and dedupl
   expect(after.comments.find(c => c.body === "Reply")?.parentId).toBe(after.comments.find(c => c.body === "Root")?._id);
   expect(after.conversations[0]).toMatchObject({ contextListingId: target.id, lastMessage: "Private", unreadB: 1 });
   expect(await t.mutation(ref, { dryRun: false })).toMatchObject({ savedUpdated: 0, savedDeduplicated: 0, commentsUpdated: 0, conversationContextsUpdated: 0 });
+});
+
+it("reports unresolved references after a reseed without inferring identity from the dictionary alone", async () => {
+  const mapping = migration.mappings.find(row => !row.collisionBetweenReleases && apartments.some(a => a.id === row.newStableId))!;
+  const target = apartments.find(row => row.id === mapping.newStableId)!;
+  const t = convexTest(schema, { "./listingMigration.ts": () => import("./listingMigration"), "./_generated/server.js": () => import("./_generated/server.js") });
+  await t.run(async ctx => {
+    const a = await ctx.db.insert("users", {}), b = await ctx.db.insert("users", {});
+    await ctx.db.insert("listings", { ...target, kind: "apartment" });
+    await ctx.db.insert("saved", { userId: a, listingId: mapping.oldId });
+    await ctx.db.insert("comments", { targetType: "listing", targetId: mapping.oldId, userId: a, body: "Preserve", parentId: null, reports: 0, hidden: false, isSample: false });
+    await ctx.db.insert("conversations", { userA: a, userB: b, contextListingId: mapping.oldId, startedBy: a, startedAt: 1, lastMessage: "Private", lastMessageAt: 1, unreadA: 0, unreadB: 0 });
+  });
+  const ref = makeFunctionReference<"mutation">("listingMigration:migrateLegacyApartmentReferences");
+  expect(await t.mutation(ref, { dryRun: false })).toMatchObject({ verifiedMappings: 0, savedUpdated: 0, commentsUpdated: 0, conversationContextsUpdated: 0, unresolvedSaved: 1, unresolvedComments: 1, unresolvedConversationContexts: 1 });
+  expect((await t.run(ctx => ctx.db.query("saved").collect()))[0].listingId).toBe(mapping.oldId);
 });
