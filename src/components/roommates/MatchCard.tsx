@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../ui';
 import ProfileCard from './ProfileCard';
 import { tagLabel, townNames, type Match } from './types';
 
@@ -7,20 +8,15 @@ interface Props { match: Match; towns: Map<string, string>; onRequest: (profileI
 export default function MatchCard({ match, towns, onRequest, sent = false }: Props) {
   return (
     <ProfileCard p={match} towns={towns}>
-      <p className="text-sm font-semibold text-alpine-700">{match.score}% match</p>
-      <ul className="list-disc pl-5 text-sm text-dusk">
+      <p className="text-small font-semibold text-primary-hover">{match.score}% match</p>
+      <ul className="list-disc pl-5 text-small text-text-muted">
         {match.reasons.map((r) => <li key={r}>{r}</li>)}
       </ul>
-      {match.sharedCityIds.length > 0 && <p className="text-sm text-dusk">Shared towns: {townNames(match.sharedCityIds, towns)}</p>}
-      {match.sharedTags.length > 0 && <p className="text-sm text-dusk">Shared habits: {match.sharedTags.map(tagLabel).join(', ')}</p>}
-      <button
-        type="button"
-        disabled={sent}
-        onClick={() => onRequest(match.profileId)}
-        className="min-h-[44px] rounded-lg bg-alpine-500 px-4 text-sm font-semibold text-white hover:bg-alpine-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-alpine-700 focus-visible:ring-offset-2 disabled:bg-alpine-300"
-      >
+      {match.sharedCityIds.length > 0 && <p className="break-words text-small text-text-muted">Shared towns: {townNames(match.sharedCityIds, towns)}</p>}
+      {match.sharedTags.length > 0 && <p className="text-small text-text-muted">Shared habits: {match.sharedTags.map(tagLabel).join(', ')}</p>}
+      <Button size="sm" disabled={sent} onClick={() => onRequest(match.profileId)}>
         {sent ? 'Request sent' : 'Request to connect'}
-      </button>
+      </Button>
     </ProfileCard>
   );
 }
