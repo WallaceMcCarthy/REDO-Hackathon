@@ -27,12 +27,12 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
           <button
             type="button"
             onClick={onBack}
-            className="mb-3 cursor-pointer rounded-full border border-rock-300 px-3.5 py-1 text-xs font-semibold text-rock-700 hover:bg-rock-100"
+            className="mb-3 inline-flex min-h-[44px] items-center cursor-pointer rounded-full border border-rock-300 px-4 py-2 text-xs font-semibold text-rock-700 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
           >
             ← Back to results
           </button>
-          <h1 className="font-display text-4xl font-bold text-ink">My saved places</h1>
-          <p className="mt-1 text-sm text-dusk">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">My saved places</h1>
+          <p className="mt-1 text-xs sm:text-sm text-dusk">
             Your shortlisted Utah homes and apartment complexes.
           </p>
         </div>
@@ -44,7 +44,7 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
               key={tab}
               type="button"
               onClick={() => setFilter(tab)}
-              className={`cursor-pointer rounded-full px-3.5 py-1.5 capitalize transition-all ${
+              className={`min-h-[44px] inline-flex items-center cursor-pointer rounded-full px-4 py-2 capitalize transition-all focus-visible:outline-2 focus-visible:outline-alpine-500 ${
                 filter === tab
                   ? 'bg-white text-ink shadow-sm'
                   : 'text-rock-600 hover:text-ink'
@@ -65,18 +65,18 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-rock-300 p-12 text-center">
+          <div className="rounded-2xl border border-dashed border-rock-300 p-8 sm:p-12 text-center">
             <span className="text-3xl">❤️</span>
             <h2 className="mt-3 font-display text-xl font-semibold text-ink">
               No saved {filter === 'all' ? 'places' : filter + 's'} yet
             </h2>
-            <p className="mt-1 text-sm text-dusk max-w-md mx-auto">
+            <p className="mt-1 text-xs sm:text-sm text-dusk max-w-md mx-auto">
               Heart listings from the "Homes for you" tab or inside any town page to keep track of them here.
             </p>
             <button
               type="button"
               onClick={onBack}
-              className="mt-5 rounded-full bg-rock-800 px-5 py-2 text-xs font-semibold text-white hover:bg-rock-900"
+              className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-rock-800 px-6 py-2.5 text-xs font-semibold text-white hover:bg-rock-900 focus-visible:outline-2 focus-visible:outline-alpine-500"
             >
               Browse Utah towns & listings
             </button>

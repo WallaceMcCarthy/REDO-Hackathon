@@ -33,20 +33,27 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
 
   return (
     <li className="grid gap-x-8 gap-y-3 py-5 sm:grid-cols-[1fr_minmax(0,22rem)]">
-      <div>
-        <h4 className="font-semibold text-ink">{metric.label}</h4>
+      <div className="min-w-0">
+        <h4 className="font-semibold text-ink break-words">{metric.label}</h4>
         <details className="group mt-1 max-w-prose text-sm leading-relaxed text-dusk">
-          <summary className="line-clamp-2 cursor-pointer list-none rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-alpine-500 group-open:line-clamp-none">{metric.description}</summary>
+          <summary className="line-clamp-2 cursor-pointer list-none rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-alpine-500 group-open:line-clamp-none break-words [overflow-wrap:anywhere]">
+            {metric.description}
+          </summary>
         </details>
-        <p className="mt-2 text-xs text-dusk">
-          <a href={metric.sourceUrl} target="_blank" rel="noreferrer" className="underline decoration-rock-300 underline-offset-2 hover:text-rock-600 focus-visible:outline-2 focus-visible:outline-alpine-500">
+        <p className="mt-2 text-xs text-dusk break-words [overflow-wrap:anywhere]">
+          <a
+            href={metric.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block py-1 underline decoration-rock-300 underline-offset-2 hover:text-rock-600 focus-visible:outline-2 focus-visible:outline-alpine-500"
+          >
             {metric.source}
           </a>
           , {metric.year}
         </p>
       </div>
 
-      <div>
+      <div className="min-w-0">
         {c.value === undefined ? (
           <p className="font-display text-xl text-dusk">No data</p>
         ) : (

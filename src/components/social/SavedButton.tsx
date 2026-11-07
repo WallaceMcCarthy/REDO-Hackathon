@@ -58,7 +58,7 @@ export default function SavedButton({
       onClick={handleClick}
       aria-label={saved ? 'Remove from saved places' : 'Save to my places'}
       title={saved ? 'Remove from saved places' : 'Save to my places'}
-      className={`group relative flex size-8 items-center justify-center rounded-full border transition-all duration-150 focus-visible:outline-2 focus-visible:outline-alpine-500 ${
+      className={`group relative flex size-8 items-center justify-center rounded-full border transition-all duration-150 before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-alpine-500 ${
         saved
           ? 'border-rose-200 bg-rose-50 text-rose-600 shadow-sm'
           : 'border-rock-200 bg-white/90 text-rock-400 hover:border-rock-300 hover:text-rose-500'
