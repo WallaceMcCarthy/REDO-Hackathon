@@ -1,7 +1,18 @@
+import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  ...authTables,
+  profiles: defineTable({
+    userId: v.id("users"),
+    displayName: v.string(),
+    cityId: v.union(v.string(), v.null()),
+    moveBy: v.union(v.string(), v.null()),
+    budget: v.union(v.number(), v.null()),
+    household: v.union(v.number(), v.null()),
+    isSample: v.boolean(),
+  }).index("by_userId", ["userId"]),
   cities: defineTable({
     id: v.string(),
     name: v.string(),

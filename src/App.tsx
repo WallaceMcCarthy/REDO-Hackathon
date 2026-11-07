@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { defaultPrefs } from './prefs';
+import AccountMenu from './components/auth/AccountMenu';
 import Quiz from './screens/Quiz';
 import Results from './screens/Results';
 import TownDetail from './screens/TownDetail';
@@ -21,6 +22,7 @@ export default function App() {
   const town = route.match(/^town\/(.+)$/)?.[1];
   return (
     <>
+      <AccountMenu />
       {town ? (
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
       ) : route === 'results' ? (
