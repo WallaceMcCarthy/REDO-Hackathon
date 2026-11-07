@@ -43,7 +43,7 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
           <details open={aboutOpen} className="mt-0.5 text-dusk">
             <summary className="cursor-pointer font-semibold text-ink focus-visible:outline-2 focus-visible:outline-alpine-500">About this layer</summary>
             <p className="mt-0.5">
-              Colours between towns are estimated from the {nums.length} measured towns.{' '}
+              Colour shows each town's rank among the {nums.length} measured towns, not an even scale. Colours between towns are estimated.{' '}
               <a href={selected.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold text-alpine-700 underline">Source: {selected.source}</a>
             </p>
           </details>
