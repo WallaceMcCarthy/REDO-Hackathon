@@ -23,9 +23,11 @@ export function haversineKm(a: [number, number], b: [number, number]) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+/** Writes a metric with the UTC date on which its retrieval/derivation script ran. */
 export function writeMetric(file: string, m: object) {
   mkdirSync("data/metrics", { recursive: true });
-  writeFileSync(file, JSON.stringify(m, null, 2) + "\n");
+  const lastUpdated = new Date().toISOString().slice(0, 10);
+  writeFileSync(file, JSON.stringify({ ...m, lastUpdated }, null, 2) + "\n");
 }
 /** Real coordinates from Wikipedia (GeoData API), cached in data/raw/wiki_coords.json */
 export async function wikiCoords(titles: string[]): Promise<Record<string, [number, number]>> {

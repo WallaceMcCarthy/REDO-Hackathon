@@ -17,6 +17,13 @@ export const socialTables = {
     reports: v.number(),
     hidden: v.boolean(),
     isSample: v.boolean(),
+    // Populated only by async Jev moderation (#99); absent when moderation is
+    // disabled or hasn't run yet.
+    moderationReasons: v.optional(v.array(v.string())),
+    // Set when the moderation call itself failed (provider error/timeout), not
+    // when content was judged. `hidden` is left unchanged (existing
+    // behaviour); this just surfaces the row for a human to double check.
+    moderationFlag: v.optional(v.literal("review")),
   })
     .index("by_target", ["targetType", "targetId"])
     .index("by_target_parent", ["targetType", "targetId", "parentId"])

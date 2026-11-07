@@ -7,9 +7,11 @@ import type { FeatureCollection, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { City, Metric } from '../../types';
+import SponsoredMapPins from '../ads/SponsoredMapPins';
+import SafeSectionBoundary from '../SafeSectionBoundary';
 import { BOUNDS, UTAH, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
-import type { Listing } from '../listings/types';
+import type { MapPin } from '../../data/mapPoints';
 import type { Row } from './types';
 
 declare global {
@@ -36,8 +38,13 @@ const ALPINE_500_DOT = ALPINE_500;
 // Topmost first, so a listing wins over the town dot beneath it.
 const HIT_LAYERS = ['listings-clusters', 'listings-circle', 'towns-circle', 'towns-dots'];
 const TOWN_MUTED = '#6e625a';
+export const AREA_MAP_LABEL_LAYOUT = {
+  townNamesVisibility: 'none',
+  ranksAllowOverlap: false,
+  ranksIgnorePlacement: false,
+} as const;
 
-function priceLabel(l: Listing): string {
+function priceLabel(l: MapPin): string {
   if (l.kind === 'home') {
     const v = l.value;
     return v == null ? '' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
@@ -50,9 +57,11 @@ const HEAT_OPACITY = 0.65;
 type Props = {
   rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null;
   onHover: (id: string | null) => void; onOpen: (id: string) => void;
-  listings?: Listing[]; onSelectListing?: (l: Listing) => void; selectedListingId?: string;
+  listings?: MapPin[]; onSelectListing?: (l: MapPin) => void; selectedListingId?: string;
   /** Which pins are primary. 'listings' (default): homes with prices and clusters, towns as muted dots. 'towns': numbered town pins, listings hidden. */
   focus?: 'listings' | 'towns';
+  /** The town the list is narrowed to, so sponsored pins can follow it. */
+  selectedTown?: string | null;
 };
 
 /** Switch paint, filters and visibility between the two modes. The map and its sources are never recreated. */
@@ -66,13 +75,23 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
   map.setPaintProperty('towns-dots', 'circle-color', towns ? ALPINE_500_DOT : TOWN_MUTED);
   map.setPaintProperty('towns-dots', 'circle-opacity', towns ? 1 : 0.8);
   map.setPaintProperty('towns-dots', 'circle-radius', hoverCase(towns ? 9 : 7, towns ? 6 : 4.5));
+  // Positron already labels towns. Hiding our copy in Areas mode avoids doubled names when zoomed in.
+  map.setLayoutProperty('towns-label', 'visibility', towns ? AREA_MAP_LABEL_LAYOUT.townNamesVisibility : 'visible');
   map.setPaintProperty('towns-label', 'text-color', towns ? INK : TOWN_MUTED);
 }
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
+// MapLibre allows one zoom curve per paint value, and only at the top, so hover scales each stop.
+const hoverScale = hoverCase(1.25, 1);
+const townPinRadius: maplibregl.ExpressionSpecification = [
+  'interpolate', ['linear'], ['zoom'],
+  5, ['*', hoverScale, ['case', ['<=', ['get', 'rank'], 3], 4.5, 3.5]],
+  8, ['*', hoverScale, ['case', ['<=', ['get', 'rank'], 3], 14, 10]],
+  10, ['*', hoverScale, ['get', 'r']],
+];
 
-export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings' }: Props) {
+export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
   const [layerId, setLayerId] = useState('');
   const [ready, setReady] = useState(false);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -83,7 +102,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   const hoveredRef = useRef<string | null>(null);
   const focusRef = useRef(focus);
   focusRef.current = focus;
-  const listingsRef = useRef<Listing[]>([]);
+  const listingsRef = useRef<MapPin[]>([]);
   const handlers = useRef({ onHover, onOpen, onSelectListing });
   handlers.current = { onHover, onOpen, onSelectListing };
 
@@ -126,7 +145,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left');
 
     map.on('load', () => {
-      map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 11 });
+      map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 13 });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
       const kindColor: maplibregl.ExpressionSpecification = ['match', ['get', 'kind'], 'apartment', APARTMENT_COLOR, HOME_COLOR];
       // Utah border and faint outside mask: above the basemap, beneath all data layers.
@@ -150,7 +169,9 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         id: 'towns-circle', type: 'circle', source: 'towns', filter: ['<=', ['get', 'rank'], NUMBERED_PINS],
         layout: { 'circle-sort-key': ['-', 100, ['get', 'rank']], visibility: 'none' },
         paint: {
-          'circle-radius': hoverCase(['*', ['get', 'r'], 1.25], ['get', 'r']),
+          // At the Utah-wide zoom the Wasatch Front towns are only pixels apart. Start compact,
+          // then grow to the full pin size as geographic separation becomes visible.
+          'circle-radius': townPinRadius,
           'circle-color': ['case', ['<=', ['get', 'rank'], 3], ROCK_500, ALPINE_700],
           'circle-stroke-color': hoverCase(INK, SAND), 'circle-stroke-width': hoverCase(3, 2),
         },
@@ -159,8 +180,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         id: 'towns-rank', type: 'symbol', source: 'towns', filter: ['<=', ['get', 'rank'], NUMBERED_PINS],
         layout: {
           'text-field': ['to-string', ['get', 'rank']], 'text-font': ['Noto Sans Bold'],
-          'text-size': ['case', ['<=', ['get', 'rank'], 3], 16, 12],
-          'text-allow-overlap': true, 'text-ignore-placement': true,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 9, 8, ['case', ['<=', ['get', 'rank'], 3], 16, 12]],
+          // Let MapLibre suppress a rank when two pins truly cannot be separated. Forced overlap
+          // produced unreadable strings such as "9 1 2" over Salt Lake County.
+          'text-allow-overlap': AREA_MAP_LABEL_LAYOUT.ranksAllowOverlap,
+          'text-ignore-placement': AREA_MAP_LABEL_LAYOUT.ranksIgnorePlacement,
           'symbol-sort-key': ['-', 100, ['get', 'rank']], visibility: 'none',
         },
         paint: { 'text-color': '#ffffff' },
@@ -221,8 +245,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     const hit = (p: maplibregl.Point) =>
       map.queryRenderedFeatures([[p.x - 8, p.y - 8], [p.x + 8, p.y + 8]], { layers: HIT_LAYERS })[0];
 
+    // A sponsored pin or its popup owns the pointer, not the listing or town underneath.
+    const onSponsored = (e: maplibregl.MapMouseEvent) => (e.originalEvent.target as Element).closest('.maplibregl-marker, .maplibregl-popup');
+
     map.on('mousemove', e => {
-      const f = hit(e.point);
+      const f = onSponsored(e) ? undefined : hit(e.point);
       map.getCanvas().style.cursor = f ? 'pointer' : '';
       if (f && f.layer.id === 'listings-circle') {
         const l = listingsRef.current.find(x => x.id === f.properties.id);
@@ -242,6 +269,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       tip.remove();
     });
     map.on('click', e => {
+      if (onSponsored(e)) return;
       const f = hit(e.point);
       if (!f) return;
       if (f.layer.id === 'listings-clusters') {
@@ -323,6 +351,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
       </ul>
       <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+      {ready && mapRef.current && <SafeSectionBoundary><SponsoredMapPins map={mapRef.current} cities={cities} selectedTown={selectedTown} /></SafeSectionBoundary>}
       {tip && (
         <div
           role="tooltip"

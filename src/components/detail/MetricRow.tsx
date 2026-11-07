@@ -71,9 +71,7 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
       <details className="group mt-2 max-w-prose text-small text-text-muted">
         <summary className="line-clamp-2 min-h-11 cursor-pointer list-none rounded-control break-words [overflow-wrap:anywhere] hover:text-text group-open:line-clamp-none">{metric.description}</summary>
       </details>
-      <p className="text-caption text-text-muted">
-        Source: <a href={metric.sourceUrl} target="_blank" rel="noreferrer" className="text-primary-hover underline underline-offset-2">{metric.source}</a>, {metric.year}
-      </p>
+      <p className="text-caption text-text-muted">{metric.lastUpdated ? `Updated ${metric.lastUpdated}` : `Data year ${metric.year}`}</p>
     </li>
   );
 }

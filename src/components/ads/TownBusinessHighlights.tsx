@@ -5,6 +5,7 @@ import { useRecordClick, useRecordImpression, useTownCampaigns } from '../../dat
 import type { Metric } from '../../types';
 import { Badge, Button, Card } from '../ui';
 import AdImage from './AdImage';
+import { titleRepeatsMessage } from './campaignPlacement';
 import { safeHttpsHref } from './safeHttpsHref';
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
   metrics: Metric[];
 }
 
-function BusinessCard({ campaign }: { campaign: CampaignRecord }) {
+function BusinessCard({ campaign, cityId }: { campaign: CampaignRecord; cityId: string }) {
   const recordImpression = useRecordImpression();
   const recordClick = useRecordClick();
   const recorded = useRef(false);
@@ -21,11 +22,12 @@ function BusinessCard({ campaign }: { campaign: CampaignRecord }) {
   useEffect(() => {
     if (!recorded.current) {
       recorded.current = true;
-      recordImpression(campaign._id);
+      recordImpression(campaign._id, 'town_highlights', cityId);
     }
-  }, [campaign._id, recordImpression]);
+  }, [campaign._id, cityId, recordImpression]);
 
   const href = safeHttpsHref(campaign.url);
+  const messageOnly = titleRepeatsMessage(campaign);
 
   return (
     <Card as="article" className="flex min-w-0 flex-col gap-2">
@@ -37,12 +39,12 @@ function BusinessCard({ campaign }: { campaign: CampaignRecord }) {
       <div className="flex min-w-0 gap-3">
         <AdImage campaign={campaign} />
         <div className="min-w-0">
-          <h4 className="break-words font-semibold text-text">{campaign.title}</h4>
-          <p className="break-words text-small text-text-muted">{campaign.body}</p>
+          <h4 className="break-words font-semibold text-text">{messageOnly ? campaign.body : campaign.title}</h4>
+          {!messageOnly && <p className="break-words text-small text-text-muted">{campaign.body}</p>}
         </div>
       </div>
       {href && (
-        <Button href={href} target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" className="mt-auto self-start" onClick={() => recordClick(campaign._id)}>
+        <Button href={href} target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" className="mt-auto self-start" onClick={() => recordClick(campaign._id, 'town_highlights', cityId)}>
           Visit <span className="sr-only">{campaign.title}</span> <span aria-hidden="true">↗</span>
         </Button>
       )}
@@ -80,7 +82,7 @@ export default function TownBusinessHighlights({ cityId, cityName, metrics }: Pr
             <h3 className="font-display text-title text-text">{AD_CATEGORIES[id].label}</h3>
             {fact && <p className="text-caption text-text-muted">Town data, not an ad. {fact}</p>}
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              {items.map(c => <BusinessCard key={c._id} campaign={c} />)}
+              {items.map(c => <BusinessCard key={c._id} campaign={c} cityId={cityId} />)}
             </div>
           </section>
         );

@@ -53,29 +53,41 @@ export function useMyCampaigns(): CampaignRecord[] | undefined {
   return result as CampaignRecord[] | undefined;
 }
 
+export interface CampaignDailyStat {
+  campaignId: string;
+  day: number;
+  surface: 'results_featured' | 'town_highlights' | 'unknown';
+  pageTownId?: string;
+  impressions: number;
+  clicks: number;
+}
+
+export function useMyCampaignStats(): CampaignDailyStat[] | undefined {
+  const { isAuthenticated } = useConvexAuth();
+  const queryFn = (api as any).ads?.listMyCampaignStats;
+  return useQuery(queryFn, queryFn && isAuthenticated ? {} : 'skip') as CampaignDailyStat[] | undefined;
+}
+
 export function useCreateCheckout() {
   const actionFn = (api as any).ads?.createCheckout;
   const run = useAction(actionFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0, provider: 'none' })));
 
   return useCallback(
-    async (params: {
-      kind: 'pin' | 'featured' | 'job';
-      category: AdCategory;
-      title: string;
-      body: string;
-      url: string;
-      imageUrl?: string;
-      lat?: number;
-      lng?: number;
-      listingId?: string;
-      cityId?: string;
-      durationDays: number;
-    }) => {
+    async (params: { body: string; url: string; imageUrl: string; lat: number; lng: number; free?: boolean }) => {
       if (!actionFn) return null;
       return (await run(params)) as { campaignId: string; checkoutUrl: string; amount: number; provider: 'none' | 'stripe' };
     },
     [run, actionFn],
   );
+}
+
+export function useResumeCheckout() {
+  const actionFn = (api as any).ads?.resumeCheckout;
+  const run = useAction(actionFn ?? (() => Promise.resolve({ checkoutUrl: '', amount: 0 })));
+  return useCallback(async (campaignId: string) => {
+    if (!actionFn) return null;
+    return (await run({ campaignId: campaignId as any })) as { checkoutUrl: string; amount: number };
+  }, [run, actionFn]);
 }
 
 export type ConfirmStatus = 'active' | 'unpaid' | 'not_found' | 'error';
@@ -122,10 +134,10 @@ export function useRecordImpression() {
   const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
 
   return useCallback(
-    async (campaignId: string) => {
+    async (campaignId: string, surface?: 'results_featured' | 'town_highlights', pageTownId?: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey(), surface, pageTownId });
       } catch {
         // Silently ignore if unauthenticated session
       }
@@ -139,10 +151,10 @@ export function useRecordClick() {
   const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
 
   return useCallback(
-    async (campaignId: string) => {
+    async (campaignId: string, surface?: 'results_featured' | 'town_highlights', pageTownId?: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey(), surface, pageTownId });
       } catch {
         // Silently ignore if unauthenticated session
       }

@@ -105,7 +105,7 @@ describe("fulfillStripePayment", () => {
     const t = convexTest(schema, modules);
     const userId = await t.run(async (ctx: any) => ctx.db.insert("users", { email: "a@example.test" }));
     const c = await t.mutation(pending, {
-      userId, kind: "job", title: "Hiring now", body: "Join our team", url: "https://example.com", durationDays: 7,
+      userId, kind: "job", title: "Hiring now", body: "Join our team", url: "https://example.com", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png",
     });
     await t.mutation(record, {
       campaignId: c.campaignId, provider: "stripe", sessionId: "cs_1", amount: c.amount, currency: "USD",
@@ -159,7 +159,7 @@ describe("confirmCheckout (webhook-free)", () => {
     const userId = await t.run(async (ctx: any) => ctx.db.insert("users", { email: "a@example.test" }));
     const otherId = await t.run(async (ctx: any) => ctx.db.insert("users", { email: "b@example.test" }));
     const c = await t.mutation(pending, {
-      userId, kind: "job", title: "Hiring now", body: "Join our team", url: "https://example.com", durationDays: 7,
+      userId, kind: "job", title: "Hiring now", body: "Join our team", url: "https://example.com", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png",
     });
     await t.mutation(record, {
       campaignId: c.campaignId, provider: "stripe", sessionId: SID, amount: c.amount, currency: "USD",

@@ -17,7 +17,7 @@ const refs = {
 };
 
 const DAY = 24 * 3600 * 1000;
-const ad = { kind: "pin", title: "Juniper Bike Shed", body: "Tune-ups this week", url: "https://example.com/a", durationDays: 7 } as const;
+const ad = { kind: "pin", title: "Juniper Bike Shed", body: "Tune-ups this week", url: "https://example.com/a", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" } as const;
 
 async function setup() {
   const t = convexTest(schema, modules);
@@ -47,6 +47,33 @@ describe("publishing without payment", () => {
     expect(pins[0].startsAt).toBeGreaterThanOrEqual(before);
     expect(pins[0].endsAt - pins[0].startsAt).toBe(7 * DAY);
     expect(await t.run((ctx: any) => ctx.db.query("payments").collect())).toEqual([]);
+  });
+
+  it("fills in everything the form no longer asks for", async () => {
+    const { t, owner } = await setup();
+    await t.run((ctx: any) => Promise.all([
+      ctx.db.insert("cities", { id: "kanab", name: "Kanab", county: "Kane", lat: 37.05, lng: -112.53, population: 1, blurb: "" }),
+      ctx.db.insert("cities", { id: "logan", name: "Logan", county: "Cache", lat: 41.74, lng: -111.83, population: 1, blurb: "" }),
+    ]));
+    const { kind, title, durationDays, ...form } = ad;
+    await owner.action(refs.createCheckout, { ...form, lat: 37.1, lng: -112.5, body: `Slot canyon tours ${"daily ".repeat(20)}` });
+
+    const [row] = await t.query(refs.getActivePins, {});
+    expect(row).toMatchObject({ kind: "pin", category: "other", cityId: "kanab" });
+    expect(row.endsAt - row.startsAt).toBe(7 * DAY);
+    expect(row.title).toHaveLength(80);
+    expect(row.title.endsWith("…")).toBe(true);
+    expect(row.body.startsWith(row.title.slice(0, -1))).toBe(true);
+  });
+
+  it("requires a location inside Utah and an image", async () => {
+    const { t, owner } = await setup();
+    const { lat, lng, ...noLocation } = ad;
+    await expect(owner.action(refs.createCheckout, noLocation)).rejects.toThrow(/location on the map/);
+    await expect(owner.action(refs.createCheckout, { ...ad, lat: 40.71, lng: -74.01 })).rejects.toThrow(/Utah bounds/);
+    await expect(owner.action(refs.createCheckout, { ...ad, lat: NaN })).rejects.toThrow(/Utah bounds/);
+    await expect(owner.action(refs.createCheckout, { ...ad, imageUrl: "" })).rejects.toThrow(/image URL/);
+    expect(await t.query(refs.getActivePins, {})).toEqual([]);
   });
 
   it("still requires sign-in and runs the campaign validation", async () => {
@@ -84,6 +111,92 @@ describe("publishing without payment", () => {
 });
 
 describe("with a Stripe key set", () => {
+  const noStripeCall = () => vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("a free ad must not reach Stripe"); }));
+  const free = { ...ad, free: true };
+
+  it("makes a free ad live at once for one day, with no checkout and no payment row", async () => {
+    const { t, owner } = await setup();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    noStripeCall();
+    const res = await owner.action(refs.createCheckout, free);
+    vi.unstubAllGlobals();
+
+    expect(res).toMatchObject({ provider: "none", amount: 0 });
+    const [pin] = await t.query(refs.getActivePins, {});
+    expect(pin).toMatchObject({ status: "active", expectedAmount: 0 });
+    expect(pin.endsAt - pin.startsAt).toBe(DAY);
+    expect(await t.run((ctx: any) => ctx.db.query("payments").collect())).toEqual([]);
+  });
+
+  it("gives a free ad nothing the client asks for beyond its content", async () => {
+    const { t, owner } = await setup();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    await owner.action(refs.createCheckout, { ...free, kind: "featured", durationDays: 90 });
+    const [row] = await owner.query(refs.listMyCampaigns, {});
+    expect(row).toMatchObject({ kind: "pin", expectedAmount: 0 });
+    expect(row.endsAt - row.startsAt).toBe(DAY);
+    await expect(owner.action(refs.createCheckout, { ...free, url: "http://example.com" })).rejects.toThrow(/https:/);
+    await expect(owner.action(refs.createCheckout, { ...free, lat: 40.71, lng: -74.01 })).rejects.toThrow(/Utah bounds/);
+    await expect(t.action(refs.createCheckout, free)).rejects.toThrow(/Sign in required/);
+  });
+
+  it("does not let the pending-payment mutation take the free flag", async () => {
+    const { owner } = await setup();
+    await expect(owner.mutation(refs.createCampaign, { ...ad, free: true } as any)).rejects.toThrow();
+  });
+
+  it("ends a free ad after a day", async () => {
+    const { t, owner } = await setup();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    await owner.action(refs.createCheckout, free);
+    expect(await t.query(refs.getActivePins, {})).toHaveLength(1);
+    const later = Date.now() + DAY + 1000;
+    vi.spyOn(Date, "now").mockReturnValue(later);
+    expect(await t.query(refs.getActivePins, {})).toEqual([]);
+    vi.restoreAllMocks();
+  });
+
+  it("allows 3 free ads per account per 24 hours, even after they end, then frees up", async () => {
+    const { t, owner } = await setup();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    for (let i = 0; i < 3; i++) await owner.action(refs.createCheckout, free);
+    const mine = await owner.query(refs.listMyCampaigns, {});
+    await t.run(async (ctx: any) => { for (const c of mine) await ctx.db.patch(c._id, { endsAt: Date.now() - 1 }); });
+    await expect(owner.action(refs.createCheckout, free)).rejects.toThrow(/3 free ads every 24 hours/);
+    expect(await owner.query(refs.listMyCampaigns, {})).toHaveLength(3);
+
+    const otherId = await t.run((ctx: any) => ctx.db.insert("users", { email: "other@example.test" }));
+    await t.withIdentity({ subject: `${otherId}|session` }).action(refs.createCheckout, free);
+
+    await t.run(async (ctx: any) => { for (const c of mine) await ctx.db.patch(c._id, { startsAt: Date.now() - DAY - 1 }); });
+    await owner.action(refs.createCheckout, free);
+  });
+
+  it("holds free ads to the 5 live ad cap", async () => {
+    const { t, owner, userId } = await setup();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    await t.run((ctx: any) => Promise.all([0, 1, 2, 3, 4].map((i) => ctx.db.insert("campaigns", {
+      advertiserUserId: userId, kind: "pin", title: `Paid ${i}`, body: "A paid ad", url: "https://example.com", startsAt: Date.now(),
+      endsAt: Date.now() + DAY, status: "active", impressions: 0, clicks: 0, isSample: false, expectedAmount: 3500,
+    }))));
+    await expect(owner.action(refs.createCheckout, free)).rejects.toThrow(/already have 5 live ads/);
+  });
+
+  it("prices a form submission on the server and names it on the checkout", async () => {
+    const { t, owner } = await setup();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "cs_test_def", url: "https://checkout.stripe.test/def" }))));
+    const { kind, title, durationDays, ...form } = ad;
+    const res = await owner.action(refs.createCheckout, form);
+    const body = String((fetch as any).mock.calls[0][1].body);
+    vi.unstubAllGlobals();
+
+    expect(res).toMatchObject({ provider: "stripe", amount: 3500 });
+    expect(decodeURIComponent(body)).toContain("pin");
+    expect(decodeURIComponent(body)).not.toContain("undefined");
+    expect(await t.query(refs.getActivePins, {})).toEqual([]);
+  });
+
   it("creates a pending campaign and a pending payment, and shows nothing until paid", async () => {
     const { t, owner } = await setup();
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
