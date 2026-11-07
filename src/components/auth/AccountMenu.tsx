@@ -29,7 +29,7 @@ export default function AccountMenu() {
       </a>
       {isLoading ? null : isAuthenticated ? (
         <div className="flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 shadow dark:bg-neutral-900/90">
-          <span className="font-medium">{me?.displayName ?? 'Account'}</span>
+          <a href="#/account" className="font-medium">{me?.displayName ?? 'Account'}</a>
           <button onClick={() => void signOut()} className="text-neutral-500 underline">
             Sign out
           </button>
