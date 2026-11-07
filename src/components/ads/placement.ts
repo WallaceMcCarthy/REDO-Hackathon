@@ -1,6 +1,15 @@
 import type { CampaignRecord } from '../../data/adsHooks';
 import { safeHttpsHref } from './safeHttpsHref';
 
+/** The one main advertiser for now. Not a campaign row, so it counts no impressions or clicks. */
+export const REDO_IT = {
+  title: 'REDO IT',
+  body: 'We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.',
+  url: 'https://getredo.com/careers',
+  lat: 40.7608,
+  lng: -111.891,
+};
+
 const isRental = (listingId: string) => listingId.startsWith('market:for_rent:');
 
 /** Where an ad's click goes: the listing inside this app, or the advertiser's site in a new tab. Undefined when the url is unsafe. */

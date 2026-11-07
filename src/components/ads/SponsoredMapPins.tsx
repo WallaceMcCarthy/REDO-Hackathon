@@ -6,7 +6,7 @@ import type { CampaignRecord } from '../../data/adsHooks';
 import type { City } from '../../types';
 import { useActivePins, useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { FOCUS } from '../homes/ui';
-import { adLink, declutter, listingAction } from './placement';
+import { REDO_IT, adLink, declutter, listingAction } from './placement';
 
 // A collapsed marker is a 32px circle; two never overlap and phone targets stay apart.
 const PIN_SIZE = 32;
@@ -50,6 +50,20 @@ export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip
   );
 }
 
+/** REDO's own marker: large and named, shown at every zoom so the statewide map carries it too. */
+export function RedoMapPin() {
+  return (
+    <a
+      href={REDO_IT.url} target="_blank" rel="noopener noreferrer" draggable={false}
+      aria-label={`Sponsored job: ${REDO_IT.title} (opens in a new tab)`}
+      className={`flex min-h-11 flex-col items-center justify-center rounded-card border-2 border-white bg-rock-800 px-3 py-1 text-white shadow-raised ${FOCUS}`}
+    >
+      <span className="font-display text-title font-semibold leading-none">{REDO_IT.title}</span>
+      <span className="mt-0.5 text-[10px] font-medium uppercase leading-none tracking-wide">Sponsored job</span>
+    </a>
+  );
+}
+
 type Props = { map: maplibregl.Map; cities: City[]; selectedTown?: string | null };
 
 /**
@@ -68,6 +82,13 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
   const [shown, setShown] = useState<{ pin: Located; flip: boolean; below: boolean }[]>([]);
   const markers = useRef(new Map<string, maplibregl.Marker>());
   const seen = useRef(new Set<string>());
+  const [redoElement, setRedoElement] = useState<HTMLElement>();
+
+  useEffect(() => {
+    const marker = new maplibregl.Marker({ element: document.createElement('div'), anchor: 'bottom' }).setLngLat([REDO_IT.lng, REDO_IT.lat]).addTo(map);
+    setRedoElement(marker.getElement());
+    return () => { marker.remove(); };
+  }, [map]);
 
   useEffect(() => {
     const follow = () => {
@@ -81,7 +102,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
 
   // Every impression patches a campaign, so `pins` changes often: diff the markers rather than rebuild them.
   useEffect(() => {
-    const located = pins.filter(isShowable);
+    // RedoMapPin already marks REDO, so its sample campaign would only double it.
+    const located = pins.filter(isShowable).filter(p => p.url !== REDO_IT.url);
     const sync = () => {
       const bounds = map.getBounds();
       const inView = declutter(map.getZoom() >= TOWN_ZOOM ? located : [], p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
@@ -126,8 +148,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     markers.current.clear();
   }, [map]);
 
-  return shown.map(({ pin, flip, below }) => {
+  return [redoElement && createPortal(<RedoMapPin />, redoElement, 'redo'), ...shown.map(({ pin, flip, below }) => {
     const element = markers.current.get(pin._id)?.getElement();
     return element ? createPortal(<MapAd pin={pin} flip={flip} below={below} onClick={() => void recordClick(pin._id)} />, element, pin._id) : null;
-  });
+  })];
 }

@@ -277,12 +277,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
         </div>
       </header>
 
+      <SafeSectionBoundary><ResultsFeatured /></SafeSectionBoundary>
+
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[30rem_minmax(0,1fr)]">
         <section
           aria-label={view === 'areas' ? 'Ranked towns' : 'Homes and apartments'}
           className={`min-h-0 overflow-y-auto p-4 lg:border-r lg:border-rock-100 ${pane === 'map' ? 'hidden lg:block' : ''}`}
         >
-          <SafeSectionBoundary><ResultsFeatured /></SafeSectionBoundary>
           {view === 'areas' ? areas : (
             <ListErrorBoundary key={view}>
               <HomesForYou
