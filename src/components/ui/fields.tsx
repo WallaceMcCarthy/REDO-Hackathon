@@ -39,7 +39,7 @@ export function Field({ label, hint, error, children, className = '' }: FieldPro
   return (
     <div className={className}>
       <label htmlFor={id} className="mb-1.5 block text-small font-semibold text-text">{label}</label>
-      {cloneElement(children, { id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined })}
+      {cloneElement(children, { id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : children.props['aria-invalid'] })}
       {hint && <p id={hintId} className="mt-1.5 text-caption text-text-muted">{hint}</p>}
       {error && <p id={errorId} role="alert" className="mt-1.5 text-small font-semibold text-danger">{error}</p>}
     </div>
