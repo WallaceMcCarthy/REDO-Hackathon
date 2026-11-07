@@ -11,11 +11,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-type Town = { id: string; name: string; county: string; lat: number; lng: number };
-type Point = [number, number];
+export type Town = { id: string; name: string; county: string; lat: number; lng: number };
+export type Point = [number, number];
 type Polygon = { rings: Point[][] };
 type Attributes = Record<string, string | number | null>;
-type Parcel = { attributes: Attributes; centroid?: { x: number; y: number } };
+export type Parcel = { attributes: Attributes; centroid?: { x: number; y: number } };
 type Response = {
   services?: { name: string; url: string }[];
   fields?: { name: string }[];
@@ -33,15 +33,16 @@ export type Home = {
 const ROOT = new URL("../../", import.meta.url);
 const SERVICES = "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services";
 const MUNICIPAL = `${SERVICES}/UtahMunicipalBoundaries/FeatureServer/0`;
-// CONTRACT.md allows up to 150/town, but the 2MB file-size cap (checked below)
-// binds first at ~601 bytes/row observed: every town that has any homes at all
-// is source-constrained far above 60 (confirmed: all 40 non-gap towns hit the
-// old cap exactly), so raising this is a near-linear density increase until
-// the byte budget runs out. 80/town * 40 towns ~= 1.92MB, leaving headroom
-// under the 2MB assertion below.
+// This file is only the git-tracked sample that `listings` serves as a fallback,
+// so the 2MB check below still binds: 80/town * 40 towns ~= 1.92MB at ~601
+// bytes/row. The full parcel set streams to Convex: see assessor_homes.ts.
 const MAX_PER_TOWN = 80;
-const FIELDS = ["OBJECTID", "COUNTY_NAME", "PARCEL_ID", "PARCEL_ADD", "PARCEL_CITY", "TOTAL_MKT_VALUE", "LAND_MKT_VALUE", "PROP_CLASS", "PRIMARY_RES", "HOUSE_CNT", "BLDG_SQFT", "BUILT_YR", "CURRENT_ASOF"];
+const REQUEST_GAP_MS = 250;
+const MAX_ATTEMPTS = 6;
+export const FIELDS = ["OBJECTID", "COUNTY_NAME", "PARCEL_ID", "PARCEL_ADD", "PARCEL_CITY", "TOTAL_MKT_VALUE", "LAND_MKT_VALUE", "PROP_CLASS", "PRIMARY_RES", "HOUSE_CNT", "BLDG_SQFT", "BUILT_YR", "CURRENT_ASOF"];
 const residentialWhere = "UPPER(PROP_CLASS) IN ('RESIDENTIAL','SINGLE FAMILY') AND TOTAL_MKT_VALUE > 0 AND BLDG_SQFT > 0";
+/** A building is proven by its size, its year built, or improvements worth more than the land. */
+export const improvedResidentialWhere = residentialWhere.replace("BLDG_SQFT > 0", "(BLDG_SQFT > 0 OR BUILT_YR > 0 OR TOTAL_MKT_VALUE > LAND_MKT_VALUE)");
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const text = (value: unknown): string | null => typeof value === "string" && value.trim() ? value.trim() : null;
 const positive = (value: unknown): number | null => finite(value) && value > 0 ? value : null;
@@ -105,31 +106,40 @@ export function asHome(parcel: Parcel, town: Town, layer: string, rings: Point[]
   };
 }
 
-async function cachedRequest(url: string, params: Record<string, string> = {}): Promise<Response> {
+const sleepFor = (ms: number) => new Promise((resume) => setTimeout(resume, ms));
+
+/** ArcGIS reports throttling both as HTTP status and as a 200 with an error body. */
+export async function fetchWithBackoff(query: URL, sleep = sleepFor): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    let retryAfter = 0;
+    try {
+      const response = await fetch(query, { signal: AbortSignal.timeout(60_000), headers: { "User-Agent": "UtahFit-public-parcel-research/1.0" } });
+      retryAfter = Number(response.headers.get("retry-after")) || 0;
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${query.origin}${query.pathname}`);
+      const data = await response.json() as Response;
+      if (data.error) throw new Error(`${data.error.message}: ${data.error.details?.join("; ") ?? ""}`);
+      await sleep(REQUEST_GAP_MS);
+      return data;
+    } catch (error) {
+      if (attempt === MAX_ATTEMPTS - 1) throw error;
+      await sleep(Math.max(retryAfter * 1000, 2000 * 2 ** attempt));
+    }
+  }
+}
+
+export async function cachedRequest(url: string, params: Record<string, string> = {}): Promise<Response> {
   const request = { url, params: { f: "json", ...params } };
   const key = createHash("sha256").update(JSON.stringify(request)).digest("hex");
   const cache = new URL(`data/raw/homes/${key}.json`, ROOT);
   if (!process.argv.includes("--refresh")) {
     try { return JSON.parse(await readFile(cache, "utf8")).response as Response; } catch { /* Fetch missing cache. */ }
   }
-  let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const query = new URL(url);
-      query.search = new URLSearchParams(request.params).toString();
-      const response = await fetch(query, { signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "UtahFit-public-parcel-research/1.0" } });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
-      const data = await response.json() as Response;
-      if (data.error) throw new Error(`${data.error.message}: ${data.error.details?.join("; ") ?? ""}`);
-      await mkdir(new URL("data/raw/homes/", ROOT), { recursive: true });
-      await writeFile(cache, JSON.stringify({ ...request, retrievedAt: new Date().toISOString(), response: data }) + "\n");
-      return data;
-    } catch (error) {
-      lastError = error;
-      if (attempt < 2) await new Promise((resume) => setTimeout(resume, (attempt + 1) * 2000));
-    }
-  }
-  throw lastError;
+  const query = new URL(url);
+  query.search = new URLSearchParams(request.params).toString();
+  const data = await fetchWithBackoff(query);
+  await mkdir(new URL("data/raw/homes/", ROOT), { recursive: true });
+  await writeFile(cache, JSON.stringify({ ...request, retrievedAt: new Date().toISOString(), response: data }) + "\n");
+  return data;
 }
 
 async function collectTown(town: Town, rings: Point[][], layer: string, allowMissingSqft = false): Promise<{ homes: Home[]; examined: number; occupiedCells: number; layer: string; allowMissingSqft: boolean; sourceAvailability?: Attributes }> {
@@ -147,7 +157,7 @@ async function collectTown(town: Town, rings: Point[][], layer: string, allowMis
     for (let col = 0; col < 4; col++) {
       const box = [bounds[0] + (bounds[2] - bounds[0]) * col / 4, bounds[1] + (bounds[3] - bounds[1]) * row / 4, bounds[0] + (bounds[2] - bounds[0]) * (col + 1) / 4, bounds[1] + (bounds[3] - bounds[1]) * (row + 1) / 4];
       const response = await cachedRequest(`${layer}/query`, {
-        where: allowMissingSqft ? residentialWhere.replace("BLDG_SQFT > 0", "(BLDG_SQFT > 0 OR BUILT_YR > 0 OR TOTAL_MKT_VALUE > LAND_MKT_VALUE)") : residentialWhere,
+        where: allowMissingSqft ? improvedResidentialWhere : residentialWhere,
         geometry: box.join(","), geometryType: "esriGeometryEnvelope", inSR: "4326", outSR: "4326",
         spatialRel: "esriSpatialRelIntersects", outFields: fields.join(","),
         returnGeometry: "false", returnCentroid: "true", orderByFields: "OBJECTID ASC", resultRecordCount: "150",
@@ -176,13 +186,8 @@ async function collectTown(town: Town, rings: Point[][], layer: string, allowMis
   return { homes, examined, occupiedCells: groups.filter((group) => group.length > 0).length, layer, allowMissingSqft, ...(sourceAvailability ? { sourceAvailability } : {}) };
 }
 
-async function main() {
-  const allTowns: Town[] = JSON.parse(await readFile(new URL("data/cities.json", ROOT), "utf8"));
-  const onlyTown = process.argv.find((arg) => arg.startsWith("--town="))?.slice(7);
-  const towns = onlyTown ? allTowns.filter((town) => town.id === onlyTown) : allTowns;
-  if (towns.length === 0) throw new Error(`Unknown town ${onlyTown}`);
-  const catalog = await cachedRequest(SERVICES);
-  if (!catalog.services) throw new Error("UGRC service catalog unavailable");
+/** Official polygons by lowercase town name, multiple parts merged. */
+export async function municipalRings(): Promise<Map<string, Point[][]>> {
   const municipalities = await cachedRequest(`${MUNICIPAL}/query`, { where: "1=1", outFields: "NAME,OBJECTID", outSR: "4326", returnGeometry: "true", resultRecordCount: "2000" });
   if (!municipalities.features || municipalities.exceededTransferLimit) throw new Error("Incomplete municipal boundary response");
   const byName = new Map<string, Point[][]>();
@@ -190,6 +195,17 @@ async function main() {
     const name = text(feature.attributes.NAME)?.toLowerCase();
     if (name && feature.geometry?.rings) byName.set(name, [...(byName.get(name) ?? []), ...feature.geometry.rings]);
   }
+  return byName;
+}
+
+async function main() {
+  const allTowns: Town[] = JSON.parse(await readFile(new URL("data/cities.json", ROOT), "utf8"));
+  const onlyTown = process.argv.find((arg) => arg.startsWith("--town="))?.slice(7);
+  const towns = onlyTown ? allTowns.filter((town) => town.id === onlyTown) : allTowns;
+  if (towns.length === 0) throw new Error(`Unknown town ${onlyTown}`);
+  const catalog = await cachedRequest(SERVICES);
+  if (!catalog.services) throw new Error("UGRC service catalog unavailable");
+  const byName = await municipalRings();
   const homes: Home[] = [];
   const coverage: Record<string, object> = {};
   let index = 0;
