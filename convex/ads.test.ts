@@ -105,6 +105,8 @@ describe("ads security & exploit resistance", () => {
     const activePinsAfter = await advertiser.query(refs.getActivePins, {});
     expect(activePinsAfter).toHaveLength(1);
     expect(activePinsAfter[0].status).toBe("active");
+    expect(activePinsAfter[0]).not.toHaveProperty("advertiserUserId");
+    expect(activePinsAfter[0]).not.toHaveProperty("impressions");
   });
 
   it("Validates input bounds and Utah coordinates", async () => {
@@ -133,6 +135,18 @@ describe("ads security & exploit resistance", () => {
         durationDays: 0,
       })
     ).rejects.toThrow("Campaign duration must be between 1 and 90 days");
+
+    await expect(advertiser.mutation(refs.createCampaign, {
+      kind: "pin", title: "NaN duration", body: "Non-finite duration is invalid", url: "https://example.com", durationDays: Number.NaN,
+    })).rejects.toThrow("Campaign duration must be between 1 and 90 days");
+
+    await expect(advertiser.mutation(refs.createCampaign, {
+      kind: "pin", title: "NaN location", body: "Non-finite coordinate is invalid", url: "https://example.com", durationDays: 7, lat: Number.NaN, lng: -111,
+    })).rejects.toThrow("Location coordinates must be within Utah bounds");
+
+    await expect(advertiser.mutation(refs.createCampaign, {
+      kind: "featured", title: "Unknown city", body: "Unknown city must be rejected", url: "https://example.com", durationDays: 7, cityId: "not-a-town",
+    })).rejects.toThrow("Campaign city must be a known Utah town");
 
     // Oversized title
     await expect(

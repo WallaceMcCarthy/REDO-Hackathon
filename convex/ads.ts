@@ -55,7 +55,7 @@ export const getActivePins = query({
       if (c.kind !== "pin" && c.kind !== "job") return false;
       if (args.cityId && c.cityId && c.cityId !== args.cityId) return false;
       return true;
-    });
+    }).map(({ advertiserUserId: _advertiserUserId, impressions: _impressions, clicks: _clicks, expectedAmount: _expectedAmount, expectedCurrency: _expectedCurrency, redoPaymentId: _redoPaymentId, ...campaign }) => campaign);
   },
 });
 
@@ -74,7 +74,7 @@ export const getActiveFeatured = query({
       if (c.endsAt && c.endsAt < now) return false;
       if (args.cityId && c.cityId && c.cityId !== args.cityId) return false;
       return true;
-    });
+    }).map(({ advertiserUserId: _advertiserUserId, impressions: _impressions, clicks: _clicks, expectedAmount: _expectedAmount, expectedCurrency: _expectedCurrency, redoPaymentId: _redoPaymentId, ...campaign }) => campaign);
   },
 });
 
@@ -120,11 +120,16 @@ export const createCampaign = mutation({
     // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
     const validUrl = validateHttpsUrl(args.url);
 
+    if (args.cityId) {
+      const city = await ctx.db.query("cities").withIndex("by_cityId", q => q.eq("id", args.cityId!)).first();
+      if (!city) throw new Error("Campaign city must be a known Utah town");
+    }
+
     // 4. Duration bounds
-    const durationDays = Math.round(args.durationDays);
-    if (durationDays < 1 || durationDays > 90) {
+    if (!Number.isFinite(args.durationDays) || !Number.isInteger(args.durationDays) || args.durationDays < 1 || args.durationDays > 90) {
       throw new Error("Campaign duration must be between 1 and 90 days");
     }
+    const durationDays = args.durationDays;
 
     // 5. Geographic validation for map pins
     if (args.kind === "pin" || args.kind === "job") {
@@ -132,6 +137,8 @@ export const createCampaign = mutation({
         if (
           args.lat === undefined ||
           args.lng === undefined ||
+          !Number.isFinite(args.lat) ||
+          !Number.isFinite(args.lng) ||
           args.lat < UTAH_BOUNDS.minLat ||
           args.lat > UTAH_BOUNDS.maxLat ||
           args.lng < UTAH_BOUNDS.minLng ||
