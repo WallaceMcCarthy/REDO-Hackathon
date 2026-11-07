@@ -1,128 +1,140 @@
-import React, { useMemo, useState } from 'react';
-import type { City, Filters, Metric, Prefs, Weights } from '../../types';
-import { toMetricWeights } from '../../prefs';
+import { useEffect, useMemo } from 'react';
+import type { Filters, Weights } from '../../types';
 import type { Listing, ListingKind, Recommendation } from '../../../convex/lib/listings';
-import { useRecommendedListings } from '../../data/listingsHooks';
+import { useRecommendedListings, useTownListings } from '../../data/listingsHooks';
+import type { Sort } from '../homes/FilterBar';
+import { BTN_PRIMARY, FOCUS, money } from '../homes/ui';
 import ListingCard from './ListingCard';
 
-interface HomesForYouProps {
-  prefs: Prefs;
-  metrics?: Metric[];
-  cities?: City[];
-  selectedListingId?: string | null;
-  onSelectListing?: (listing: Listing) => void;
-  className?: string;
+type TownInfo = { name: string; score: number; rank: number };
+
+interface Props {
+  kind: ListingKind;
+  weights: Weights;
+  filters: Filters;
+  maxPrice?: number;
+  sort: Sort;
+  towns: Map<string, TownInfo>;
+  townFilter: string | null;
+  onClearTown: () => void;
+  onBrowseAreas: () => void;
+  onRaiseBudget: () => void;
+  selectedId?: string | null;
+  onSelect: (l: Listing) => void;
+  onHoverCity: (cityId: string | null) => void;
+  onOpenTown: (cityId: string) => void;
+  onListings: (l: Listing[] | undefined) => void;
 }
 
-export default function HomesForYou({
-  prefs,
-  metrics,
-  cities,
-  selectedListingId,
-  onSelectListing,
-  className = '',
-}: HomesForYouProps) {
-  const [kind, setKind] = useState<ListingKind>('home');
+const priceOf = (l: Listing) => (l.kind === 'home' ? l.value : l.rent);
 
-  const weights: Weights = useMemo(() => {
-    return metrics ? toMetricWeights(prefs.categories, metrics) : {};
-  }, [prefs.categories, metrics]);
-
-  const cityMap = useMemo(() => {
-    return new Map((cities || []).map((c) => [c.id, c.name]));
-  }, [cities]);
-
-  // Query top recommendations from Convex backend
-  const recommendations = useRecommendedListings({
-    weights,
-    filters: prefs.filters,
-    kind,
-    limit: 12,
+export default function HomesForYou(p: Props) {
+  const { kind, maxPrice, sort, towns, townFilter } = p;
+  const recs = useRecommendedListings({ weights: p.weights, filters: p.filters, kind, limit: 60 });
+  const inTown = useTownListings({
+    cityId: townFilter ?? '__none__', kind,
+    maxValue: kind === 'home' ? maxPrice : undefined, maxRent: kind === 'apartment' ? maxPrice : undefined,
   });
 
-  const isLoading = recommendations === undefined;
+  const loading = townFilter ? inTown === undefined : recs === undefined;
+  const items = useMemo<Recommendation[]>(() => {
+    let list: Recommendation[];
+    if (townFilter) {
+      const t = towns.get(townFilter);
+      list = (inTown ?? []).map(listing => ({
+        listing, cityId: listing.cityId, townScore: t?.score ?? 0, townRank: t?.rank ?? 0,
+        reason: t ? `${t.name} is your #${t.rank} area match.` : '',
+      }));
+    } else list = recs ?? [];
+    list = list.filter(r => {
+      const v = priceOf(r.listing);
+      return maxPrice === undefined || (v != null && v <= maxPrice);
+    });
+    const byPrice = (a: Recommendation, b: Recommendation) => (priceOf(a.listing) ?? Infinity) - (priceOf(b.listing) ?? Infinity);
+    if (sort === 'price') return [...list].sort(byPrice);
+    if (sort === 'newest') return [...list].sort((a, b) => (b.listing.yearBuilt ?? 0) - (a.listing.yearBuilt ?? 0));
+    return townFilter ? [...list].sort(byPrice) : list;
+  }, [recs, inTown, townFilter, towns, maxPrice, sort]);
+
+  const { onListings } = p;
+  useEffect(() => {
+    onListings(loading ? undefined : items.map(r => r.listing));
+  }, [items, loading, onListings]);
+  useEffect(() => () => onListings(undefined), [onListings]);
+
+  const noun = kind === 'home' ? 'homes' : 'apartments';
+  if (loading) {
+    return (
+      <div role="status" aria-live="polite" className="space-y-3">
+        <p className="text-sm text-dusk">Finding {noun}</p>
+        {[0, 1, 2, 3].map(i => <div key={i} className="h-48 animate-pulse rounded-xl bg-rock-100/70" />)}
+      </div>
+    );
+  }
+  if (items.length === 0) {
+    return (
+      <div role="status" className="rounded-xl border border-dashed border-rock-300 p-6 text-center">
+        <h2 className="font-display text-xl text-ink">
+          {maxPrice !== undefined
+            ? `No ${noun} under ${kind === 'home' ? money(maxPrice) : `$${maxPrice.toLocaleString()}/mo`}`
+            : `No ${noun} found${townFilter ? ` in ${towns.get(townFilter)?.name ?? 'this area'}` : ''}`}
+        </h2>
+        <p className="mt-1 text-sm text-dusk">
+          {maxPrice !== undefined ? `Raise your ${kind === 'home' ? 'budget' : 'max rent'} to see more.` : 'Try another area or loosen your priorities.'}
+        </p>
+        <div className="mt-4 flex justify-center gap-2">
+          {maxPrice !== undefined && <button type="button" onClick={p.onRaiseBudget} className={BTN_PRIMARY}>Raise budget</button>}
+          {townFilter && <button type="button" onClick={p.onClearTown} className={BTN_PRIMARY}>All areas</button>}
+        </div>
+      </div>
+    );
+  }
+
+  const cityIds = [...new Set(items.map(r => r.cityId))];
+  const grouped = sort === 'fit' && !townFilter && cityIds.length > 1;
+  const card = (r: Recommendation) => (
+    <li key={r.listing.id}>
+      <ListingCard
+        item={r} cityName={towns.get(r.cityId)?.name} isSelected={p.selectedId === r.listing.id}
+        onSelect={p.onSelect} onHover={on => p.onHoverCity(on ? r.cityId : null)} onOpenTown={p.onOpenTown}
+      />
+    </li>
+  );
 
   return (
-    <section aria-label="Recommended homes and apartments" className={`space-y-4 ${className}`}>
-      {/* Header and Toggle */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-ink">Places to live</h2>
-          <p className="text-xs text-dusk">
-            Real public-record properties inside the towns that fit you best.
-          </p>
-        </div>
-
-        {/* Kind Toggle */}
-        <div className="inline-flex self-start rounded-full bg-rock-100 p-1 text-xs font-semibold sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setKind('apartment')}
-            className={`cursor-pointer rounded-full px-4 py-1.5 transition-all ${
-              kind === 'apartment'
-                ? 'bg-white text-ink shadow-sm'
-                : 'text-rock-600 hover:text-ink'
-            }`}
-          >
-            Apartments
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-dusk" aria-live="polite">
+        <span>
+          Showing {items.length} {noun} in {cityIds.length} {cityIds.length === 1 ? 'area' : 'areas'}
+        </span>
+        {townFilter && (
+          <button type="button" onClick={p.onClearTown} className={`rounded-full bg-alpine-50 px-3 py-1 text-xs font-semibold text-alpine-700 hover:bg-alpine-100 ${FOCUS}`}>
+            {towns.get(townFilter)?.name ?? 'Area'} (clear)
           </button>
-          <button
-            type="button"
-            onClick={() => setKind('home')}
-            className={`cursor-pointer rounded-full px-4 py-1.5 transition-all ${
-              kind === 'home'
-                ? 'bg-white text-ink shadow-sm'
-                : 'text-rock-600 hover:text-ink'
-            }`}
-          >
-            Homes
-          </button>
-        </div>
+        )}
       </div>
-
-      {/* Recommendations List */}
-      {isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-48 animate-pulse rounded-2xl border border-rock-100 bg-rock-100/60"
-            />
-          ))}
-        </div>
-      ) : recommendations.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-rock-300 p-6 text-center">
-          <h3 className="font-display text-lg font-semibold text-ink">
-            No {kind === 'home' ? 'homes' : 'apartments'} found
-          </h3>
-          <p className="mt-1 text-xs text-dusk">
-            {kind === 'home' && prefs.filters.maxHomeValue !== undefined
-              ? 'Try relaxing your max home value filter to see more properties.'
-              : 'No properties are currently available for this search criteria.'}
-          </p>
+      {grouped ? (
+        <div className="space-y-6">
+          {cityIds.map(id => {
+            const group = items.filter(r => r.cityId === id);
+            const t = towns.get(id);
+            return (
+              <section key={id} aria-label={`${noun} in ${t?.name ?? id}`}>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold text-ink">{t?.name ?? id} <span className="font-normal text-dusk">({group.length})</span></h2>
+                  <button type="button" onClick={() => p.onOpenTown(id)} className="text-xs font-semibold text-alpine-700 underline underline-offset-2">About {t?.name}</button>
+                </div>
+                <ul className="space-y-3">{group.map(card)}</ul>
+              </section>
+            );
+          })}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {recommendations.map((rec) => (
-            <ListingCard
-              key={rec.listing.id}
-              item={rec}
-              cityName={cityMap.get(rec.cityId)}
-              isSelected={selectedListingId === rec.listing.id}
-              onSelect={onSelectListing}
-            />
-          ))}
-        </div>
+        <ul className="space-y-3">{items.map(card)}</ul>
       )}
-
-      {/* Honest Data Attribution Note */}
-      <div className="rounded-xl bg-rock-50 p-3 text-[11px] text-dusk">
-        <p>
-          <strong className="text-rock-700">Public record benchmarks: </strong>
-          Values reflect official county assessor market values; rents reflect HUD FY2025 Fair
-          Market Rents for 2-bedroom units. Not asking prices or active MLS sales.
-        </p>
-      </div>
-    </section>
+      <p className="mt-6 text-xs text-dusk">
+        Public records: values are county assessor estimates; rents are HUD fair market rents for 2-bedroom units. Not asking prices or active sales.
+      </p>
+    </div>
   );
 }

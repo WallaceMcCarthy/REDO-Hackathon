@@ -1,181 +1,108 @@
-import React from 'react';
 import type { Listing, Recommendation } from '../../../convex/lib/listings';
-import { formatListingFinancials } from './types';
 import SavedButton from '../social/SavedButton';
+import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
 interface ListingCardProps {
   item: Listing | Recommendation;
   isSelected?: boolean;
   onSelect?: (listing: Listing) => void;
   onHover?: (hovered: boolean) => void;
+  onOpenTown?: (cityId: string) => void;
   cityName?: string;
   className?: string;
 }
 
-function isRecommendation(item: Listing | Recommendation): item is Recommendation {
-  return 'listing' in item;
-}
+const isRec = (item: Listing | Recommendation): item is Recommendation => 'listing' in item;
 
-export default function ListingCard({
-  item,
-  isSelected,
-  onSelect,
-  onHover,
-  cityName,
-  className = '',
-}: ListingCardProps) {
-  const listing: Listing = isRecommendation(item) ? item.listing : item;
-  const reason = isRecommendation(item) ? item.reason : undefined;
-  const townScore = isRecommendation(item) ? item.townScore : undefined;
-  const townRank = isRecommendation(item) ? item.townRank : undefined;
+export default function ListingCard({ item, isSelected, onSelect, onHover, onOpenTown, cityName, className = '' }: ListingCardProps) {
+  const listing: Listing = isRec(item) ? item.listing : item;
+  const reason = isRec(item) ? item.reason : undefined;
+  const fit = isRec(item) ? Math.max(0, Math.min(100, Math.round(item.townScore))) : undefined;
+  const apt = listing.kind === 'apartment';
 
-  const financials = formatListingFinancials(listing);
-  const displayName = listing.name || listing.address || 'Residential Property';
-  const displayAddress = listing.name && listing.address ? listing.address : null;
+  const amount = apt
+    ? (listing.rent != null ? rentFmt(listing.rent) : 'N/A')
+    : (listing.value != null ? money(listing.value) : 'N/A');
+  const label = apt ? 'HUD 2-bed fair market rent' : 'Est. value';
+  const address = listing.address || listing.name || 'Address not listed';
+  const meta = [
+    cityName,
+    apt ? (listing.units != null ? `${listing.units} units` : null) : (listing.beds != null ? `${listing.beds} bd` : null),
+    !apt && listing.sqft != null ? `${listing.sqft.toLocaleString()} sqft` : null,
+    listing.yearBuilt != null ? `Built ${listing.yearBuilt}` : null,
+  ].filter(Boolean);
 
   return (
     <article
+      data-listing-id={listing.id}
+      aria-label={address}
       onClick={() => onSelect?.(listing)}
       onMouseEnter={() => onHover?.(true)}
       onMouseLeave={() => onHover?.(false)}
+      onFocus={() => onHover?.(true)}
+      onBlur={() => onHover?.(false)}
       tabIndex={onSelect ? 0 : undefined}
-      onKeyDown={(e) => {
-        if (onSelect && (e.key === 'Enter' || e.key === ' ')) {
+      onKeyDown={e => {
+        if (onSelect && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
           onSelect(listing);
         }
       }}
-      className={`group relative flex flex-col justify-between rounded-2xl border p-4 transition-all duration-150 ${
-        isSelected
-          ? 'border-alpine-500 bg-alpine-50/50 shadow-md ring-2 ring-alpine-500/20'
-          : 'border-rock-200 bg-white hover:border-rock-300 hover:shadow-sm'
+      className={`rounded-xl border bg-white p-4 transition-colors ${FOCUS} ${
+        isSelected ? 'border-alpine-500 ring-2 ring-alpine-500/20' : 'border-rock-100 hover:border-rock-300'
       } ${onSelect ? 'cursor-pointer' : ''} ${className}`}
     >
-      <div>
-        {/* Top Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium ${
-                listing.kind === 'apartment'
-                  ? 'bg-sky-100 text-sky-800'
-                  : 'bg-emerald-100 text-emerald-800'
-              }`}
-            >
-              {listing.propertyType || (listing.kind === 'apartment' ? 'Apartment' : 'Single Family')}
-            </span>
-            {cityName && (
-              <span className="font-semibold text-rock-700">
-                {cityName}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            {townRank != null && (
-              <span className="inline-flex items-center rounded-full bg-alpine-100 px-2 py-0.5 font-medium text-alpine-800">
-                #{townRank} match {townScore != null && `(${Math.round(townScore)}%)`}
-              </span>
-            )}
-            <SavedButton listingId={listing.id} />
-          </div>
-        </div>
-
-        {/* Title & Address */}
-        <div className="mt-2.5">
-          <h3 className="font-display text-lg font-semibold leading-snug text-ink group-hover:text-alpine-900">
-            {displayName}
-          </h3>
-          {displayAddress && (
-            <p className="mt-0.5 text-xs text-dusk line-clamp-1">{displayAddress}</p>
-          )}
-        </div>
-
-        {/* Price & Benchmark */}
-        <div className="mt-3 rounded-xl bg-rock-50 p-2.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-display text-2xl font-bold tracking-tight text-ink">
-              {financials.amountFormatted}
-            </span>
-            <span className="rounded bg-rock-200/70 px-1.5 py-0.5 text-[10px] font-medium text-rock-700">
-              {financials.benchmarkBadge}
-            </span>
-          </div>
-          <p className="mt-1 text-[11px] text-dusk">{financials.label}</p>
-        </div>
-
-        {/* Property Attributes */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-rock-600">
-          {listing.kind === 'apartment' ? (
-            <>
-              <span className="inline-flex items-center gap-1">
-                <span className="font-medium text-ink">2-bed</span> rent benchmark
-              </span>
-              {listing.units != null && (
-                <>
-                  <span className="text-rock-300">•</span>
-                  <span>{listing.units} units</span>
-                </>
-              )}
-              {listing.yearBuilt != null && (
-                <>
-                  <span className="text-rock-300">•</span>
-                  <span>Built {listing.yearBuilt}</span>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              {listing.beds != null && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="font-medium text-ink">{listing.beds}</span> beds
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-display text-2xl leading-none text-ink tabular-nums">{amount}</p>
+          <p className="mt-1 flex items-center gap-1 text-xs text-dusk">
+            {label}
+            {!apt && (
+              <span className="group relative inline-flex">
+                <span
+                  tabIndex={0} role="img" aria-label="County assessor estimate, not an asking price"
+                  className={`inline-flex size-4 cursor-help items-center justify-center rounded-full border border-rock-300 text-[10px] font-bold text-dusk ${FOCUS}`}
+                >
+                  i
                 </span>
-              )}
-              {listing.sqft != null && (
-                <>
-                  {listing.beds != null && <span className="text-rock-300">•</span>}
-                  <span className="inline-flex items-center gap-1">
-                    <span className="font-medium text-ink">{listing.sqft.toLocaleString()}</span> sq ft
-                  </span>
-                </>
-              )}
-              {listing.yearBuilt != null && (
-                <>
-                  <span className="text-rock-300">•</span>
-                  <span>Built {listing.yearBuilt}</span>
-                </>
-              )}
-            </>
-          )}
+                <span role="tooltip" className="pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-48 rounded-lg bg-ink px-2.5 py-1.5 text-xs text-white group-focus-within:block group-hover:block">
+                  County assessor estimate, not an asking price
+                </span>
+              </span>
+            )}
+          </p>
         </div>
-
-        {/* Why this home */}
-        {reason && (
-          <div className="mt-3 rounded-lg border border-alpine-200 bg-alpine-50/60 p-2 text-xs text-alpine-900">
-            <span className="font-semibold text-alpine-800">Why this place: </span>
-            <span>{reason}</span>
-          </div>
-        )}
+        <SavedButton listingId={listing.id} />
       </div>
 
-      {/* Provenance Footer */}
-      <footer className="mt-3.5 border-t border-rock-100 pt-2 text-[11px] text-dusk">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate" title={financials.disclaimer}>
-            {listing.source}
+      <h3 className="mt-3 truncate text-sm font-semibold text-ink" title={address}>{address}</h3>
+      <p className="mt-0.5 truncate text-xs text-dusk">{meta.join(' · ')}</p>
+
+      {fit != null && (
+        <div className="mt-3 flex items-center gap-2">
+          <span
+            role="meter" aria-label="Fit score" aria-valuemin={0} aria-valuemax={100} aria-valuenow={fit}
+            className="block h-1.5 flex-1 overflow-hidden rounded-full bg-rock-100"
+          >
+            <span className="block h-full rounded-full bg-alpine-500" style={{ width: `${fit}%` }} />
           </span>
-          {listing.sourceUrl && (
-            <a
-              href={listing.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="shrink-0 font-medium text-alpine-700 underline underline-offset-2 hover:text-alpine-900"
-            >
-              Source ↗
-            </a>
-          )}
+          <span className="w-16 text-right text-xs tabular-nums text-dusk">{fit} / 100</span>
         </div>
-      </footer>
+      )}
+      {reason && <p className="mt-2 line-clamp-2 text-xs text-ink"><span className="font-semibold text-alpine-700">Why this place: </span>{reason}</p>}
+
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-rock-100 pt-3">
+        {listing.sourceUrl ? (
+          <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={LINK}>
+            Source
+          </a>
+        ) : <span />}
+        {onOpenTown && cityName && (
+          <button type="button" onClick={e => { e.stopPropagation(); onOpenTown(listing.cityId); }} className={LINK}>
+            About {cityName}
+          </button>
+        )}
+      </div>
     </article>
   );
 }
