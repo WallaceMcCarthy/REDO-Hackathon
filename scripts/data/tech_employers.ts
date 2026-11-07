@@ -1,5 +1,5 @@
 // Tech establishments within ~25 km of each town from Census ZBP 2023 & ZCTA Gazetteer.
-// NAICS 51 (Information, including 5112 software publishers) + 5415 (Computer systems design).
+// NAICS 51 (Information sector proxy) + 5415 (Computer systems design and related services).
 // Run: npx -y tsx scripts/data/tech_employers.ts
 
 import { execFileSync } from "node:child_process";
@@ -27,7 +27,7 @@ if (!existsSync(ZBP_TXT)) {
   execFileSync("tar", ["-xf", ZBP_ZIP, "-C", "data/raw"]);
 }
 
-// 2. Parse Utah ZCTAs (84xxx) from Gazetteer
+// 2. Parse Utah ZCTAs (84xxx) from official Census Gazetteer
 const gazContent = readFileSync(GAZ_TXT, "utf8");
 const gazLines = gazContent.split(/\r?\n/).filter(Boolean);
 const gazHdr = gazLines[0].split("\t").map((h) => h.trim());
@@ -48,13 +48,8 @@ for (let i = 1; i < gazLines.length; i++) {
   }
 }
 
-// Fallback for downtown SLC PO box ZIP 84110
-if (!zctaCoords.has("84110")) {
-  zctaCoords.set("84110", [40.764, -111.905]);
-}
-
 // 3. Parse Utah tech establishments from ZBP 2023
-// NAICS 51---- is Information (including software publishers 5112)
+// NAICS 51---- is Information (industry proxy including software publishers, data hosting, internet publishing)
 // NAICS 5415// is Computer Systems Design and Related Services
 const zbpContent = readFileSync(ZBP_TXT, "utf8");
 const zbpLines = zbpContent.split(/\r?\n/).filter(Boolean);
@@ -101,9 +96,22 @@ for (let i = 1; i < zbpLines.length; i++) {
   }
 }
 
-console.log(`Found ${zipTech.size} Utah ZIP codes with ${totalUtTech} total tech establishments.`);
+// Log coverage gaps: ZIP codes with establishments lacking an official ZCTA gazetteer centroid
+const unmappedZips: string[] = [];
+let unmappedEst = 0;
+for (const [zip, est] of zipTech.entries()) {
+  if (!zctaCoords.has(zip)) {
+    unmappedZips.push(`${zip} (${est} est)`);
+    unmappedEst += est;
+  }
+}
+if (unmappedZips.length > 0) {
+  console.log(`Coverage gap: omitted ${unmappedZips.length} PO-box ZIP(s) without official ZCTA centroid: ${unmappedZips.join(", ")} (${unmappedEst} est)`);
+}
 
-// 4. Calculate total establishments within 25 km for each town
+console.log(`Mapped ${zipTech.size - unmappedZips.length} Utah ZCTAs with ${totalUtTech - unmappedEst} tech establishments.`);
+
+// 4. Calculate total establishments within straight-line 25 km for each town
 const towns = loadTowns();
 const values: Record<string, number> = {};
 
@@ -111,7 +119,7 @@ for (const town of towns) {
   let count = 0;
   for (const [zip, est] of zipTech.entries()) {
     const coords = zctaCoords.get(zip);
-    if (!coords) continue;
+    if (!coords) continue; // Skip unmapped PO-box ZIPs; do not invent coordinates
     const dist = haversineKm(town.lat, town.lng, coords[0], coords[1]);
     if (dist <= 25.0) {
       count += est;
@@ -128,7 +136,7 @@ const output = {
   unit: "establishments within 25km",
   higherIsBetter: true,
   description:
-    "Number of tech establishments located within a 25 km commute radius of the town centroid, computed from U.S. Census Bureau 2023 ZIP Code Business Patterns (ZBP) for NAICS 51 (Information, including software publishers) and NAICS 5415 (Computer Systems Design and Related Services). Mapped using 2023 Census ZCTA Gazetteer centroid coordinates.",
+    "Estimated count of tech establishments located within a straight-line 25 km radius of the town centroid, based on U.S. Census Bureau 2023 ZIP Code Business Patterns (ZBP) for NAICS 51 (Information sector proxy, including software publishers) and NAICS 5415 (Computer Systems Design and Related Services). Mapped strictly using official 2023 Census ZCTA Gazetteer centroid coordinates (unmatched PO-box ZIPs omitted as coverage gaps).",
   source: "U.S. Census Bureau, 2023 ZIP Code Business Patterns (ZBP) & 2023 ZCTA Gazetteer",
   sourceUrl: "https://www.census.gov/programs-surveys/cbp/data/datasets.html",
   year: YEAR,

@@ -1,9 +1,10 @@
 import type { Listing, Recommendation } from '../../../convex/lib/listings';
+import AerialPhoto from './AerialPhoto';
 import SavedButton from '../social/SavedButton';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
 /** Zillow address search (opens the property page or nearest match). Falls back to the town's Zillow page. */
-function zillowUrl(address: string | null, cityName: string | undefined, kind: string): string {
+export function zillowUrl(address: string | null, cityName: string | undefined, kind: string): string {
   const town = cityName ?? '';
   if (address && address.trim()) {
     const full = /\bUT\b/.test(address) ? address : `${address}, ${town}, UT`;
@@ -59,10 +60,12 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
           onSelect(listing);
         }
       }}
-      className={`rounded-xl border bg-white p-4 transition-colors ${FOCUS} ${
+      className={`overflow-hidden rounded-xl border bg-white transition-colors ${FOCUS} ${
         isSelected ? 'border-alpine-500 ring-2 ring-alpine-500/20' : 'border-rock-100 hover:border-rock-300'
       } ${onSelect ? 'cursor-pointer' : ''} ${className}`}
     >
+      <AerialPhoto listing={listing} rounded="" />
+      <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-display text-2xl leading-none text-ink tabular-nums">{amount}</p>
@@ -118,6 +121,7 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
             About {cityName}
           </button>
         )}
+      </div>
       </div>
     </article>
   );
