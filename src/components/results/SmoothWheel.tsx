@@ -43,7 +43,8 @@ export default function SmoothWheel() {
         const target = Math.min(map.getMaxZoom(), Math.max(map.getMinZoom(), Math.round(map.getZoom()) + step));
         map.setZoomAround(map.containerPointToLatLng([anchor.x, anchor.y]), target);
       } else {
-        pan.x += dx; pan.y += dy; // two-finger scroll pans
+        // two-finger trackpad scroll zooms smoothly around the cursor (drag pans)
+        zoomDelta += -dy * 0.004;
         schedule();
       }
     };
