@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { useConvex, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import ResultsFeatured from '../components/ads/ResultsFeatured';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
@@ -277,7 +276,6 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
         </div>
       </header>
 
-      <SafeSectionBoundary><ResultsFeatured /></SafeSectionBoundary>
 
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[30rem_minmax(0,1fr)]">
         <section
