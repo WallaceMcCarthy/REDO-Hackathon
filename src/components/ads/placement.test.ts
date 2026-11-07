@@ -13,6 +13,14 @@ describe('pickFeatured', () => {
   it('lets a statewide campaign fill a slot no town claimed', () => {
     expect(pickFeatured(ads, ['provo'], 2).map(c => c._id)).toEqual(['provo-ad', 'statewide']);
   });
+  it('puts paid ads first, then sample listing ads, then other samples, whatever the town order', () => {
+    const ranked = [
+      { ...ad('invented', 'provo'), isSample: true },
+      { ...ad('listing', 'ogden'), isSample: true, listingId: 'market:for_sale:1' },
+      { ...ad('paid', 'moab'), isSample: false },
+    ];
+    expect(pickFeatured(ranked, ['provo', 'ogden', 'moab'], 3).map(c => c._id)).toEqual(['paid', 'listing', 'invented']);
+  });
   it('counts a campaign once when two town queries both return it', () => {
     expect(pickFeatured([ad('statewide'), ad('statewide')], ['provo'], 2).map(c => c._id)).toEqual(['statewide']);
   });
