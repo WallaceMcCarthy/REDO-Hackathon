@@ -6,7 +6,7 @@ import { preferenceRequest, interpretPreferences, type PreferenceProposal } from
 
 declare const process: { env: Record<string, string | undefined> };
 const enabled = () => process.env.JEV_PREFERENCES_ENABLED === 'true' && !!process.env.JEV_API_KEY;
-export const availability = query({ args: {}, handler: () => ({ enabled: enabled() }) });
+export const availability = query({ args: {}, handler: () => ({ enabled: enabled(), questionRevision: 2 }) });
 
 export const reserve = internalMutation({
   args: {},

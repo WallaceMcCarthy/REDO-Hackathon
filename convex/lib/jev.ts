@@ -1,7 +1,7 @@
 /** Question wording and interpretation stay together. No credentials or user text are logged. */
 export const TOPICS = {
   cost: 'affordability and cost of living', safety: 'crime and public safety',
-  environment: 'air and water quality', outdoors: 'outdoor recreation, skiing and trails',
+  environment: 'environmental quality', outdoors: 'outdoor recreation, skiing and trails',
   transit: 'public transit and commuting', culture: 'restaurants, arts and nightlife',
   education: 'schools and education', community: 'community and civic participation',
 } as const;

@@ -22,13 +22,24 @@ export function PreferenceAssistantForm({ prefs, setPrefs, run, isAuthenticated,
   const [error, setError] = useState('');
   const [applied, setApplied] = useState(false);
   const requestVersion = useRef(0);
+  const latestPrefs = useRef(prefs);
+  latestPrefs.current = prefs;
 
   async function suggest() {
     const version = ++requestVersion.current;
     setPending(true); setError(''); setProposal(null); setApplied(false);
     try {
       const result = await run({ text: text.trim() });
-      if (requestVersion.current === version) setProposal(result);
+      if (requestVersion.current === version) {
+        const current = latestPrefs.current, budget = result.budget;
+        if (Object.keys(result.categories).length || budget.mode) {
+          const oldMode = current.budget.mode ?? (current.budget.maxRent !== undefined ? 'rent' : 'buy');
+          const nextBudget = budget.mode && budget.mode !== oldMode ? { ...budget } : { ...current.budget, ...budget };
+          setPrefs({ ...current, categories: { ...current.categories, ...result.categories }, budget: nextBudget });
+          setApplied(true);
+        }
+        setProposal(result);
+      }
     } catch (e) {
       if (requestVersion.current === version) setError(e instanceof ConvexError && typeof e.data === 'string' ? e.data : 'Could not suggest priorities. Try again or use the sliders.');
     } finally {
@@ -41,7 +52,7 @@ export function PreferenceAssistantForm({ prefs, setPrefs, run, isAuthenticated,
 
   return <Card className="mt-stack" aria-label="Describe your priorities">
     <h2 className="font-display text-title text-text">Describe your priorities</h2>
-    <p className="mt-2 text-small text-text-muted">Tell us what matters. Review suggested settings before applying them.</p>
+    <p className="mt-2 text-small text-text-muted">Tell us what matters and we’ll set your priorities. You can fine tune every setting below.</p>
     <div className="mt-4">
       <Field label="What are you looking for?" hint="Your description is sent to TypeSafe to suggest settings. Leave out names, contact details and other private information.">
         <Textarea maxLength={1200} rows={3} value={text} placeholder="I want to rent under $2,000 a month, close to trails. Nightlife matters less."
@@ -50,12 +61,12 @@ export function PreferenceAssistantForm({ prefs, setPrefs, run, isAuthenticated,
     </div>
     <div className="mt-3 flex flex-wrap gap-3">
       {isAuthenticated
-        ? <Button type="button" disabled={pending || text.trim().length < 5} onClick={suggest}>{pending ? 'Suggesting…' : 'Suggest settings'}</Button>
-        : <Button type="button" onClick={onSignIn}>Sign in to suggest settings</Button>}
+        ? <Button type="button" disabled={pending || text.trim().length < 5} onClick={suggest}>{pending ? 'Setting priorities…' : 'Set my priorities'}</Button>
+        : <Button type="button" onClick={onSignIn}>Sign in to set priorities</Button>}
     </div>
     {error && <p role="alert" className="mt-3 text-small text-danger">{error}</p>}
-    {proposal && <section className="mt-4 rounded-control border border-border p-4" aria-label="Suggested settings" aria-live="polite">
-      <h3 className="font-semibold">Suggested settings</h3>
+    {proposal && <section className="mt-4 rounded-control border border-border p-4" aria-label="Priority changes" aria-live="polite">
+      <h3 className="font-semibold">{hasChanges ? 'Settings updated' : 'No setting changes'}</h3>
       {hasChanges ? <>
         <ul className="mt-2 space-y-1 text-small">
           {changes.map(([key, value]) => <li key={key}>{CATEGORY_LABELS[key as keyof typeof CATEGORY_LABELS]}: {value} / 5</li>)}
@@ -65,13 +76,7 @@ export function PreferenceAssistantForm({ prefs, setPrefs, run, isAuthenticated,
       </> : <p className="mt-2 text-small">No clear setting changes found. Add more detail or adjust the sliders yourself.</p>}
       {!!proposal.uncertain.length && <p className="mt-2 text-small">Please set these yourself: {proposal.uncertain.join(', ')}.</p>}
       <div className="mt-3 flex flex-wrap gap-3">
-        {hasChanges && <Button type="button" onClick={() => {
-          const oldMode = (prefs.budget as { mode?: string }).mode ?? (prefs.budget.maxRent !== undefined ? 'rent' : 'buy');
-          const nextBudget = budget?.mode && budget.mode !== oldMode ? { ...budget } : { ...prefs.budget, ...budget };
-          setPrefs({ ...prefs, categories: { ...prefs.categories, ...proposal.categories }, budget: nextBudget });
-          setProposal(null); setApplied(true);
-        }}>Apply suggested settings</Button>}
-        <Button type="button" variant="ghost" onClick={() => setProposal(null)}>Dismiss suggestions</Button>
+        <Button type="button" variant="ghost" onClick={() => setProposal(null)}>Hide details</Button>
       </div>
     </section>}
     {applied && <p role="status" className="mt-3 text-small">Settings applied. Review your priorities below.</p>}
