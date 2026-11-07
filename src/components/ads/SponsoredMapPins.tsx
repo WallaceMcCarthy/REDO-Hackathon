@@ -30,13 +30,16 @@ const isShowable = (c: CampaignRecord): c is Located => c.lat !== undefined && c
 
 /** A small accent marker; hover, focus or tap opens a card above it. The whole ad is one link. `flip` aligns the card to the marker's right edge; `below` puts it under the marker when there is no room above. */
 export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip?: boolean; below?: boolean; onClick?: () => void }) {
+  // The one main advertiser stands out on the map: bigger than a sample pin, and a mark instead of a star.
+  // Scaled from the bottom so it grows in place rather than drifting off the marker's anchored point.
+  const redo = pin.url === REDO_IT.url;
   return (
     <a
       {...adLink(pin)} draggable={false} onClick={onClick}
       aria-label={`Sponsored: ${pin.title}`}
       className={`group relative block size-8 rounded-pill ${FOCUS}`}
     >
-      <span aria-hidden className={`flex size-8 items-center justify-center rounded-pill border-2 border-white ${pin.url === REDO_IT.url ? 'bg-black' : 'bg-rock-800'} text-[13px] font-bold leading-none text-white shadow-raised`}>★</span>
+      <span aria-hidden className={`flex size-8 origin-bottom items-center justify-center rounded-pill border-2 border-white text-[13px] font-bold leading-none text-white shadow-raised ${redo ? 'scale-150 bg-black' : 'bg-rock-800'}`}>{redo ? 'R' : '★'}</span>
       <span className={`pointer-events-none invisible absolute z-10 w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
         <span className="flex flex-col gap-1 rounded-card bg-surface-raised p-3 text-left shadow-raised">
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-text-muted">
