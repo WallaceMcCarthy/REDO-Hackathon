@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Filters, Weights } from '../../types';
 import type { Listing, ListingKind, Recommendation } from '../../../convex/lib/listings';
 import { useListingSearch } from '../../data/listingsHooks';
@@ -36,13 +36,25 @@ export default function HomesForYou(p: Props) {
     cityIds: townFilter ? [townFilter] : undefined,
   });
 
+  // The visible card order (grouped by town, see `grouped` below) can differ
+  // from `items`' own order (round-robin by town rank). Next/Prev in
+  // Results.tsx steps through whatever we report via onRecs, so that must be
+  // the order actually rendered, not the raw search order, or stepping jumps
+  // to a card that isn't adjacent on screen.
+  const cityIds = useMemo(() => [...new Set(items.map(r => r.cityId))], [items]);
+  const grouped = sort === 'fit' && !townFilter && cityIds.length > 1;
+  const displayOrder = useMemo(
+    () => (grouped ? cityIds.flatMap(id => items.filter(r => r.cityId === id)) : items),
+    [grouped, cityIds, items],
+  );
+
   const { onListings } = p;
   useEffect(() => {
-    onListings(loading ? undefined : items.map(r => r.listing));
-  }, [items, loading, onListings]);
+    onListings(loading ? undefined : displayOrder.map(r => r.listing));
+  }, [displayOrder, loading, onListings]);
   useEffect(() => () => onListings(undefined), [onListings]);
   const { onRecs } = p;
-  useEffect(() => { onRecs?.(loading ? undefined : items); }, [items, loading, onRecs]);
+  useEffect(() => { onRecs?.(loading ? undefined : displayOrder); }, [displayOrder, loading, onRecs]);
   const counts = useListingCommentCounts(items.map(r => r.listing.id));
   useEffect(() => () => onRecs?.(undefined), [onRecs]);
 
@@ -74,8 +86,6 @@ export default function HomesForYou(p: Props) {
     );
   }
 
-  const cityIds = [...new Set(items.map(r => r.cityId))];
-  const grouped = sort === 'fit' && !townFilter && cityIds.length > 1;
   const card = (r: Recommendation) => (
     <li key={r.listing.id}>
       <ListingCard
