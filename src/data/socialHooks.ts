@@ -5,11 +5,33 @@ import type { CommentItem, CommentTargetType, SavedListingItem, UserProfile } fr
 
 /**
  * Hook to retrieve user's saved listings (api.social.mySaved).
+ * Handles both direct array and paginated { page: [...] } shapes safely.
  */
 export function useMySaved(): SavedListingItem[] | undefined {
   const queryFn = (api as any).social?.mySaved;
+  const result = useQuery(queryFn, queryFn ? {} : 'skip') as any;
+  if (result === undefined) return undefined;
+  if (Array.isArray(result)) return result;
+  if (result && Array.isArray(result.page)) return result.page;
+  return [];
+}
+
+/**
+ * Hook to retrieve all saved listing IDs for current user (api.social.savedIds).
+ */
+export function useSavedIds(): string[] | undefined {
+  const queryFn = (api as any).social?.savedIds;
   const result = useQuery(queryFn, queryFn ? {} : 'skip');
-  return result as SavedListingItem[] | undefined;
+  return result as string[] | undefined;
+}
+
+/**
+ * Hook to check if a single listing is saved (api.social.isSaved).
+ */
+export function useIsSaved(listingId: string): boolean | undefined {
+  const queryFn = (api as any).social?.isSaved;
+  const result = useQuery(queryFn, queryFn && listingId ? { listingId } : 'skip');
+  return result as boolean | undefined;
 }
 
 /**
