@@ -87,6 +87,20 @@ export function useCreateCheckout() {
   );
 }
 
+export type ConfirmStatus = 'active' | 'unpaid' | 'not_found' | 'error';
+
+export function useConfirmCheckout() {
+  const actionFn = (api as any).ads?.confirmCheckout;
+  const run = useAction(actionFn ?? (() => Promise.resolve({ status: 'error' })));
+  return useCallback(
+    async (sessionId: string): Promise<ConfirmStatus> => {
+      if (!actionFn) return 'error';
+      return ((await run({ sessionId })) as { status: ConfirmStatus }).status;
+    },
+    [run, actionFn],
+  );
+}
+
 export function usePaymentProvider(): 'redo' | 'stripe' | undefined {
   const queryFn = (api as any).ads?.paymentProvider;
   const result = useQuery(queryFn, queryFn ? {} : 'skip') as { provider: 'redo' | 'stripe' } | undefined;

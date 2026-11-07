@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
@@ -361,6 +361,74 @@ export const fulfillStripePayment = internalMutation({
       endsAt: now + duration,
     });
     return { status: "activated" as const };
+  },
+});
+
+/** Owner-scoped lookup of the campaign tied to a Stripe session; null unless the caller owns it. */
+export const getOwnedCheckout = internalQuery({
+  args: { userId: v.id("users"), sessionId: v.string() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("payments")
+      .withIndex("by_stripeSessionId", (q) => q.eq("stripeSessionId", args.sessionId))
+      .first();
+    if (!row) return null;
+    const campaign = await ctx.db.get(row.campaignId);
+    if (!campaign || campaign.advertiserUserId !== args.userId) return null;
+    return { campaignId: String(campaign._id), campaignStatus: campaign.status };
+  },
+});
+
+const SESSION_ID_RE = /^cs_(test|live)_[A-Za-z0-9]+$/;
+
+/**
+ * Webhook-free confirmation: the client returns from Checkout and we ask Stripe directly
+ * (with the secret key) whether the session is paid, then fulfill idempotently.
+ */
+export const confirmCheckout = action({
+  args: { sessionId: v.string() },
+  handler: async (
+    ctx,
+    { sessionId },
+  ): Promise<{ status: "active" | "unpaid" | "not_found" | "error" }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Sign in required");
+    if (!SESSION_ID_RE.test(sessionId)) throw new Error("Invalid session id");
+
+    const owned = await ctx.runQuery(internal.ads.getOwnedCheckout, { userId, sessionId });
+    if (!owned) return { status: "not_found" };
+    if (owned.campaignStatus === "active") return { status: "active" };
+
+    const key = process?.env?.STRIPE_SECRET_KEY?.trim();
+    if (!key) return { status: "error" };
+
+    let session: any;
+    try {
+      const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
+        headers: { Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) return { status: "error" };
+      session = await res.json();
+    } catch {
+      return { status: "error" };
+    }
+
+    if (session?.payment_status !== "paid") return { status: "unpaid" };
+    const ref = session.metadata?.campaignId ?? session.client_reference_id;
+    if (ref !== owned.campaignId || (session.id !== undefined && session.id !== sessionId)) {
+      return { status: "error" };
+    }
+
+    const r = await ctx.runMutation(internal.ads.fulfillStripePayment, {
+      eventId: `confirm:${sessionId}`,
+      sessionId,
+      campaignId: owned.campaignId,
+      amountTotal: Number(session.amount_total ?? 0),
+      currency: String(session.currency ?? ""),
+    });
+    if (r.status === "activated" || r.status === "already_processed") return { status: "active" };
+    return { status: "error" };
   },
 });
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
+import React, { useEffect, useState } from 'react';
+import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
 import type { City } from '../../types';
 
 interface AdvertiserDashboardProps {
@@ -13,7 +13,10 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const provider = usePaymentProvider();
   const isStripe = provider === 'stripe';
   const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const paidSessionId = hashParams.get('paid');
   const returnedPaid = hashParams.has('paid');
+  const confirmCheckout = useConfirmCheckout();
+  const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const returnedCanceled = hashParams.has('canceled');
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
@@ -25,6 +28,29 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [submitting, setSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!paidSessionId) return;
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        let status: string;
+        try {
+          status = await confirmCheckout(paidSessionId);
+        } catch {
+          status = 'error';
+        }
+        if (cancelled) return;
+        setConfirmStatus(status);
+        if (status !== 'unpaid' || attempt === 2) return;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidSessionId]);
 
   const selectedCity = cities.find((c) => c.id === cityId);
 
@@ -103,7 +129,15 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
 
       {returnedPaid && (
         <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
-          Payment received — your ad goes live when Stripe confirms
+          {confirmStatus === 'active'
+            ? 'Payment confirmed — your ad is live'
+            : confirmStatus === 'unpaid'
+              ? 'Payment not completed yet — we could not confirm it. Check back shortly.'
+              : confirmStatus === 'not_found'
+                ? 'We could not find that checkout for your account.'
+                : confirmStatus === 'error'
+                  ? 'Payment received — we could not confirm it just now. Your ad goes live once confirmed.'
+                  : 'Payment received — confirming with Stripe…'}
         </div>
       )}
       {returnedCanceled && (
