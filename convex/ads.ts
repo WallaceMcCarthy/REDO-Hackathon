@@ -271,6 +271,7 @@ export const simulateSandboxPayment = mutation({
     await ctx.db.patch(args.campaignId, {
       status: "active",
       redoPaymentId,
+      isSample: true, // Sandbox simulation strictly marks the campaign as sample content
     });
 
     return { success: true, status: "active", campaignId: args.campaignId };

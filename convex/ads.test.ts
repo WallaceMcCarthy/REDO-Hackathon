@@ -133,8 +133,8 @@ describe("ads security & exploit resistance", () => {
     const pins = await advertiser.query(refs.getActivePins, {});
     expect(pins).toHaveLength(1);
     expect(pins[0].status).toBe("active");
-    // Verify isSample was forced false
-    expect(pins[0].isSample).toBe(false);
+    // Verify isSample was set to true by simulation to guarantee sample labeling
+    expect(pins[0].isSample).toBe(true);
   });
 
   it("Validates input bounds and Utah coordinates", async () => {
