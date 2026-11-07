@@ -6,7 +6,12 @@ import { loadTowns, haversineKm, cached } from "./towns.ts";
 const YEAR = Number(process.env.YEAR ?? 2025);
 const url = `https://aqs.epa.gov/aqsweb/airdata/annual_conc_by_monitor_${YEAR}.zip`;
 await cached(`data/raw/annual_conc_by_monitor_${YEAR}.zip`, url);
-const csv = execFileSync("unzip", ["-p", `data/raw/annual_conc_by_monitor_${YEAR}.zip`], { maxBuffer: 1 << 30 }).toString();
+let csv = "";
+try {
+  csv = execFileSync("unzip", ["-p", `data/raw/annual_conc_by_monitor_${YEAR}.zip`], { maxBuffer: 1 << 30 }).toString();
+} catch {
+  csv = execFileSync("tar", ["-xf", `data/raw/annual_conc_by_monitor_${YEAR}.zip`, "-O"], { maxBuffer: 1 << 30 }).toString();
+}
 const lines = csv.split(/\r?\n/).filter(Boolean);
 const parse = (l: string) => { const o: string[] = []; let c = "", q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === "," && !q) { o.push(c); c = ""; } else c += ch; } o.push(c); return o; };
 const hdr = parse(lines[0]);
