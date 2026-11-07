@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { AdCategory } from '../../convex/lib/adCategories';
 
@@ -78,10 +78,43 @@ export function useCreateCheckout() {
   );
 }
 
+export type ConfirmStatus = 'active' | 'unpaid' | 'not_found' | 'error';
+
+export function useConfirmCheckout() {
+  const actionFn = (api as any).ads?.confirmCheckout;
+  const run = useAction(actionFn ?? (() => Promise.resolve({ status: 'error' })));
+  return useCallback(
+    async (sessionId: string): Promise<ConfirmStatus> => {
+      if (!actionFn) return 'error';
+      return ((await run({ sessionId })) as { status: ConfirmStatus }).status;
+    },
+    [run, actionFn],
+  );
+}
+
 export function usePaymentProvider(): 'redo' | 'stripe' | undefined {
   const queryFn = (api as any).ads?.paymentProvider;
   const result = useQuery(queryFn, queryFn ? {} : 'skip') as { provider: 'redo' | 'stripe' } | undefined;
   return result?.provider;
+}
+
+let memoryViewerKey: string | null = null;
+const newKey = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '')
+    : Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+/** One anonymous viewer key per browser; falls back to an in-memory key if storage is unavailable. */
+export function getViewerKey(): string {
+  try {
+    const existing = localStorage.getItem('utahfit-viewer');
+    if (existing && /^[A-Za-z0-9_-]{8,64}$/.test(existing)) return existing;
+    const key = newKey();
+    localStorage.setItem('utahfit-viewer', key);
+    return key;
+  } catch {
+    return (memoryViewerKey ??= newKey());
+  }
 }
 
 export function useRecordImpression() {
@@ -92,7 +125,7 @@ export function useRecordImpression() {
     async (campaignId: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
       } catch {
         // Silently ignore if unauthenticated session
       }
@@ -109,7 +142,7 @@ export function useRecordClick() {
     async (campaignId: string) => {
       if (!mutationFn) return;
       try {
-        await mutate({ campaignId: campaignId as any });
+        await mutate({ campaignId: campaignId as any, viewerKey: getViewerKey() });
       } catch {
         // Silently ignore if unauthenticated session
       }

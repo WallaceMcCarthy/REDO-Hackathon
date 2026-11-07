@@ -1,11 +1,11 @@
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { campaignCategoryValidator } from "./adsSchema";
 import type { AdCategory } from "./lib/adCategories";
-import { requireUserId } from "./lib/auth";
+import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { redoClient, selectPaymentClient } from "./lib/payments";
 import { priceCents, type CampaignKind } from "./lib/pricing";
 
@@ -367,6 +367,11 @@ export const fulfillStripePayment = internalMutation({
       });
     }
 
+    if (!campaign.advertiserUserId) {
+      // The advertiser deleted their account mid-checkout: keep the money on record, never go live.
+      return { status: "recorded_without_activation" as const };
+    }
+
     // Start the clock at payment time, preserving the purchased duration.
     const duration = Math.max(campaign.endsAt - campaign.startsAt, 0);
     const now = Date.now();
@@ -379,40 +384,127 @@ export const fulfillStripePayment = internalMutation({
   },
 });
 
-export const recordImpression = mutation({
-  args: {
-    campaignId: v.id("campaigns"),
-  },
+/** Owner-scoped lookup of the campaign tied to a Stripe session; null unless the caller owns it. */
+export const getOwnedCheckout = internalQuery({
+  args: { userId: v.id("users"), sessionId: v.string() },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return;
-
-    // Self-view metric inflation prevention
-    if (campaign.advertiserUserId === userId) return;
-
-    await ctx.db.patch(args.campaignId, {
-      impressions: (campaign.impressions || 0) + 1,
-    });
+    const row = await ctx.db
+      .query("payments")
+      .withIndex("by_stripeSessionId", (q) => q.eq("stripeSessionId", args.sessionId))
+      .first();
+    if (!row) return null;
+    const campaign = await ctx.db.get(row.campaignId);
+    if (!campaign || campaign.advertiserUserId !== args.userId) return null;
+    return { campaignId: String(campaign._id), campaignStatus: campaign.status };
   },
 });
 
-export const recordClick = mutation({
-  args: {
-    campaignId: v.id("campaigns"),
-  },
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return;
+const SESSION_ID_RE = /^cs_(test|live)_[A-Za-z0-9]+$/;
 
-    // Self-click metric inflation prevention
-    if (campaign.advertiserUserId === userId) return;
+/**
+ * Webhook-free confirmation: the client returns from Checkout and we ask Stripe directly
+ * (with the secret key) whether the session is paid, then fulfill idempotently.
+ */
+export const confirmCheckout = action({
+  args: { sessionId: v.string() },
+  handler: async (
+    ctx,
+    { sessionId },
+  ): Promise<{ status: "active" | "unpaid" | "not_found" | "error" }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Sign in required");
+    if (!SESSION_ID_RE.test(sessionId)) throw new Error("Invalid session id");
 
-    await ctx.db.patch(args.campaignId, {
-      clicks: (campaign.clicks || 0) + 1,
+    const owned = await ctx.runQuery(internal.ads.getOwnedCheckout, { userId, sessionId });
+    if (!owned) return { status: "not_found" };
+    if (owned.campaignStatus === "active") return { status: "active" };
+
+    const key = process?.env?.STRIPE_SECRET_KEY?.trim();
+    if (!key) return { status: "error" };
+
+    let session: any;
+    try {
+      const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
+        headers: { Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) return { status: "error" };
+      session = await res.json();
+    } catch {
+      return { status: "error" };
+    }
+
+    if (session?.payment_status !== "paid") return { status: "unpaid" };
+    const ref = session.metadata?.campaignId ?? session.client_reference_id;
+    if (ref !== owned.campaignId || (session.id !== undefined && session.id !== sessionId)) {
+      return { status: "error" };
+    }
+
+    const r = await ctx.runMutation(internal.ads.fulfillStripePayment, {
+      eventId: `confirm:${sessionId}`,
+      sessionId,
+      campaignId: owned.campaignId,
+      amountTotal: Number(session.amount_total ?? 0),
+      currency: String(session.currency ?? ""),
     });
+    if (r.status === "activated" || r.status === "already_processed") return { status: "active" };
+    return { status: "error" };
   },
+});
+
+const MAX_EVENTS_PER_CAMPAIGN_HOUR = 600;
+const VIEWER_KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
+async function recordAdEvent(
+  ctx: MutationCtx,
+  campaignId: Id<"campaigns">,
+  kind: "impression" | "click",
+  clientViewerKey: string,
+) {
+  if (!VIEWER_KEY_RE.test(clientViewerKey)) throw new Error("Invalid viewer key");
+  const userId = await getOptionalUserId(ctx);
+  const viewerKey = userId ? `user:${userId}` : `anon:${clientViewerKey}`;
+
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign) return;
+  const now = Date.now();
+  if (campaign.status !== "active" || campaign.endsAt <= now) return;
+  // Self-view metric inflation prevention
+  if (userId && campaign.advertiserUserId === userId) return;
+
+  const bucket = Math.floor(now / 3600000);
+  const existing = await ctx.db
+    .query("adEvents")
+    .withIndex("by_campaign_kind_viewer_bucket", (q) =>
+      q.eq("campaignId", campaignId).eq("kind", kind).eq("viewerKey", viewerKey).eq("bucket", bucket),
+    )
+    .first();
+  if (existing) return;
+
+  const inHour = await ctx.db
+    .query("adEvents")
+    .withIndex("by_campaign_kind_bucket", (q) =>
+      q.eq("campaignId", campaignId).eq("kind", kind).eq("bucket", bucket),
+    )
+    .take(MAX_EVENTS_PER_CAMPAIGN_HOUR);
+  if (inHour.length >= MAX_EVENTS_PER_CAMPAIGN_HOUR) return;
+
+  await ctx.db.insert("adEvents", { campaignId, kind, viewerKey, bucket });
+  if (kind === "impression") {
+    await ctx.db.patch(campaignId, { impressions: (campaign.impressions || 0) + 1 });
+  } else {
+    await ctx.db.patch(campaignId, { clicks: (campaign.clicks || 0) + 1 });
+  }
+}
+
+export const recordImpression = mutation({
+  args: { campaignId: v.id("campaigns"), viewerKey: v.string() },
+  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "impression", args.viewerKey),
+});
+
+export const recordClick = mutation({
+  args: { campaignId: v.id("campaigns"), viewerKey: v.string() },
+  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "click", args.viewerKey),
 });
 
 /**

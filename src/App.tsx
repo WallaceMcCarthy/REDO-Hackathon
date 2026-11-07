@@ -45,7 +45,6 @@ export default function App() {
 
   const cities = useCities();
   const town = route.match(/^town\/(.+)$/)?.[1];
-  const isAdsReturn = /^ads(\?|$)/.test(route);
   const [path, query] = route.split('?');
   const params = new URLSearchParams(query);
   const homesTown = params.get('town');
@@ -74,7 +73,7 @@ export default function App() {
         <SafeSectionBoundary key={route} fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button href="#/messages">Back to messages</Button>} />}>
           <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
         </SafeSectionBoundary>
-      ) : route === 'advertise' || isAdsReturn ? (
+      ) : route === 'advertise' || path === 'ads' ? (
         <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
       ) : path === 'results' ? (
         <Results

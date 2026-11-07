@@ -143,3 +143,87 @@ describe("fulfillStripePayment", () => {
     expect(campaign.status).toBe("pending_payment");
   });
 });
+
+describe("confirmCheckout (webhook-free)", () => {
+  const modules = {
+    "./ads.ts": () => import("./ads"),
+    "./_generated/server.js": () => import("./_generated/server.js"),
+  };
+  const confirm = makeFunctionReference<"action">("ads:confirmCheckout");
+  const pending = makeFunctionReference<"mutation">("ads:createPendingCampaign");
+  const record = makeFunctionReference<"mutation">("ads:recordCheckoutSession");
+  const SID = "cs_test_abc123";
+
+  async function seed() {
+    const t = convexTest(schema, modules);
+    const userId = await t.run(async (ctx: any) => ctx.db.insert("users", { email: "a@example.test" }));
+    const otherId = await t.run(async (ctx: any) => ctx.db.insert("users", { email: "b@example.test" }));
+    const c = await t.mutation(pending, {
+      userId, kind: "job", title: "Hiring now", body: "Join our team", url: "https://example.com", durationDays: 7,
+    });
+    await t.mutation(record, {
+      campaignId: c.campaignId, provider: "stripe", sessionId: SID, amount: c.amount, currency: "USD",
+    });
+    return {
+      t, c,
+      owner: t.withIdentity({ subject: `${userId}|s1` }),
+      other: t.withIdentity({ subject: `${otherId}|s2` }),
+    };
+  }
+
+  function mockStripe(c: { campaignId: string; amount: number }, paid: boolean) {
+    const f = vi.fn(async () =>
+      new Response(JSON.stringify({
+        id: SID, payment_status: paid ? "paid" : "unpaid", amount_total: c.amount, currency: "usd",
+        metadata: { campaignId: c.campaignId },
+      }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", f);
+    return f;
+  }
+
+  const status = async (t: any, id: string) => (await t.run(async (ctx: any) => ctx.db.get(id))).status;
+
+  it("activates on a paid session, and a second confirm is a no-op", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    const { owner, t, c } = await seed();
+    const f = mockStripe(c, true);
+    expect(await owner.action(confirm, { sessionId: SID })).toEqual({ status: "active" });
+    expect(await status(t, c.campaignId)).toBe("active");
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`https://api.stripe.com/v1/checkout/sessions/${SID}`);
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk_test_fake");
+    const before = await t.run(async (ctx: any) => ctx.db.get(c.campaignId));
+    expect(await owner.action(confirm, { sessionId: SID })).toEqual({ status: "active" });
+    const after = await t.run(async (ctx: any) => ctx.db.get(c.campaignId));
+    expect(after.endsAt).toBe(before.endsAt);
+    expect(await t.run(async (ctx: any) => ctx.db.query("payments").collect())).toHaveLength(1);
+    vi.unstubAllGlobals(); vi.unstubAllEnvs();
+  });
+
+  it("does not activate an unpaid session", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    const { owner, t, c } = await seed();
+    mockStripe(c, false);
+    expect(await owner.action(confirm, { sessionId: SID })).toEqual({ status: "unpaid" });
+    expect(await status(t, c.campaignId)).toBe("pending_payment");
+    vi.unstubAllGlobals(); vi.unstubAllEnvs();
+  });
+
+  it("returns not_found for another user's session without calling Stripe", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    const { other, t, c } = await seed();
+    const f = mockStripe(c, true);
+    expect(await other.action(confirm, { sessionId: SID })).toEqual({ status: "not_found" });
+    expect(f).not.toHaveBeenCalled();
+    expect(await status(t, c.campaignId)).toBe("pending_payment");
+    vi.unstubAllGlobals(); vi.unstubAllEnvs();
+  });
+
+  it("rejects an invalid session id and unauthenticated callers", async () => {
+    const { owner, t } = await seed();
+    await expect(owner.action(confirm, { sessionId: "../evil?x=1" })).rejects.toThrow(/Invalid session id/);
+    await expect(owner.action(confirm, { sessionId: "cs_prod_abc" })).rejects.toThrow(/Invalid session id/);
+    await expect(t.action(confirm, { sessionId: SID })).rejects.toThrow(/Sign in required/);
+  });
+});

@@ -64,4 +64,14 @@ export const adsTables = {
     .index("by_redoPaymentId", ["redoPaymentId"])
     .index("by_rawEventId", ["rawEventId"])
     .index("by_stripeSessionId", ["stripeSessionId"]),
+
+  /** Dedupe/rate-limit ledger for sponsored impressions and clicks (one row per viewer/kind/hour). */
+  adEvents: defineTable({
+    campaignId: v.id("campaigns"),
+    kind: v.union(v.literal("impression"), v.literal("click")),
+    viewerKey: v.string(),
+    bucket: v.number(),
+  })
+    .index("by_campaign_kind_viewer_bucket", ["campaignId", "kind", "viewerKey", "bucket"])
+    .index("by_campaign_kind_bucket", ["campaignId", "kind", "bucket"]),
 };

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { AD_CATEGORIES, AD_CATEGORY_IDS, type AdCategory } from '../../../convex/lib/adCategories';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
-import { useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
+import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
 import type { City } from '../../types';
 import AdImage from './AdImage';
 import { campaignPlacement } from './campaignPlacement';
@@ -27,7 +27,10 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const provider = usePaymentProvider();
   const isStripe = provider === 'stripe';
   const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const paidSessionId = hashParams.get('paid');
   const returnedPaid = hashParams.has('paid');
+  const confirmCheckout = useConfirmCheckout();
+  const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const returnedCanceled = hashParams.has('canceled');
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
@@ -41,6 +44,29 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [submitting, setSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!paidSessionId) return;
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        let status: string;
+        try {
+          status = await confirmCheckout(paidSessionId);
+        } catch {
+          status = 'error';
+        }
+        if (cancelled) return;
+        setConfirmStatus(status);
+        if (status !== 'unpaid' || attempt === 2) return;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidSessionId]);
 
   const selectedCity = cities.find((c) => c.id === cityId);
   const now = Date.now();
@@ -101,23 +127,35 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         actions={<Button variant="secondary" size="sm" onClick={onBack}>Back to results</Button>}
       />
 
-      <Card role="note" className="mt-stack bg-surface-sunken">
-        {isStripe ? (
-          <>
-            <p className="text-small font-semibold text-text">Test mode: use card 4242 4242 4242 4242.</p>
-            <p className="mt-1 text-caption text-text-muted">Campaigns stay in pending payment and never go live until the backend receives a verified Stripe webhook.</p>
-          </>
-        ) : (
-          <>
-            <p className="text-small font-semibold text-text">Sandbox: REDO payments are not connected yet. No charge is made.</p>
-            <p className="mt-1 text-caption text-text-muted">Campaigns stay in pending payment and never go live until the backend receives a verified REDO webhook.</p>
-          </>
-        )}
-      </Card>
+      {isStripe ? (
+        <Card role="note" className="mt-stack bg-surface-sunken">
+          <p className="text-small font-semibold text-text">Test mode: use card 4242 4242 4242 4242</p>
+          <p className="mt-1 text-caption text-text-muted">
+            Payments run through Stripe test mode, so no real money moves. Any future expiry and any CVC work.
+          </p>
+        </Card>
+      ) : (
+        <Card role="note" className="mt-stack bg-surface-sunken">
+          <p className="text-small font-semibold text-text">Sandbox: REDO payments are not connected yet. No charge is made.</p>
+          <p className="mt-1 text-caption text-text-muted">
+            Campaigns stay in pending payment and never go live until the backend receives a verified REDO webhook.
+          </p>
+        </Card>
+      )}
 
       {returnedPaid && (
         <Card role="status" className="mt-stack">
-          <p className="text-small font-semibold text-success">Payment received. Your ad goes live when Stripe confirms.</p>
+          <p className="text-small font-semibold text-text">
+            {confirmStatus === 'active'
+              ? 'Payment confirmed. Your ad is live.'
+              : confirmStatus === 'unpaid'
+                ? 'Payment not completed yet, so we could not confirm it. Check back shortly.'
+                : confirmStatus === 'not_found'
+                  ? 'We could not find that checkout for your account.'
+                  : confirmStatus === 'error'
+                    ? 'Payment received, but we could not confirm it just now. Your ad goes live once confirmed.'
+                    : 'Payment received. Confirming with Stripe...'}
+          </p>
         </Card>
       )}
       {returnedCanceled && (

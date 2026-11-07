@@ -4,16 +4,17 @@ import { api } from '../../convex/_generated/api';
 import type { Listing, ListingKind, Recommendation } from '../../convex/lib/listings';
 import type { Filters, Weights } from '../types';
 import type { ListingSearchOptions } from '../../convex/lib/listingSearch';
-import type { searchListings } from '../../convex/lib/listingSearch';
+import type { indexedListingSearch } from '../../convex/marketSearch';
 
-type SearchResult = ReturnType<typeof searchListings>;
+type SearchResult = Awaited<ReturnType<typeof indexedListingSearch>>;
 
 /** Accumulate server pages; a changed search starts a fresh stream immediately. */
 export function useListingSearch(params: Omit<ListingSearchOptions, 'offset' | 'limit'>) {
   const key = JSON.stringify(params);
-  const [cursor, setCursor] = useState({ key, offset: 0 });
+  const [cursor, setCursor] = useState<{ key: string; offset: number; value: string | null }>({ key, offset: 0, value: null });
   const offset = cursor.key === key ? cursor.offset : 0;
-  const result = useQuery(api.listings.search, { ...params, offset, limit: 60 });
+  const value = cursor.key === key ? cursor.value : null;
+  const result = useQuery(api.listings.search, { ...params, cursor: value, limit: 60 });
   const [loaded, setLoaded] = useState<{ key: string; pages: Record<number, SearchResult> }>({ key, pages: {} });
   useEffect(() => {
     if (!result) return;
@@ -38,7 +39,7 @@ export function useListingSearch(params: Omit<ListingSearchOptions, 'offset' | '
     hasMore: last?.hasMore ?? false,
     townMedians: last?.townMedians ?? [],
     loadMore: () => {
-      if (result && last?.nextOffset != null) setCursor({ key, offset: last.nextOffset });
+      if (result && last?.nextCursor != null) setCursor({ key, offset: last.nextOffset ?? offset + result.page.length, value: last.nextCursor });
     },
   };
 }

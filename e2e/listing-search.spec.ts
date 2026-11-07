@@ -8,6 +8,15 @@ test('listing pages append unique homes and reset for sort, kind and budget', as
   await showList(page);
   const cards = page.locator('[data-listing-id]');
   await expect(cards).toHaveCount(60);
+  const liveCards = page.locator('[data-listing-id^="market:"]');
+  await expect(liveCards.first().getByText('Asking price', { exact: true })).toBeVisible();
+  await expect(liveCards.first().getByText('For sale', { exact: true })).toBeVisible();
+  const tabsBefore = page.context().pages().length;
+  await cards.first().getByRole('img').first().click();
+  await expect(page.getByTestId('listing-panel')).toBeVisible();
+  expect(page.context().pages()).toHaveLength(tabsBefore);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('listing-panel')).not.toBeVisible();
   const first = await cards.evaluateAll(elements => elements.map(el => el.getAttribute('data-listing-id')));
   await page.getByRole('button', { name: 'Load more', exact: true }).click();
   await expect(cards).toHaveCount(120);
@@ -18,6 +27,9 @@ test('listing pages append unique homes and reset for sort, kind and budget', as
   await expect(cards).toHaveCount(60);
   await page.getByRole('button', { name: 'Apartments', exact: true }).click();
   await expect(page.getByText(/Showing 60 apartments/)).toBeVisible();
+  await page.getByLabel('Sort', { exact: true }).selectOption('fit');
+  await expect(liveCards.first().getByText('Asking rent', { exact: true })).toBeVisible();
+  await expect(liveCards.first().getByText('For rent', { exact: true })).toBeVisible();
   await page.getByLabel('Max rent', { exact: true }).selectOption('1500');
   await expect(page.getByText(/Showing 60 apartments/)).toBeVisible();
   await page.getByRole('button', { name: 'Load more', exact: true }).click();

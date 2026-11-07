@@ -173,20 +173,52 @@ describe("ads security & exploit resistance", () => {
     });
 
     // Owner viewing or clicking own ad does NOT increment metrics
-    await advertiser.mutation(refs.recordImpression, { campaignId: created.campaignId });
-    await advertiser.mutation(refs.recordClick, { campaignId: created.campaignId });
+    await advertiser.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "viewerkey_aaaa" });
+    await advertiser.mutation(refs.recordClick, { campaignId: created.campaignId, viewerKey: "viewerkey_aaaa" });
 
     let myCampaigns = await advertiser.query(refs.listMyCampaigns, {});
     expect(myCampaigns[0].impressions).toBe(0);
     expect(myCampaigns[0].clicks).toBe(0);
 
     // Another user viewing and clicking DOES increment metrics
-    await attacker.mutation(refs.recordImpression, { campaignId: created.campaignId });
-    await attacker.mutation(refs.recordClick, { campaignId: created.campaignId });
+    await attacker.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "viewerkey_aaaa" });
+    await attacker.mutation(refs.recordClick, { campaignId: created.campaignId, viewerKey: "viewerkey_aaaa" });
 
     myCampaigns = await advertiser.query(refs.listMyCampaigns, {});
     expect(myCampaigns[0].impressions).toBe(1);
     expect(myCampaigns[0].clicks).toBe(1);
+  });
+
+  it("dedupes per viewer per hour, counts other viewers, skips inactive, and ignores client key when signed in", async () => {
+    const { t, advertiser, attacker } = await setup();
+    const mk = async () => {
+      const c = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Test Ad", body: "Body text", url: "https://example.com/x", durationDays: 7 });
+      return c;
+    };
+    const created = await mk();
+    const id = created.campaignId;
+    const pending = async () => (await advertiser.query(refs.listMyCampaigns, {}))[0];
+
+    // inactive (pending_payment) not counted
+    await t.mutation(refs.recordImpression, { campaignId: id, viewerKey: "anonkey_1111" });
+    expect((await pending()).impressions).toBe(0);
+
+    await t.mutation(refs.fulfillRedoPayment, { campaignId: id, redoPaymentId: "pay_d", amount: created.amount, currency: "USD", rawEventId: "evt_d" });
+
+    await t.mutation(refs.recordImpression, { campaignId: id, viewerKey: "anonkey_1111" });
+    await t.mutation(refs.recordImpression, { campaignId: id, viewerKey: "anonkey_1111" });
+    expect((await pending()).impressions).toBe(1);
+    await t.mutation(refs.recordImpression, { campaignId: id, viewerKey: "anonkey_2222" });
+    expect((await pending()).impressions).toBe(2);
+
+    // signed in: client key ignored, so different keys still dedupe
+    await attacker.mutation(refs.recordClick, { campaignId: id, viewerKey: "anonkey_3333" });
+    await attacker.mutation(refs.recordClick, { campaignId: id, viewerKey: "anonkey_4444" });
+    expect((await pending()).clicks).toBe(1);
+    const rows = await t.run(async (ctx: any) => ctx.db.query("adEvents").collect());
+    expect(rows.some((r: any) => r.kind === "click" && r.viewerKey.startsWith("user:"))).toBe(true);
+
+    await expect(t.mutation(refs.recordClick, { campaignId: id, viewerKey: "bad key!" })).rejects.toThrow();
   });
 });
 

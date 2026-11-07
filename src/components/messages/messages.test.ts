@@ -38,6 +38,7 @@ describe('messagesHooks and routing helpers', () => {
       lastMessage: 'Is this still available for a roommate?',
       lastMessageAt: Date.now() - 3600000,
       unreadCount: 2,
+      isBlockedByMe: false,
     };
 
     expect(item.otherDisplayName).toBe('Sarah Miller');

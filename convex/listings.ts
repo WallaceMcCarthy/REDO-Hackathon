@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { bestListingsForTown, recommendListings, type Listing } from "./lib/listings";
 import { searchListings } from "./lib/listingSearch";
+import { indexedListingSearch } from "./marketSearch";
 
 /** Homes-first browsing. Budget caps apply to source estimates, not asking prices. */
 export const search = query({
@@ -14,13 +15,11 @@ export const search = query({
     cityIds: v.optional(v.array(v.string())),
     sort: v.optional(v.union(v.literal("fit"), v.literal("price_asc"), v.literal("newest"))),
     offset: v.optional(v.number()),
+    cursor: v.optional(v.union(v.string(), v.null())),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const [cities, metrics, listings] = await Promise.all([
-      ctx.db.query("cities").collect(), ctx.db.query("metrics").collect(), ctx.db.query("listings").collect(),
-    ]);
-    return searchListings({ cities, metrics, listings }, args);
+    return indexedListingSearch(ctx, args);
   },
 });
 
