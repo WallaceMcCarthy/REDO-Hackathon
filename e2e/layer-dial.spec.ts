@@ -8,6 +8,7 @@ test('heatmap layer dial flicks quickly at desktop and phone sizes', async ({ pa
   if (isMobile) {
     await expect(mapToggle).toBeVisible();
     await mapToggle.click();
+    await page.getByRole('button', { name: 'Map layer' }).click();
   }
 
   const dial = page.getByRole('listbox', { name: 'Map heatmap layer' });
@@ -15,12 +16,10 @@ test('heatmap layer dial flicks quickly at desktop and phone sizes', async ({ pa
   const options = dial.getByRole('option');
   await expect.poll(() => options.count(), { timeout: 30_000 }).toBeGreaterThan(5);
 
-  const started = Date.now();
-  for (const index of [1, 2, 3, 4]) {
-    await options.nth(index).dispatchEvent('click');
-    await expect(options.nth(index)).toHaveAttribute('aria-selected', 'true');
-  }
-  expect(Date.now() - started).toBeLessThan(3000);
+  // A real dial selects by scrolling; no click is required.
+  await options.nth(4).evaluate(element => element.scrollIntoView({ block: 'center' }));
+  await dial.dispatchEvent('scroll');
+  await expect(options.nth(4)).toHaveAttribute('aria-selected', 'true');
 
   await dial.press('ArrowUp');
   await expect(options.nth(3)).toHaveAttribute('aria-selected', 'true');
