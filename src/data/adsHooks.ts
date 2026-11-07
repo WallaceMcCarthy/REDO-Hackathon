@@ -78,6 +78,15 @@ export function useCreateCheckout() {
   );
 }
 
+export function useResumeCheckout() {
+  const actionFn = (api as any).ads?.resumeCheckout;
+  const run = useAction(actionFn ?? (() => Promise.resolve({ checkoutUrl: '', amount: 0 })));
+  return useCallback(async (campaignId: string) => {
+    if (!actionFn) return null;
+    return (await run({ campaignId: campaignId as any })) as { checkoutUrl: string; amount: number };
+  }, [run, actionFn]);
+}
+
 export type ConfirmStatus = 'active' | 'unpaid' | 'not_found' | 'error';
 
 export function useConfirmCheckout() {

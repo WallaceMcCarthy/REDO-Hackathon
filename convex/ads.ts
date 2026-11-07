@@ -342,6 +342,47 @@ export const createCheckout = action({
   },
 });
 
+export const getPendingCampaignForCheckout = internalQuery({
+  args: { userId: v.id("users"), campaignId: v.id("campaigns") },
+  handler: async (ctx, { userId, campaignId }) => {
+    const campaign = await ctx.db.get(campaignId);
+    if (!campaign || campaign.advertiserUserId !== userId || campaign.status !== "pending_payment") return null;
+    return {
+      campaignId: campaign._id,
+      amount: campaign.expectedAmount ?? 0,
+      title: campaign.title,
+      kind: campaign.kind,
+      durationDays: Math.max(1, Math.round((campaign.endsAt - campaign.startsAt) / 86400000)),
+    };
+  },
+});
+
+/** Create a fresh Stripe session for an existing pending campaign without duplicating the campaign. */
+export const resumeCheckout = action({
+  args: { campaignId: v.id("campaigns") },
+  handler: async (ctx, { campaignId }): Promise<{ checkoutUrl: string; amount: number }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Sign in required");
+    const pending = await ctx.runQuery(internal.ads.getPendingCampaignForCheckout, { userId, campaignId });
+    if (!pending) throw new ConvexError("This campaign cannot resume checkout");
+    const client = selectPaymentClient();
+    if (client.provider !== "stripe") throw new ConvexError("Stripe checkout is not available");
+    const session = await client.createCheckoutSession({
+      campaignId: String(campaignId),
+      amount: pending.amount,
+      currency: "USD",
+      title: `${pending.title}, ${pending.kind}`,
+      description: `Utah Fit advertising sponsorship (${pending.durationDays} days)`,
+      successUrl: `${siteUrl()}/#ads?paid={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${siteUrl()}/#ads?canceled=1`,
+    });
+    await ctx.runMutation(internal.ads.recordCheckoutSession, {
+      campaignId, provider: "stripe", sessionId: session.sessionId, amount: pending.amount, currency: "USD",
+    });
+    return { checkoutUrl: session.checkoutUrl, amount: pending.amount };
+  },
+});
+
 /** Public flag so the UI knows whether publishing goes through Stripe or needs no payment. */
 export const paymentProvider = query({
   args: {},

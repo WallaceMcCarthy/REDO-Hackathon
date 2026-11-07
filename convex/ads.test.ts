@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AD_CATEGORY_IDS } from "./lib/adCategories";
 import schema from "./schema";
 
@@ -14,6 +14,7 @@ const modules = {
 
 const refs = {
   createCampaign: makeFunctionReference<"mutation">("ads:createCampaign"),
+  resumeCheckout: makeFunctionReference<"action">("ads:resumeCheckout"),
   listMyCampaigns: makeFunctionReference<"query">("ads:listMyCampaigns"),
   getActivePins: makeFunctionReference<"query">("ads:getActivePins"),
   getActiveFeatured: makeFunctionReference<"query">("ads:getActiveFeatured"),
@@ -23,6 +24,11 @@ const refs = {
   rank: makeFunctionReference<"query">("search:rank"),
   seedSample: makeFunctionReference<"mutation">("sampleData:seedSampleContent"),
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 async function setup() {
   const t = convexTest(schema, modules);
@@ -245,6 +251,27 @@ describe("ads security & exploit resistance", () => {
     expect(pins).toHaveLength(8);
     expect(pins.slice(0, 2).every((campaign: any) => campaign.cityId === "provo")).toBe(true);
     expect(featured).toHaveLength(3);
+  });
+
+  it("resumes Stripe checkout for an owned pending campaign without inserting a duplicate", async () => {
+    const { t, advertiser, attacker } = await setup();
+    const created = await advertiser.mutation(refs.createCampaign, {
+      kind: "featured", title: "Resume me", body: "Pending campaign", url: "https://example.com", durationDays: 7,
+    });
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_resume");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "cs_test_resumed", url: "https://checkout.stripe.test/resumed", expires_at: 9999999999 }),
+    }));
+
+    await expect(attacker.action(refs.resumeCheckout, { campaignId: created.campaignId })).rejects.toThrow("cannot resume");
+    const result = await advertiser.action(refs.resumeCheckout, { campaignId: created.campaignId });
+    expect(result.checkoutUrl).toBe("https://checkout.stripe.test/resumed");
+    const rows = await t.run(async (ctx: any) => ctx.db.query("campaigns").collect());
+    const payments = await t.run(async (ctx: any) => ctx.db.query("payments").collect());
+    expect(rows).toHaveLength(1);
+    expect(payments).toHaveLength(1);
+    expect(payments[0].campaignId).toBe(created.campaignId);
   });
 });
 
