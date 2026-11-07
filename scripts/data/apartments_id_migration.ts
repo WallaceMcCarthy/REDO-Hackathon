@@ -9,6 +9,7 @@
  *    - For OSM: exact match by raw OSM element (tags.name + exact coordinates within 20m).
  * 2. Unmatched or ambiguous candidates explicitly retain stableId: null.
  * 3. Collisions across legacy releases (c09489c vs 0a869d8) are recorded and isolated.
+ * 4. retainedInUtahFit strictly reflects membership in current data/listings/apartments.json.
  */
 
 import { execSync } from "node:child_process";
@@ -20,6 +21,7 @@ const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..")
 const RAW_DIR = resolve(REPO_ROOT, "data/raw");
 const CITIES_FILE = resolve(REPO_ROOT, "data/cities.json");
 const MUNI_FILE = resolve(RAW_DIR, "utah_municipal_boundaries.json");
+const APARTMENTS_FILE = resolve(REPO_ROOT, "data/listings/apartments.json");
 const OUT_FILE = resolve(REPO_ROOT, "data/listings/apartments_id_migration.json");
 
 interface LegacyListing {
@@ -37,6 +39,11 @@ interface LegacyListing {
 export function generateMigrationDictionary() {
   const cities: Array<{ id: string; name: string }> = JSON.parse(readFileSync(CITIES_FILE, "utf-8"));
   const canonicalCityNames = new Map(cities.map((c) => [c.name.toLowerCase(), c.id]));
+
+  const activeApartments: Array<{ id: string; cityId: string }> = existsSync(APARTMENTS_FILE)
+    ? JSON.parse(readFileSync(APARTMENTS_FILE, "utf-8"))
+    : [];
+  const activeApartmentMap = new Map(activeApartments.map((a) => [a.id, a.cityId]));
 
   const lihtcRaw = JSON.parse(readFileSync(resolve(RAW_DIR, "hud_lihtc_ut.json"), "utf-8"));
   const mfRaw = JSON.parse(readFileSync(resolve(RAW_DIR, "hud_multifamily_ut.json"), "utf-8"));
@@ -184,8 +191,8 @@ export function generateMigrationDictionary() {
     const primaryMuni = muni1 || muni0;
     const primaryCityId = primaryRow.cityId;
 
-    const isCanonical = canonicalCityNames.has((primaryMuni || "").toLowerCase());
-    const isRetained = isCanonical && canonicalCityNames.get((primaryMuni || "").toLowerCase()) === primaryCityId;
+    const isRetained = Boolean(primaryStable && activeApartmentMap.has(primaryStable));
+    const retainedCityId = primaryStable ? activeApartmentMap.get(primaryStable) ?? null : null;
 
     mappings.push({
       oldId: oid,
@@ -194,6 +201,7 @@ export function generateMigrationDictionary() {
       newStableId: primaryStable,
       trueMunicipality: primaryMuni,
       retainedInUtahFit: isRetained,
+      retainedCityId,
       collisionBetweenReleases: isCollision,
       history: {
         c09489c: row0 ? { name: name0, stableId: res0.stableId, trueMunicipality: muni0, method: res0.method } : null,
@@ -204,7 +212,7 @@ export function generateMigrationDictionary() {
 
   const output = {
     description: "Authoritative migration dictionary from legacy positional apartment IDs (apt-<cityId>-<n>) to permanent source-derived stable IDs (apt-lihtc-*, apt-mf-*, apt-osm-*). Strictly generated via exact source OBJECTID and exact OSM (type, id) + coordinate matching.",
-    methodology: "No fuzzy matching or nearest-candidate fallback is permitted. Each record is resolved exclusively against its raw source layer (HUD LIHTC, HUD Multifamily, OpenStreetMap). Ambiguous or duplicate entries remain explicitly flagged.",
+    methodology: "No fuzzy matching or nearest-candidate fallback is permitted. Each record is resolved exclusively against its raw source layer (HUD LIHTC, HUD Multifamily, OpenStreetMap). Ambiguous or duplicate entries remain explicitly flagged. retainedInUtahFit strictly reflects existence in data/listings/apartments.json.",
     totalMapped: mappings.length,
     totalCollisions: collisions.length,
     collisions,
