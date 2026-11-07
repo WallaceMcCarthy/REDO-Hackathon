@@ -104,6 +104,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   const [pois, setPois] = useState<Set<PoiKind>>(() => new Set<PoiKind>(['restaurant', 'trail', 'ski', 'school']));
   const [grouped, setGrouped] = useState(readGrouped);
   const [threeD, setThreeD] = useState(false);
+  const [satellite, setSatellite] = useState(true);
   const groupedRef = useRef(grouped);
   groupedRef.current = grouped;
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -336,9 +337,12 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     if (ready) (mapRef.current?.getSource('towns') as maplibregl.GeoJSONSource | undefined)?.setData(townData);
   }, [ready, townData]);
   useEffect(() => {
+    if (ready) mapRef.current?.setLayoutProperty('satellite-3d', 'visibility', satellite ? 'visible' : 'none');
+  }, [ready, satellite]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || (!threeD && !map.getTerrain())) return;
-    map.setLayoutProperty('satellite-3d', 'visibility', threeD ? 'visible' : 'none');
     map.setTerrain(threeD ? { source: 'dem', exaggeration: 1.8 } : null);
     // Terrain means little from statewide height, so start in the Wasatch.
     const closeUp = map.getZoom() < 9 ? { center: [-111.68, 40.6] as [number, number], zoom: 11, bearing: 95 } : {};
@@ -407,12 +411,16 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       <ul className="sr-only" aria-label="Towns on the map">
         {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
       </ul>
-      <button
-        type="button" aria-pressed={threeD} onClick={() => setThreeD(on => !on)}
-        className={`absolute left-12 top-2.5 z-[1000] min-h-9 cursor-pointer rounded-xl border border-rock-100 px-3 text-sm font-semibold shadow-sm ${threeD ? 'bg-alpine-700 text-white' : 'bg-sand-50 text-rock-800'}`}
-      >
-        3D
-      </button>
+      <div className="absolute left-12 top-2.5 z-[1000] flex gap-1.5">
+        {([['Satellite', satellite, setSatellite], ['3D', threeD, setThreeD]] as const).map(([label, on, set]) => (
+          <button
+            key={label} type="button" aria-pressed={on} onClick={() => set(!on)}
+            className={`min-h-9 cursor-pointer rounded-xl border border-rock-100 px-3 text-sm font-semibold shadow-sm ${on ? 'bg-alpine-700 text-white' : 'bg-sand text-rock-800'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {focus === 'listings' && (
         <label className="absolute right-2 top-2 z-[1000] flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border border-rock-100 bg-sand/95 px-2.5 text-xs font-semibold text-ink shadow-sm">
           <input
