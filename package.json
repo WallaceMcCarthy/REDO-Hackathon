@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "seed": "tsx scripts/seed.ts",
     "test": "vitest run",
-    "seed:prod": "tsx scripts/seed.ts --prod"
+    "seed:prod": "tsx scripts/seed.ts --prod",
+    "test:e2e": "playwright test",
+    "test:e2e:prod": "E2E_BASE_URL=https://cmascope.com playwright test"
   },
   "dependencies": {
     "convex": "^1.49.0",
@@ -22,6 +24,7 @@
     "vitest": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^26.6.6",
     "@types/react": "^18.3.31",
