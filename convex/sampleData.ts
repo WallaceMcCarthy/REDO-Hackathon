@@ -1,4 +1,5 @@
 import { internalMutation } from "./_generated/server";
+import { buildSampleAds } from "./sampleAds";
 
 export const seedSampleContent = internalMutation({
   args: {},
@@ -104,6 +105,9 @@ export const seedSampleContent = internalMutation({
       },
     ];
 
+    // Generated ads carry no advertiserUserId, so they never show up in a real account's dashboard.
+    sampleCampaigns.push(...(buildSampleAds(now) as any[]));
+
     for (const camp of sampleCampaigns) {
       try {
         await (ctx.db.insert as any)("campaigns", camp);
@@ -117,7 +121,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "salt-lake-city",
-        userId: demoUserId,
         displayName: "Taylor Reed (Sample)",
         body: "The TRAX light rail connection directly from downtown to the airport and universities makes commuting so convenient without needing a car every day.",
         parentId: null,
@@ -133,7 +136,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "moab",
-        userId: demoUserId,
         displayName: "Casey Morgan (Sample)",
         body: "Unbeatable access to Arches and Canyonlands. Just make sure you prepare for summer heat and high tourist seasons!",
         parentId: null,
@@ -149,7 +151,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "park-city",
-        userId: demoUserId,
         displayName: "Jordan Lee (Sample)",
         body: "World-class ski resorts and incredible trail systems right outside your door. High housing costs, but the outdoor culture is vibrant.",
         parentId: null,
@@ -162,7 +163,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "provo",
-        userId: demoUserId,
         displayName: "Devon Chen (Sample)",
         body: "Great community feel near Utah Lake and Rock Canyon. Tech jobs along the Silicon Slopes corridor are expanding rapidly.",
         parentId: null,
@@ -174,35 +174,46 @@ export const seedSampleContent = internalMutation({
       },
     ];
 
+    // Comment names come from profiles (publicComment), and a profile is one per user,
+    // so each sample author gets their own fictional user plus a sample profile.
+    const authorIds = new Map<string, any>();
+    const ensureAuthor = async (displayName: string) => {
+      const known = authorIds.get(displayName);
+      if (known) return known;
+      const email = `sample-${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}@example.com`;
+      const users = (await (ctx.db.query as any)("users").collect()) as any[];
+      const userId = users.find((u) => u.email === email)?._id ?? (await (ctx.db.insert as any)("users", { name: displayName, email }));
+      const profile = await (ctx.db.query as any)("profiles").withIndex("by_userId", (q: any) => q.eq("userId", userId)).first();
+      const fields = { userId, displayName, cityId: null, moveBy: null, budget: null, household: null, isSample: true };
+      if (profile) await (ctx.db.patch as any)(profile._id, fields);
+      else await (ctx.db.insert as any)("profiles", fields);
+      authorIds.set(displayName, userId);
+      return userId;
+    };
+
     for (const c of sampleComments) {
-      try {
-        const rootId = await (ctx.db.insert as any)("comments", {
+      const rootId = await (ctx.db.insert as any)("comments", {
+        targetType: c.targetType,
+        targetId: c.targetId,
+        userId: await ensureAuthor(c.displayName),
+        body: c.body,
+        parentId: null,
+        reports: c.reports,
+        hidden: c.hidden,
+        isSample: c.isSample,
+      });
+
+      if (c.reply) {
+        await (ctx.db.insert as any)("comments", {
           targetType: c.targetType,
           targetId: c.targetId,
-          userId: c.userId,
-          displayName: c.displayName,
-          body: c.body,
-          parentId: null,
-          reports: c.reports,
-          hidden: c.hidden,
-          isSample: c.isSample,
+          userId: await ensureAuthor(c.reply.displayName),
+          body: c.reply.body,
+          parentId: rootId,
+          reports: 0,
+          hidden: false,
+          isSample: true,
         });
-
-        if (c.reply && rootId) {
-          await (ctx.db.insert as any)("comments", {
-            targetType: c.targetType,
-            targetId: c.targetId,
-            userId: c.userId,
-            displayName: c.reply.displayName,
-            body: c.reply.body,
-            parentId: rootId,
-            reports: 0,
-            hidden: false,
-            isSample: true,
-          });
-        }
-      } catch (err) {
-        console.warn("Could not insert sample comment:", err);
       }
     }
 

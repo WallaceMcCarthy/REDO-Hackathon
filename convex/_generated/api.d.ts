@@ -34,6 +34,7 @@ import type * as posts from "../posts.js";
 import type * as profiles from "../profiles.js";
 import type * as roommateSchema from "../roommateSchema.js";
 import type * as roommates from "../roommates.js";
+import type * as sampleAds from "../sampleAds.js";
 import type * as sampleData from "../sampleData.js";
 import type * as search from "../search.js";
 import type * as seed from "../seed.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   roommateSchema: typeof roommateSchema;
   roommates: typeof roommates;
+  sampleAds: typeof sampleAds;
   sampleData: typeof sampleData;
   search: typeof search;
   seed: typeof seed;
