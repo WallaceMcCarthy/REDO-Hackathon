@@ -1,11 +1,15 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 // Convex useQuery throws on a backend error; without this the page goes blank mid-demo.
-export default class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+export default class ErrorBoundary extends Component<{ children: ReactNode; onError?: (error: Error) => void }, { failed: boolean }> {
   state = { failed: false };
 
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    this.props.onError?.(error);
   }
 
   render() {

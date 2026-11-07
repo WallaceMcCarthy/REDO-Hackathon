@@ -18,6 +18,12 @@ export default defineSchema({
   ...zillowPreviewTables,
   ...messageTables,
   ...marketTables,
+  clientErrorReports: defineTable({
+    sessionKey: v.string(),
+    source: v.union(v.literal("boundary"), v.literal("error"), v.literal("rejection")),
+    errorName: v.string(),
+    reportedAt: v.number(),
+  }).index("by_session_reportedAt", ["sessionKey", "reportedAt"]),
   profiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),

@@ -13,6 +13,7 @@ import type * as adsSchema from "../adsSchema.js";
 import type * as auth from "../auth.js";
 import type * as cities from "../cities.js";
 import type * as cleanup from "../cleanup.js";
+import type * as clientErrors from "../clientErrors.js";
 import type * as feedSchema from "../feedSchema.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cities: typeof cities;
   cleanup: typeof cleanup;
+  clientErrors: typeof clientErrors;
   feedSchema: typeof feedSchema;
   http: typeof http;
   "lib/auth": typeof lib_auth;
