@@ -11,6 +11,7 @@ it("excludes land, preserves real asking-bedroom data, and computes nullable sor
   const row: MarketInput = { rcId: "record", market: "for_sale", address: "Fixture", city: "Town", zip: null, lat: 40, lng: -111, price: 400000, beds: 3, baths: 2, sqft: 1500, yearBuilt: null, propertyType: "Land", listedDate: null, daysOnMarket: null };
   expect(normalizeMarketRow(row, [], Date.now())).toMatchObject({ residential: false, cityId: null, sortYearBuilt: -1, beds: 3 });
   expect(normalizeMarketRow({ ...row, propertyType: "Single Family", price: -1 }, [], Date.now())).toMatchObject({ residential: true, price: null });
+  expect(normalizeMarketRow({ ...row, propertyType: "Single Family", zip: '90210' }, [], Date.now())).toMatchObject({ residential: false });
 });
 it("counts an inclusive budget with duplicate asking prices and zero matches", () => {
   expect(pricesWithinBudget([100, 200, 200, 400], 200)).toBe(3);

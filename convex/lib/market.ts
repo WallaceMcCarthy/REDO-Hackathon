@@ -27,7 +27,8 @@ export function normalizeMarketRow(row: MarketInput, cities: readonly { id: stri
   const yearBuilt = finite(row.yearBuilt) && row.yearBuilt >= 1600 && row.yearBuilt <= new Date(importedAt).getUTCFullYear() + 1 ? Math.floor(row.yearBuilt) : null;
   return { ...row, rcId: row.rcId.trim(), price: finite(row.price) && row.price > 0 ? row.price : null,
     yearBuilt, cityId: nearestMarketTown(row.lat, row.lng, cities),
-    residential: residentialTypes.has((row.propertyType ?? "").trim().toLowerCase()), sortYearBuilt: yearBuilt ?? -1, importedAt };
+    residential: residentialTypes.has((row.propertyType ?? "").trim().toLowerCase()) && nonUtahReasons(row).length === 0,
+    sortYearBuilt: yearBuilt ?? -1, importedAt };
 }
 
 /** Exact inclusive budget counts without scanning market listing documents. */

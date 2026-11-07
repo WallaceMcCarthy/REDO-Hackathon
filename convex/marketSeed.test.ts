@@ -43,9 +43,20 @@ it('previews non-Utah evidence without changing rows, preserves rural Utah and u
   await t.mutation(insert, { rows: [row('utah'), row('rural-utah', { city: 'Richfield', zip: '84701', lat: 38.77, lng: -112.08 }),
     row('nevada', { address: '123 Main St, Ely, NV 89301', zip: '89301', lat: 39.25, lng: -114.88 }),
     row('missing-location', { lat: null, lng: null, zip: null }), row('wrong-zip', { zip: '82930' })] });
+  // Simulate metadata written by the pre-geofence importer, including unavailable coordinates.
+  await t.run(async ctx => {
+    for (const rcId of ['nevada', 'wrong-zip', 'missing-location']) {
+      const old = (await ctx.db.query('marketListings').withIndex('by_market_rcId', q => q.eq('market', 'for_sale').eq('rcId', rcId)).unique())!;
+      await ctx.db.patch(old._id, { residential: true });
+      const stat = (await ctx.db.query('marketListingStats').withIndex('by_city_market', q => q.eq('cityId', old.cityId).eq('market', old.market)).unique())!;
+      await ctx.db.patch(stat._id, { prices: [...stat.prices, old.price!].sort((a, b) => a - b),
+        yearOrder: [...(stat.yearOrder ?? []), { rcId, price: old.price!, yearBuilt: old.sortYearBuilt }] });
+    }
+  });
   const preview = await t.mutation(purge, {});
   expect(preview).toMatchObject({ dryRun: true, checked: 5, matched: 2, deleted: 0, isDone: true });
   expect(await t.run(ctx => ctx.db.query('marketListings').collect())).toHaveLength(5);
+  expect(await t.run(async ctx => (await ctx.db.query('marketListingStats').collect()).reduce((n, s) => n + s.prices.length, 0))).toBe(5);
   expect(preview.examples.map((r: { rcId: string }) => r.rcId).sort()).toEqual(['nevada', 'wrong-zip']);
   const deleted = await t.mutation(purge, { dryRun: false });
   expect(deleted).toMatchObject({ matched: 2, deleted: 2 });
