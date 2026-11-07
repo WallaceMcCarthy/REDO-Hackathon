@@ -22,7 +22,7 @@ import { openSignIn } from '../components/auth/AccountMenu';
 import { useMessagesActions } from '../data/messagesHooks';
 import ConversationView from '../components/messages/ConversationView';
 
-type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void };
+type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; initialViewMode?: 'main' | 'ads' };
 
 const NONE: never[] = [];
 const WIDE = '(min-width: 1024px)';
@@ -39,7 +39,7 @@ function useWide() {
   return wide;
 }
 
-export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Props) {
+export default function Results({ prefs, setPrefs, onOpenTown, onRestart, initialViewMode = 'main' }: Props) {
   const cities = useCities();
   const metrics = useMetrics();
   const weights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
@@ -49,7 +49,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const { startConversation } = useMessagesActions();
 
   const [view, setView] = useState<View>('homes');
-  const [viewMode, setViewMode] = useState<'main' | 'saved' | 'ads'>('main');
+  const [viewMode, setViewMode] = useState<'main' | 'saved' | 'ads'>(initialViewMode);
   const [sort, setSort] = useState<Sort>('fit');
   const [rentMax, setRentMax] = useState<number | undefined>();
   const [townFilter, setTownFilter] = useState<string | null>(null);

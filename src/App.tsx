@@ -36,11 +36,11 @@ export default function App() {
       {town ? (
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
       ) : isAdsCheckout ? (
-        <AdsSandboxCheckout onDone={() => go('results')} />
+        <AdsSandboxCheckout onDone={() => go('advertise')} />
       ) : route === 'roommates' ? (
         <Roommates onSignIn={openSignIn} />
-      ) : route === 'results' ? (
-        <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} />
+      ) : route === 'results' || route === 'advertise' ? (
+        <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} initialViewMode={route === 'advertise' ? 'ads' : 'main'} />
       ) : (
         <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go('results')} />
       )}
