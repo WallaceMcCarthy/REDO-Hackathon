@@ -3,6 +3,7 @@ import type { Listing, Recommendation } from './types';
 import { zillowUrl } from '../../../convex/lib/zillow';
 import ZillowPhoto from './ZillowPhoto';
 import { useZillowPreview } from './useZillowPreview';
+import CommentsThread from '../social/CommentsThread';
 import SavedButton from '../social/SavedButton';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
@@ -18,6 +19,8 @@ interface Props {
   onNext?: () => void;
   onClose: () => void;
   onOpenTown?: (cityId: string) => void;
+  /** Opens a DM with a commenter; the Message button is hidden when omitted. */
+  onMessageUser?: (userId: string, listingId: string) => void;
 }
 
 const Arrow = ({ d }: { d: string }) => (
@@ -25,7 +28,7 @@ const Arrow = ({ d }: { d: string }) => (
 );
 const ICON_BTN = `inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/95 text-ink shadow ring-1 ring-black/10 hover:bg-white disabled:cursor-default disabled:opacity-40 ${FOCUS}`;
 
-export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown }: Props) {
+export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown, onMessageUser }: Props) {
   const apt = listing.kind === 'apartment';
   const { preview } = useZillowPreview(listing.id, listing.kind === 'home');
   const zUrl = zillowUrl(listing.address, cityName, listing.kind);
@@ -131,6 +134,16 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
             <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-dusk underline-offset-2 hover:underline">Data source</a>
           )}
         </div>
+
+        <CommentsThread
+          targetType="listing"
+          targetId={listing.id}
+          title="Comments"
+          helper="Looking for roommates? Say what you're after. Others interested in this place can reply or message you."
+          placeholder="Looking for roommates? Say what you're after..."
+          onMessageUser={onMessageUser}
+          className="mt-4"
+        />
       </div>
     </aside>
   );

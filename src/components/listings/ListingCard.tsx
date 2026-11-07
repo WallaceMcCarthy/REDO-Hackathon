@@ -14,12 +14,14 @@ interface ListingCardProps {
   onHover?: (hovered: boolean) => void;
   onOpenTown?: (cityId: string) => void;
   cityName?: string;
+  /** Visible comments on this listing; shows a bubble when > 0. */
+  commentCount?: number;
   className?: string;
 }
 
 const isRec = (item: Listing | Recommendation): item is Recommendation => 'listing' in item;
 
-export default function ListingCard({ item, isSelected, onSelect, onHover, onOpenTown, cityName, className = '' }: ListingCardProps) {
+export default function ListingCard({ item, isSelected, onSelect, onHover, onOpenTown, cityName, commentCount, className = '' }: ListingCardProps) {
   const listing: Listing = isRec(item) ? item.listing : item;
   const reason = isRec(item) ? item.reason : undefined;
   const fit = isRec(item) ? Math.max(0, Math.min(100, Math.round(item.townScore))) : undefined;
@@ -82,7 +84,15 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
             )}
           </p>
         </div>
-        <SavedButton listingId={listing.id} />
+        <div className="flex items-center gap-1.5">
+          {commentCount ? (
+            <span className="inline-flex items-center gap-1 text-xs tabular-nums text-dusk" aria-label={`${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`} title={`${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}>
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>
+              {commentCount}
+            </span>
+          ) : null}
+          <SavedButton listingId={listing.id} />
+        </div>
       </div>
 
       <h3 className="mt-3 truncate text-sm font-semibold text-ink" title={address}>{address}</h3>

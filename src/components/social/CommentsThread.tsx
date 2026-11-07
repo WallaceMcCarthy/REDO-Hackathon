@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAddComment, useComments, useDeleteComment, useReportComment } from '../../data/socialHooks';
+import { openSignIn } from '../auth/AccountMenu';
 import type { CommentItem, CommentTargetType } from './types';
 
 interface CommentsThreadProps {
@@ -7,6 +8,12 @@ interface CommentsThreadProps {
   targetId: string;
   title?: string;
   className?: string;
+  /** Placeholder text for the new-comment box. */
+  placeholder?: string;
+  /** Helper line shown above the box. */
+  helper?: string;
+  /** When provided, others' comments get a Message button. Never receives emails. */
+  onMessageUser?: (userId: string, listingId: string) => void;
 }
 
 function SingleComment({
@@ -15,12 +22,14 @@ function SingleComment({
   targetId,
   isReply = false,
   onReplySuccess,
+  onMessageUser,
 }: {
   comment: CommentItem;
   targetType: CommentTargetType;
   targetId: string;
   isReply?: boolean;
   onReplySuccess?: () => void;
+  onMessageUser?: (userId: string, listingId: string) => void;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -90,6 +99,15 @@ function SingleComment({
               Delete
             </button>
           )}
+          {onMessageUser && !comment.canDelete && comment.userId && (
+            <button
+              type="button"
+              onClick={() => onMessageUser(comment.userId, targetId)}
+              className="inline-flex min-h-[36px] items-center px-2 py-1 text-xs font-medium text-alpine-700 hover:text-alpine-900 focus-visible:outline-alpine-500"
+            >
+              Message
+            </button>
+          )}
           <button
             type="button"
             onClick={handleReport}
@@ -154,6 +172,7 @@ function SingleComment({
               targetType={targetType}
               targetId={targetId}
               isReply
+              onMessageUser={onMessageUser}
             />
           ))}
         </div>
@@ -167,6 +186,9 @@ export default function CommentsThread({
   targetId,
   title = 'Community discussion',
   className = '',
+  placeholder = 'Share local insights, questions, or notes...',
+  helper,
+  onMessageUser,
 }: CommentsThreadProps) {
   const [newBody, setNewBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -190,6 +212,7 @@ export default function CommentsThread({
     } catch (err: any) {
       if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) {
         setAuthError('Please sign in to post comments.');
+        openSignIn();
       } else {
         setAuthError('Could not post comment. Please try again.');
       }
@@ -217,13 +240,15 @@ export default function CommentsThread({
         </div>
       )}
 
+      {helper && <p className="mt-3 text-xs text-dusk">{helper}</p>}
+
       {/* New comment input */}
       <form onSubmit={handlePost} className="mt-3 space-y-2">
         <textarea
           value={newBody}
           onChange={(e) => setNewBody(e.target.value)}
           maxLength={2000}
-          placeholder="Share local insights, questions, or notes..."
+          placeholder={placeholder}
           rows={3}
           className="w-full rounded-xl border border-rock-200 p-2.5 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
         />
@@ -260,6 +285,7 @@ export default function CommentsThread({
               comment={c}
               targetType={targetType}
               targetId={targetId}
+              onMessageUser={onMessageUser}
             />
           ))
         )}

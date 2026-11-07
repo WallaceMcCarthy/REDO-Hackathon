@@ -120,6 +120,20 @@ export const comments = query({
   },
 });
 
+/** Visible comment counts (roots and replies) for many listings in one call. Capped per target. */
+export const commentCounts = query({
+  args: { targetType: commentTarget, targetIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const ids = [...new Set(args.targetIds)].slice(0, 100);
+    const counts: Record<string, number> = {};
+    await Promise.all(ids.map(async (targetId) => {
+      const rows = await ctx.db.query("comments").withIndex("by_target", (q) => q.eq("targetType", args.targetType).eq("targetId", targetId)).filter((q) => q.eq(q.field("hidden"), false)).take(100);
+      if (rows.length > 0) counts[targetId] = rows.length;
+    }));
+    return counts;
+  },
+});
+
 /** Replies can be paginated independently when a root has more than fifty. */
 export const replies = query({
   args: { parentId: v.id("comments"), paginationOpts: paginationOptsValidator },

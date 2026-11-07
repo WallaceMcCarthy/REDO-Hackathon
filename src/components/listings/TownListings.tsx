@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Listing, ListingKind } from '../../../convex/lib/listings';
 import { useTownListings } from '../../data/listingsHooks';
 import ListingCard from './ListingCard';
+import { useListingCommentCounts } from '../../data/socialHooks';
 
 interface TownListingsProps {
   cityId: string;
@@ -17,6 +18,7 @@ export default function TownListings({ cityId, cityName }: TownListingsProps) {
 
   const isLoading = listings === undefined;
   const visibleListings = listings?.slice(0, limit) ?? [];
+  const counts = useListingCommentCounts(visibleListings.map((l) => l.id));
   const hasMore = (listings?.length ?? 0) > limit;
 
   return (
@@ -72,7 +74,7 @@ export default function TownListings({ cityId, cityName }: TownListingsProps) {
         <>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {visibleListings.map((listing) => (
-              <ListingCard key={listing.id} item={listing} cityName={cityName} />
+              <ListingCard key={listing.id} item={listing} cityName={cityName} commentCount={counts[listing.id]} />
             ))}
           </div>
 

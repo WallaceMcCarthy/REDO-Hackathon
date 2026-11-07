@@ -63,6 +63,17 @@ export function useComments(targetType: CommentTargetType, targetId: string): Co
 }
 
 /**
+ * One batched query for comment counts of many listings (api.social.commentCounts).
+ * Returns a record of listingId -> count; ids with no comments are absent.
+ */
+export function useListingCommentCounts(listingIds: string[]): Record<string, number> {
+  const queryFn = (api as any).social?.commentCounts;
+  const key = [...new Set(listingIds)].sort().slice(0, 100);
+  const result = useQuery(queryFn, queryFn && key.length ? { targetType: 'listing', targetIds: key } : 'skip');
+  return (result as Record<string, number> | undefined) ?? {};
+}
+
+/**
  * Mutation hook to add a comment (supports 1-level threading via parentId).
  */
 export function useAddComment() {
