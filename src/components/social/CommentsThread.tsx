@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { useAddComment, useComments, useDeleteComment, useReportComment } from '../../data/socialHooks';
 import type { CommentItem, CommentTargetType } from './types';
 
@@ -27,6 +28,7 @@ function SingleComment({
   const [reported, setReported] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { isAuthenticated } = useConvexAuth();
   const addComment = useAddComment();
   const deleteComment = useDeleteComment();
   const reportComment = useReportComment();
@@ -90,22 +92,24 @@ function SingleComment({
               Delete
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleReport}
-            disabled={reported}
-            className={`hover:text-rock-700 focus-visible:outline-alpine-500 ${
-              reported ? 'text-rock-300' : ''
-            }`}
-          >
-            {reported ? 'Reported' : 'Report'}
-          </button>
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={handleReport}
+              disabled={reported}
+              className={`hover:text-rock-700 focus-visible:outline-alpine-500 ${
+                reported ? 'text-rock-300' : ''
+              }`}
+            >
+              {reported ? 'Reported' : 'Report'}
+            </button>
+          )}
         </div>
       </div>
 
       <p className="text-xs leading-relaxed text-rock-700 whitespace-pre-wrap">{comment.body}</p>
 
-      {!isReply && (
+      {!isReply && isAuthenticated && (
         <div>
           <button
             type="button"
