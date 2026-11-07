@@ -5,7 +5,7 @@ import { loadTowns } from "./towns.js";
 /**
  * Metric: ski_access
  * Estimated driving time in minutes to the nearest Utah ski resort.
- * Source: Ski Utah & OpenStreetMap Road Network Routing
+ * Source: Ski Utah resort coordinates & modeled road distances Routing
  * Source URL: https://www.skiutah.com/resorts
  */
 
@@ -86,8 +86,8 @@ export const metricData = {
   category: "outdoors",
   unit: "minutes",
   higherIsBetter: false,
-  description: "Estimated driving time in minutes to the nearest Utah ski resort based on road routing.",
-  source: "Ski Utah & OpenStreetMap Road Network",
+  description: "Modeled driving time in minutes to the nearest Utah ski resort based on straight-line distances with mountain road routing and speed factors to resort coordinates.",
+  source: "Ski Utah resort coordinates & modeled road distances",
   sourceUrl: "https://www.skiutah.com/resorts",
   year: 2025,
   values,

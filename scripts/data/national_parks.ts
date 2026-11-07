@@ -4,8 +4,8 @@ import { loadTowns } from "./towns.js";
 
 /**
  * Metric: national_parks
- * Driving distance in miles to the nearest Utah National Park (Mighty 5) or premier State Park.
- * Source: National Park Service & Utah State Parks
+ * Modeled driving distance in miles to the nearest Utah National Park (Mighty 5) or premier State Park based on road detour factors.
+ * Source: National Park Service & Utah State Parks coordinates, modeled road distances
  * Source URL: https://www.nps.gov/state/ut/index.htm
  */
 
@@ -79,8 +79,8 @@ export const metricData = {
   category: "outdoors",
   unit: "miles",
   higherIsBetter: false,
-  description: "Driving distance in miles to the nearest Utah National Park (Mighty 5) or premier State Park.",
-  source: "National Park Service & Utah State Parks",
+  description: "Modeled driving distance in miles to the nearest Utah National Park (Mighty 5) or premier State Park based on road detour factors.",
+  source: "National Park Service & Utah State Parks coordinates, modeled road distances",
   sourceUrl: "https://www.nps.gov/state/ut/index.htm",
   year: 2025,
   values,
