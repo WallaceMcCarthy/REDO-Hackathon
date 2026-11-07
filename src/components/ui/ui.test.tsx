@@ -30,6 +30,11 @@ describe('Field', () => {
     expect(describedBy).toHaveLength(2);
     for (const part of describedBy) expect(out).toContain(`<p id="${part}"`);
   });
+  it('marks the control invalid from the invalid prop without its own error', () => {
+    const out = html(<Field label="Email" invalid><Input /></Field>);
+    expect(out).toContain('aria-invalid="true"');
+    expect(out).not.toContain('role="alert"');
+  });
   it('marks nothing invalid without an error', () => {
     const out = html(<Field label="Email"><Input /></Field>);
     expect(out).not.toContain('aria-invalid');

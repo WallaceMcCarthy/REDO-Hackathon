@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Button, Field, Input } from '../ui';
 
@@ -7,11 +7,6 @@ type Mode = 'signIn' | 'signUp';
 const MIN_PASSWORD = 8;
 
 const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold transition-colors';
-
-/** Field overwrites aria-invalid on its direct child unless it renders its own error, and here one banner covers both inputs. */
-const CredentialInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid: boolean }>(function CredentialInput({ invalid, ...rest }, ref) {
-  return <Input ref={ref} {...rest} aria-invalid={invalid || undefined} />;
-});
 
 /** Convex Auth throws "Invalid credentials" (bad sign in), "Invalid password" (under 8 chars) and "Account X already exists" (sign up). Production may redact the text, so fall back by mode. */
 function plainError(err: unknown, mode: Mode): string {
@@ -27,6 +22,9 @@ function plainError(err: unknown, mode: Mode): string {
   return 'Something went wrong. Check your connection and try again.';
 }
 
+let lastPressed: Element | null = null;
+if (typeof document !== 'undefined') document.addEventListener('click', e => { lastPressed = (e.target as Element).closest('button, a'); }, true);
+
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const { signIn } = useAuthActions();
   const [mode, setMode] = useState<Mode>('signIn');
@@ -40,16 +38,17 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
+    // Safari does not focus a button on click, so activeElement is body; fall back to the pressed control.
+    const opener = (document.activeElement === document.body ? lastPressed : document.activeElement) as HTMLElement | null;
     emailInput.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') return onCloseRef.current();
       if (e.key !== 'Tab' || !dialog.current) return;
       const items = dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), input');
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      // Safari's Tab skips buttons by default, so step focus ourselves instead of trusting the browser.
+      e.preventDefault();
+      const at = Array.from(items).indexOf(document.activeElement as HTMLElement);
+      items[(at + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
     }
     document.addEventListener('keydown', onKey);
     return () => {
@@ -118,11 +117,11 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} noValidate className="mt-6 space-y-4">
-          <Field label="Email">
-            <CredentialInput ref={emailInput} invalid={!!error} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={describedBy} />
+          <Field label="Email" invalid={!!error}>
+            <Input ref={emailInput} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={describedBy} />
           </Field>
-          <Field label="Password" hint={signingIn ? undefined : `At least ${MIN_PASSWORD} characters.`}>
-            <CredentialInput invalid={!!error} type="password" required autoComplete={signingIn ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={describedBy} />
+          <Field label="Password" invalid={!!error} hint={signingIn ? undefined : `At least ${MIN_PASSWORD} characters.`}>
+            <Input type="password" required autoComplete={signingIn ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={describedBy} />
           </Field>
           <p id="auth-error" role="alert" className={error ? 'flex gap-2 rounded-control border border-rock-300 bg-surface-sunken px-3 py-2.5 text-small font-semibold text-danger' : 'sr-only'}>
             {error && (
