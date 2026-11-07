@@ -14,8 +14,8 @@ export function zillowUrl(address: string | null, cityName: string | undefined, 
 export const MICROLINK_DAILY_CAP = 45;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const RECENT_FETCH_MS = 10 * 60 * 1000;
-export const ERROR_RETRY_MS = 60 * 60 * 1000;
-export const FETCH_TIMEOUT_MS = 8000;
+export const ERROR_RETRY_MS = 5 * 60 * 1000;
+export const FETCH_TIMEOUT_MS = 25000;
 
 export type PreviewStatus = 'ok' | 'no_image' | 'error';
 export interface PreviewFields {

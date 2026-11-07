@@ -22,9 +22,9 @@ describe("decideFetch", () => {
     expect(decideFetch({ ...base, row: { status: "ok", fetchedAt: now - 99 * 3600_000 } })).toBe("cached");
     expect(decideFetch({ ...base, row: { status: "no_image", fetchedAt: now - 1 } })).toBe("cached");
   });
-  it("retries error rows only after an hour", () => {
-    expect(decideFetch({ ...base, row: { status: "error", fetchedAt: now - 59 * 60_000 } })).toBe("cached");
-    expect(decideFetch({ ...base, row: { status: "error", fetchedAt: now - 61 * 60_000 } })).toBe("fetch");
+  it("retries error rows after the 10-minute recent-fetch window", () => {
+    expect(decideFetch({ ...base, row: { status: "error", fetchedAt: now - 9 * 60_000 } })).toBe("cached");
+    expect(decideFetch({ ...base, row: { status: "error", fetchedAt: now - 11 * 60_000 } })).toBe("fetch");
   });
   it("enforces the free-tier cap, but not with an API key", () => {
     expect(decideFetch({ ...base, row: null, callsLast24h: MICROLINK_DAILY_CAP - 1 })).toBe("fetch");
