@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
  * representative Mon-Sun week in the feed's active range, then divide by the town's
  * population and multiply by 1000. Towns with zero UTA stops within the radius are
  * outside UTA's service area and get 0 (UTA does not serve rural southern/eastern Utah;
- * those towns have their own regional systems, e.g. SunTran in Cedar City/St. George,
+ * those towns have their own regional systems, e.g. SunTran in St. George,
  * which are out of scope here and are not silently guessed at).
  */
 
@@ -261,12 +261,12 @@ async function main() {
 
   const metric = {
     id: "transit",
-    label: "Public transit departures",
+    label: "UTA transit departures",
     category: "transit",
     unit: "weekly departures per 1k residents",
     higherIsBetter: true,
     description:
-      "Scheduled weekly (Mon-Sun) public transit departures per 1,000 residents, computed from UTA's real " +
+      "UTA coverage only, not total public transit: Heber City has High Valley Transit route 106 (https://www.hvtutah.gov/bus-106-wasatch-back-connect-to-heber-valley), which is excluded from this UTA feed. A zero here does not mean no public transportation. Scheduled weekly (Mon-Sun) UTA transit departures per 1,000 residents, computed from UTA's real " +
       `published GTFS feed (${GTFS_URL}, feed_version 2026 AUG_20261008) by counting stop_times rows at every ` +
       `GTFS stop within ${RADIUS_KM}km of the town centroid, for the representative week of ` +
       `${WEEK_DATES[0]}-${WEEK_DATES[6]}, divided by town population and multiplied by 1000. Towns with 0 have no ` +

@@ -39,7 +39,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
         <Skyline />
         <div className="relative mx-auto max-w-5xl px-5 pb-48 pt-14 sm:pb-64 sm:pt-20">
           <p className="font-display text-lg text-rock-300">Utah Fit</p>
-          <h1 className="mt-3 max-w-2xl font-display text-4xl leading-[1.1] sm:text-6xl">
+          <h1 className="mt-3 max-w-2xl font-display text-4xl leading-[1.1] sm:text-6xl break-words">
             Find the Utah town that fits the way you live.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-alpine-100 sm:text-lg">
@@ -61,7 +61,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
                   type="button"
                   aria-pressed={on}
                   onClick={() => toggle(p.id)}
-                  className={`group flex cursor-pointer flex-col items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500 ${
+                  className={`group flex min-h-[48px] cursor-pointer flex-col items-start gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500 ${
                     on ? 'border-rock-500 bg-rock-50 shadow-md' : 'border-rock-100 bg-white hover:border-rock-300'
                   }`}
                 >
@@ -96,7 +96,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
           <button
             type="button"
             onClick={onDone}
-            className="cursor-pointer rounded-full bg-rock-500 px-8 py-3.5 font-display text-lg text-white shadow-md transition hover:bg-rock-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500"
+            className="cursor-pointer rounded-full bg-rock-500 px-8 py-3.5 font-display text-lg text-white shadow-md transition hover:bg-rock-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500 min-h-[48px] inline-flex items-center justify-center"
           >
             Show my towns
           </button>

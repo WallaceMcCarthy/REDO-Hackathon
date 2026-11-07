@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useToggleSaved } from '../../data/socialHooks';
+import React, { useEffect, useState } from 'react';
+import { useIsSaved, useToggleSaved } from '../../data/socialHooks';
 
 interface SavedButtonProps {
   listingId: string;
@@ -14,9 +14,16 @@ export default function SavedButton({
   onToggle,
   className = '',
 }: SavedButtonProps) {
+  const isSavedFromServer = useIsSaved(listingId);
   const [saved, setSaved] = useState(initialSaved);
   const [busy, setBusy] = useState(false);
   const toggleSaved = useToggleSaved();
+
+  useEffect(() => {
+    if (typeof isSavedFromServer === 'boolean') {
+      setSaved(isSavedFromServer);
+    }
+  }, [isSavedFromServer]);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -33,10 +40,13 @@ export default function SavedButton({
         setSaved(res.saved);
         onToggle?.(res.saved);
       }
-    } catch (err) {
+    } catch (err: any) {
       // Revert optimistic state on failure
       setSaved(saved);
       onToggle?.(saved);
+      if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) {
+        alert('Please sign in to save places to your profile.');
+      }
     } finally {
       setBusy(false);
     }
@@ -48,7 +58,7 @@ export default function SavedButton({
       onClick={handleClick}
       aria-label={saved ? 'Remove from saved places' : 'Save to my places'}
       title={saved ? 'Remove from saved places' : 'Save to my places'}
-      className={`group relative flex size-8 items-center justify-center rounded-full border transition-all duration-150 focus-visible:outline-2 focus-visible:outline-alpine-500 ${
+      className={`group relative flex size-8 items-center justify-center rounded-full border transition-all duration-150 before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-alpine-500 ${
         saved
           ? 'border-rose-200 bg-rose-50 text-rose-600 shadow-sm'
           : 'border-rock-200 bg-white/90 text-rock-400 hover:border-rock-300 hover:text-rose-500'

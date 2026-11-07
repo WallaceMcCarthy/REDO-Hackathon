@@ -21,7 +21,22 @@ export type Listing = {
   source: string;
   sourceUrl: string;
   year: number | null;
+  /** Derived at the API boundary; rent is never a quoted property asking rent. */
+  rentKind?: "area_benchmark" | null;
+  rentBenchmarkBedrooms?: number | null;
+  rentSourceUrl?: string | null;
 };
+
+/** Existing apartment source beds=2 means the benchmark size, not a unit attribute. */
+export function withListingMetadata<T extends Listing>(listing: T) {
+  return {
+    ...listing,
+    beds: listing.kind === "apartment" ? null : listing.beds,
+    rentKind: listing.kind === "apartment" ? "area_benchmark" as const : null,
+    rentBenchmarkBedrooms: listing.kind === "apartment" ? 2 : null,
+    rentSourceUrl: listing.kind === "apartment" ? "https://www.huduser.gov/portal/datasets/fmr.html#2025" : null,
+  };
+}
 
 export type Recommendation = {
   listing: Listing;
@@ -58,17 +73,27 @@ export function bestListingsForTown(
     if (finite(priceB)) return 1;
     return a.id.localeCompare(b.id);
   });
-  return finite(limit) ? sorted.slice(0, limit) : sorted;
+  return (finite(limit) ? sorted.slice(0, limit) : sorted).map(withListingMetadata);
 }
+
+/** How many of the top-ranked towns share the recommendation slots. */
+const DIVERSITY_TOWNS = 8;
 
 /**
  * Ranks towns with the same scorer the UI uses, then picks the best-fitting
- * listings inside the top towns. For "home" listings, filters.maxHomeValue
- * doubles as the per-listing budget cap (the contract's Filters type has no
- * separate listings-only field). Apartments have no cap in Filters today, so
- * they're ordered by rent only; add filters.maxRent later if that's wanted.
- * Towns are exhausted in rank order before moving to the next, so a strong
- * match in your #1 town always outranks a cheaper listing in your #5 town.
+ * listings spread across the top towns rather than draining the #1 town
+ * first (that made every recommendation land in a single town, e.g. 60 Park
+ * City homes for the skier persona). Takes the top DIVERSITY_TOWNS ranked
+ * towns and interleaves round-robin: one listing per town per round, best
+ * fit (cheapest within budget) first within each town, higher-ranked towns
+ * going first each round so a strong #1-town match still surfaces before a
+ * weaker #2-town one, but no single town can claim the whole limit. A town
+ * with no listings (or fewer than its round-robin share) just contributes
+ * less; its slots aren't redistributed to other towns past DIVERSITY_TOWNS.
+ * For "home" listings, filters.maxHomeValue doubles as the per-listing
+ * budget cap (the contract's Filters type has no separate listings-only
+ * field). Apartments have no cap in Filters today, so they're ordered by
+ * rent only; add filters.maxRent later if that's wanted.
  */
 export function recommendListings(params: {
   cities: readonly City[];
@@ -80,30 +105,38 @@ export function recommendListings(params: {
   limit: number;
 }): Recommendation[] {
   const { cities, metrics, listings, weights, filters, kind, limit } = params;
-  const ranked = rankTowns(cities, metrics, weights, filters);
-  const rankByCity = new Map(ranked.map((town, index) => [town.cityId, { rank: index + 1, score: town.score }]));
+  const ranked = rankTowns(cities, metrics, weights, filters).slice(0, DIVERSITY_TOWNS);
   const cityById = new Map(cities.map((city) => [city.id, city]));
   const cap = kind === "home" ? filters.maxHomeValue : undefined;
 
-  const results: Recommendation[] = [];
-  for (const town of ranked) {
-    if (results.length >= limit) break;
-    const info = rankByCity.get(town.cityId);
-    if (!info) continue;
-    const forTown = bestListingsForTown(
+  const queues = ranked.map((town, index) => ({
+    cityId: town.cityId,
+    rank: index + 1,
+    score: town.score,
+    cityName: cityById.get(town.cityId)?.name ?? town.cityId,
+    listings: bestListingsForTown(
       listings.filter((listing) => listing.cityId === town.cityId),
-      { kind, maxValue: cap, limit: limit - results.length },
-    );
-    for (const listing of forTown) {
-      const cityName = cityById.get(town.cityId)?.name ?? town.cityId;
+      { kind, maxValue: cap },
+    ),
+    next: 0,
+  }));
+
+  const results: Recommendation[] = [];
+  let anyLeft = true;
+  while (results.length < limit && anyLeft) {
+    anyLeft = false;
+    for (const queue of queues) {
+      if (results.length >= limit) break;
+      if (queue.next >= queue.listings.length) continue;
+      anyLeft = true;
+      const listing = queue.listings[queue.next++];
       results.push({
         listing,
-        cityId: town.cityId,
-        townScore: info.score,
-        townRank: info.rank,
-        reason: `#${info.rank} match for your priorities in ${cityName} (score ${Math.round(info.score)})`,
+        cityId: queue.cityId,
+        townScore: queue.score,
+        townRank: queue.rank,
+        reason: `#${queue.rank} match for your priorities in ${queue.cityName} (score ${Math.round(queue.score)})`,
       });
-      if (results.length >= limit) break;
     }
   }
   return results;
