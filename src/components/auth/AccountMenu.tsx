@@ -24,10 +24,10 @@ export default function AccountMenu() {
   }, []);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="ml-auto flex min-w-0 items-center gap-2 sm:ml-0">
       {isLoading ? null : isAuthenticated ? (
         <div className="flex items-center gap-1 rounded-pill border border-border bg-surface pl-4 text-small text-text">
-          <a href="#/account" className="max-w-32 truncate font-semibold text-text no-underline hover:underline">{me?.displayName ?? 'Account'}</a>
+          <a href="#/account" className="flex min-h-11 max-w-16 items-center sm:max-w-32 font-semibold text-text no-underline hover:underline"><span className="truncate">{me?.displayName ?? 'Account'}</span></a>
           <Button variant="ghost" size="sm" onClick={() => void signOut()}>Sign out</Button>
         </div>
       ) : (

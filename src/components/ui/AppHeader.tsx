@@ -35,7 +35,7 @@ export function AppHeader({ route }: { route?: string }) {
   const unread = useUnreadCount();
   return (
     <header className="relative z-header border-b border-border bg-surface sm:sticky sm:top-0">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 px-gutter py-1.5">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-2 px-gutter sm:gap-x-6 py-1.5">
         <Logo />
         <nav aria-label="Main" className="order-last flex w-full gap-1 overflow-x-auto sm:order-none sm:mr-auto sm:w-auto">
           {NAV.map(item => (
@@ -43,7 +43,7 @@ export function AppHeader({ route }: { route?: string }) {
               key={item.route}
               href={`#/${item.route}`}
               aria-current={item.route === current ? 'page' : undefined}
-              className="flex min-h-11 items-center rounded-control px-3 text-small font-semibold text-text-muted no-underline transition-colors first:-ml-3 hover:text-text aria-[current=page]:text-primary-hover aria-[current=page]:underline aria-[current=page]:decoration-2 aria-[current=page]:underline-offset-8 sm:first:ml-0"
+              className="flex min-h-11 items-center rounded-control px-1.5 text-small font-semibold text-text-muted no-underline transition-colors first:-ml-1.5 hover:text-text sm:px-3 aria-[current=page]:text-primary-hover aria-[current=page]:underline aria-[current=page]:decoration-2 aria-[current=page]:underline-offset-8 sm:first:ml-0"
             >
               {item.label}
               {item.route === 'messages' && unread > 0 && (
