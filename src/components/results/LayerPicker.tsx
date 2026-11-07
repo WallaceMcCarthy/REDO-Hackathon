@@ -27,55 +27,31 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
   const ids = items.map(item => item.id);
   const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
   const selectedIndex = Math.max(0, ids.indexOf(selected?.id ?? ''));
-  const centreOn = (index: number, behavior: ScrollBehavior) => {
-    const dial = dialRef.current;
-    if (dial) dial.scrollTo({ top: index * ITEM, behavior });
-  };
-
-  // External changes (keyboard, restore) move the dial; scrolling that already sits on the item is left alone.
-  useEffect(() => {
-    const dial = dialRef.current;
-    if (dial && dialOpen && Math.round(dial.scrollTop / ITEM) !== selectedIndex) centreOn(selectedIndex, 'auto');
-  }, [selectedIndex, dialOpen]);
-
-  // The row under the selection band is the layer, switched the instant it changes.
+  // Pure CSS scroll snap does the snapping; scrollTop / ITEM is the centred row.
+  const raf = useRef(0);
   const onScroll = () => {
-    const dial = dialRef.current;
-    if (!dial) return;
-    const index = Math.max(0, Math.min(ids.length - 1, Math.round(dial.scrollTop / ITEM)));
-    if (index !== selectedIndex) onSelect(ids[index]);
+    if (raf.current) return;
+    raf.current = requestAnimationFrame(() => {
+      raf.current = 0;
+      const dial = dialRef.current;
+      if (!dial) return;
+      const index = Math.max(0, Math.min(ids.length - 1, Math.round(dial.scrollTop / ITEM)));
+      if (index !== selectedIndex) onSelect(ids[index]);
+    });
   };
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
-  // One wheel tick, or about 50px of trackpad travel, moves exactly one row.
-  const wheelAcc = useRef(0);
-  const latest = useRef({ selectedIndex, count: ids.length });
-  latest.current = { selectedIndex, count: ids.length };
-  const target = useRef<number | null>(null);
-  useEffect(() => { target.current = null; }, [selectedIndex]);
+  // On mount (and when the dial opens) the selected row sits centred, without animation.
   useEffect(() => {
     const dial = dialRef.current;
-    if (!dial) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      wheelAcc.current += event.deltaMode === 1 ? event.deltaY * 50 : event.deltaY;
-      const steps = Math.trunc(wheelAcc.current / 50);
-      if (!steps) return;
-      wheelAcc.current -= steps * 50;
-      const { selectedIndex: current, count } = latest.current;
-      const next = Math.max(0, Math.min(count - 1, (target.current ?? current) + Math.sign(steps)));
-      target.current = next;
-      dial.scrollTo({ top: next * ITEM, behavior: 'smooth' });
-    };
-    dial.addEventListener('wheel', onWheel, { passive: false });
-    return () => dial.removeEventListener('wheel', onWheel);
+    if (dial && dialOpen) dial.scrollTop = selectedIndex * ITEM;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialOpen]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
-    const next = Math.max(0, Math.min(ids.length - 1, selectedIndex + (event.key === 'ArrowDown' ? 1 : -1)));
-    centreOn(next, 'smooth');
-    onSelect(ids[next]);
+    dialRef.current?.scrollBy({ top: event.key === 'ArrowDown' ? ITEM : -ITEM, behavior: 'smooth' });
   };
   return (
     <div className={`absolute right-2 top-14 z-[1000] space-y-1.5 text-ink ${dialOpen ? 'w-44 sm:w-60' : 'w-36'}`}>
@@ -102,8 +78,8 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
             tabIndex={0}
             onKeyDown={onKeyDown}
             onScroll={onScroll}
-            style={{ scrollSnapType: 'y mandatory' }}
-            className="h-28 py-[38px] sm:py-[62px] overflow-y-auto overscroll-contain rounded-lg bg-white/70 px-1 [scrollbar-width:none] sm:h-40 [&::-webkit-scrollbar]:hidden"
+            style={{ height: ITEM * 5, paddingTop: ITEM * 2, paddingBottom: ITEM * 2, scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}
+            className="overflow-y-auto rounded-lg bg-white/70 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {items.map((option, index) => {
               const distance = Math.abs(index - selectedIndex);
@@ -113,8 +89,8 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
                   id={`layer-opt-${index}`}
                   role="option"
                   aria-selected={index === selectedIndex}
-                  onClick={() => { centreOn(index, 'smooth'); onSelect(option.id); }}
-                  style={{ height: ITEM, scrollSnapAlign: 'center', opacity: distance === 0 ? 1 : Math.max(0.3, 1 - distance * 0.3), transform: `scale(${distance === 0 ? 1 : 0.92})` }}
+                  onClick={event => event.currentTarget.scrollIntoView({ block: 'center', behavior: 'smooth' })}
+                  style={{ height: ITEM, scrollSnapAlign: 'center', scrollSnapStop: 'always', opacity: distance === 0 ? 1 : Math.max(0.3, 1 - distance * 0.3), transform: `scale(${distance === 0 ? 1 : 0.92})` }}
                   className={`flex w-full cursor-pointer flex-col justify-center rounded-lg px-2 text-left text-xs leading-tight transition-[opacity,transform] ${index === selectedIndex ? 'font-semibold text-ink' : 'text-ink'}`}
                 >
                   {option.category && <span className="truncate text-[9px] font-normal text-dusk">{sentence(option.category)}</span>}
