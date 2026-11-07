@@ -3,7 +3,7 @@ import { useConvexAuth } from 'convex/react';
 import { AD_CATEGORIES, AD_CATEGORY_IDS, type AdCategory } from '../../../convex/lib/adCategories';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
-import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
+import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, usePaymentProvider, useResumeCheckout } from '../../data/adsHooks';
 import type { City } from '../../types';
 import AdImage from './AdImage';
 import { campaignPlacement } from './campaignPlacement';
@@ -25,6 +25,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const signedOut = !isLoading && !isAuthenticated;
   const campaigns = useMyCampaigns();
   const createCheckout = useCreateCheckout();
+  const resumeCheckout = useResumeCheckout();
   const provider = usePaymentProvider();
   const isStripe = provider === 'stripe';
   const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
@@ -43,6 +44,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [cityId, setCityId] = useState('');
   const [durationDays, setDurationDays] = useState(7);
   const [submitting, setSubmitting] = useState(false);
+  const [resumingId, setResumingId] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -112,6 +114,20 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       setCheckoutNotice(err instanceof ConvexError ? String(err.data) : 'Could not create the campaign. Check that you are signed in and try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleResume = async (campaignId: string) => {
+    if (resumingId) return;
+    setResumingId(campaignId);
+    setCheckoutNotice(null);
+    try {
+      const result = await resumeCheckout(campaignId);
+      if (result?.checkoutUrl) window.location.href = result.checkoutUrl;
+    } catch (err) {
+      setCheckoutNotice(err instanceof ConvexError ? String(err.data) : 'Could not resume checkout. Try again.');
+    } finally {
+      setResumingId(null);
     }
   };
 
@@ -187,6 +203,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                       <p className="text-small font-semibold text-text">{placement.label}</p>
                       <p className="mt-1 text-small text-text">{placement.text}</p>
                       {placement.next && <p className="mt-1 text-small text-text-muted">{placement.next}</p>}
+                      {isStripe && c.status === 'pending_payment' && (
+                        <Button size="sm" className="mt-2" disabled={resumingId === c._id} onClick={() => void handleResume(c._id)}>
+                          {resumingId === c._id ? 'Opening checkout…' : 'Resume checkout'}
+                        </Button>
+                      )}
                       {placement.link && (
                         <a href={placement.link.href} className="mt-1 inline-flex min-h-11 items-center text-small text-alpine-700 underline underline-offset-2">{placement.link.label}</a>
                       )}
