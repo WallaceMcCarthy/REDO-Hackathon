@@ -545,6 +545,8 @@ async function recordAdEvent(
   campaignId: Id<"campaigns">,
   kind: "impression" | "click",
   clientViewerKey: string,
+  surface: "results_featured" | "town_highlights" | "unknown",
+  pageTownId?: string,
 ) {
   if (!VIEWER_KEY_RE.test(clientViewerKey)) throw new Error("Invalid viewer key");
   const userId = await getOptionalUserId(ctx);
@@ -579,6 +581,19 @@ async function recordAdEvent(
   if (inHour.length >= MAX_EVENTS_PER_CAMPAIGN_HOUR) return;
 
   await ctx.db.insert("adEvents", { campaignId, kind, viewerKey, bucket });
+  const day = Math.floor(now / 86400000);
+  const daily = await ctx.db.query("campaignDailyStats")
+    .withIndex("by_campaign_day_surface_town", q => q.eq("campaignId", campaignId).eq("day", day).eq("surface", surface).eq("pageTownId", pageTownId))
+    .first();
+  if (daily) {
+    await ctx.db.patch(daily._id, kind === "impression" ? { impressions: daily.impressions + 1 } : { clicks: daily.clicks + 1 });
+  } else {
+    await ctx.db.insert("campaignDailyStats", {
+      campaignId, day, surface, pageTownId,
+      impressions: kind === "impression" ? 1 : 0,
+      clicks: kind === "click" ? 1 : 0,
+    });
+  }
   if (kind === "impression") {
     await ctx.db.patch(campaignId, { impressions: (campaign.impressions || 0) + 1 });
   } else {
@@ -587,13 +602,27 @@ async function recordAdEvent(
 }
 
 export const recordImpression = mutation({
-  args: { campaignId: v.id("campaigns"), viewerKey: v.string() },
-  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "impression", args.viewerKey),
+  args: { campaignId: v.id("campaigns"), viewerKey: v.string(), surface: v.optional(v.union(v.literal("results_featured"), v.literal("town_highlights"))), pageTownId: v.optional(v.string()) },
+  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "impression", args.viewerKey, args.surface ?? "unknown", args.pageTownId),
 });
 
 export const recordClick = mutation({
-  args: { campaignId: v.id("campaigns"), viewerKey: v.string() },
-  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "click", args.viewerKey),
+  args: { campaignId: v.id("campaigns"), viewerKey: v.string(), surface: v.optional(v.union(v.literal("results_featured"), v.literal("town_highlights"))), pageTownId: v.optional(v.string()) },
+  handler: async (ctx, args) => recordAdEvent(ctx, args.campaignId, "click", args.viewerKey, args.surface ?? "unknown", args.pageTownId),
+});
+
+export const listMyCampaignStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const campaigns = await ctx.db.query("campaigns").withIndex("by_advertiser", q => q.eq("advertiserUserId", userId)).collect();
+    const rows = [];
+    for (const campaign of campaigns) {
+      const stats = await ctx.db.query("campaignDailyStats").withIndex("by_campaign_day", q => q.eq("campaignId", campaign._id)).collect();
+      rows.push(...stats);
+    }
+    return rows;
+  },
 });
 
 /**

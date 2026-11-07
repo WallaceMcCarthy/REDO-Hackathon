@@ -3,7 +3,7 @@ import { useConvexAuth } from 'convex/react';
 import { AD_CATEGORIES, AD_CATEGORY_IDS, type AdCategory } from '../../../convex/lib/adCategories';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
-import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, usePaymentProvider, useResumeCheckout } from '../../data/adsHooks';
+import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, useMyCampaignStats, usePaymentProvider, useResumeCheckout } from '../../data/adsHooks';
 import type { City } from '../../types';
 import AdImage from './AdImage';
 import { campaignPlacement } from './campaignPlacement';
@@ -24,6 +24,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const { isAuthenticated, isLoading } = useConvexAuth();
   const signedOut = !isLoading && !isAuthenticated;
   const campaigns = useMyCampaigns();
+  const dailyStats = useMyCampaignStats();
   const createCheckout = useCreateCheckout();
   const resumeCheckout = useResumeCheckout();
   const provider = usePaymentProvider();
@@ -187,6 +188,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                 const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(1) : '0.0';
                 const townName = cities.find((t) => t.id === c.cityId)?.name;
                 const placement = campaignPlacement(c, townName, provider, now);
+                const stats = dailyStats?.filter((row) => row.campaignId === c._id) ?? [];
+                const townViews = stats.filter((row) => row.surface === 'town_highlights').reduce((sum, row) => sum + row.impressions, 0);
+                const resultViews = stats.filter((row) => row.surface === 'results_featured').reduce((sum, row) => sum + row.impressions, 0);
                 return (
                   <Card as="li" key={c._id}>
                     <div className="flex flex-wrap items-center gap-2">
@@ -212,6 +216,12 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                         <a href={placement.link.href} className="mt-1 inline-flex min-h-11 items-center text-small text-alpine-700 underline underline-offset-2">{placement.link.label}</a>
                       )}
                     </div>
+                    <dl className="mt-2 grid grid-cols-2 gap-2 text-caption text-text-muted sm:grid-cols-4">
+                      <div><dt>Spend</dt><dd className="font-semibold text-text">{c.expectedAmount ? `$${(c.expectedAmount / 100).toFixed(2)}` : 'No charge'}</dd></div>
+                      <div><dt>Started</dt><dd className="font-semibold text-text">{new Date(c.startsAt).toLocaleDateString()}</dd></div>
+                      <div><dt>Town views</dt><dd className="font-semibold text-text">{townViews}</dd></div>
+                      <div><dt>Results views</dt><dd className="font-semibold text-text">{resultViews}</dd></div>
+                    </dl>
                     <p className="mt-2 line-clamp-2 break-words text-small text-text-muted">{c.body}</p>
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-small sm:grid-cols-4">
                       <div><dt className="text-text-muted">Views</dt><dd className="font-semibold text-text">{c.impressions}</dd></div>

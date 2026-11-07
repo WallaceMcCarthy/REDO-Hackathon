@@ -74,4 +74,16 @@ export const adsTables = {
   })
     .index("by_campaign_kind_viewer_bucket", ["campaignId", "kind", "viewerKey", "bucket"])
     .index("by_campaign_kind_bucket", ["campaignId", "kind", "bucket"]),
+
+  /** Aggregate-only reporting; no viewer identity or browser location is stored here. */
+  campaignDailyStats: defineTable({
+    campaignId: v.id("campaigns"),
+    day: v.number(),
+    surface: v.union(v.literal("results_featured"), v.literal("town_highlights"), v.literal("unknown")),
+    pageTownId: v.optional(v.string()),
+    impressions: v.number(),
+    clicks: v.number(),
+  })
+    .index("by_campaign_day_surface_town", ["campaignId", "day", "surface", "pageTownId"])
+    .index("by_campaign_day", ["campaignId", "day"]),
 };
