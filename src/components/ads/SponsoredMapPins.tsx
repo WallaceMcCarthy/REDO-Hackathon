@@ -24,8 +24,8 @@ const TOWN_ZOOM = 9;
 type Located = CampaignRecord & { lat: number; lng: number };
 const isShowable = (c: CampaignRecord): c is Located => c.lat !== undefined && c.lng !== undefined && !!adLink(c);
 
-/** A small accent marker; hover, focus or tap opens a card above it. The whole ad is one link. `flip` aligns the card to the marker's right edge. */
-export function MapAd({ pin, flip, onClick }: { pin: CampaignRecord; flip?: boolean; onClick?: () => void }) {
+/** A small accent marker; hover, focus or tap opens a card above it. The whole ad is one link. `flip` aligns the card to the marker's right edge; `below` puts it under the marker when there is no room above. */
+export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip?: boolean; below?: boolean; onClick?: () => void }) {
   return (
     <a
       {...adLink(pin)} draggable={false} onClick={onClick}
@@ -33,7 +33,7 @@ export function MapAd({ pin, flip, onClick }: { pin: CampaignRecord; flip?: bool
       className={`group relative block size-8 rounded-pill ${FOCUS}`}
     >
       <span aria-hidden className="flex size-8 items-center justify-center rounded-pill border-2 border-white bg-rock-800 text-[13px] font-bold leading-none text-white shadow-raised">★</span>
-      <span className={`pointer-events-none invisible absolute bottom-full z-10 w-60 pb-2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${flip ? 'right-0' : 'left-0'}`}>
+      <span className={`pointer-events-none invisible absolute z-10 w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
         <span className="flex flex-col gap-1 rounded-card bg-surface-raised p-3 text-left shadow-raised">
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-text-muted">
             <span>{pin.kind === 'job' ? 'Sponsored job' : 'Sponsored'}</span>
@@ -64,7 +64,7 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
   const pins = fetched ?? lastPins.current;
   const recordImpression = useRecordImpression();
   const recordClick = useRecordClick();
-  const [shown, setShown] = useState<{ pin: Located; flip: boolean }[]>([]);
+  const [shown, setShown] = useState<{ pin: Located; flip: boolean; below: boolean }[]>([]);
   const markers = useRef(new Map<string, maplibregl.Marker>());
   const seen = useRef(new Set<string>());
 
@@ -84,8 +84,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     const sync = () => {
       const bounds = map.getBounds();
       const inView = declutter(located, p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
-        // Near the top edge the card would be clipped, so it waits until the map moves.
-        .filter(p => bounds.contains([p.lng, p.lat]) && map.project([p.lng, p.lat]).y >= CARD_ROOM);
+        // The marker always shows inside the viewport; only its card flips when there is no room above.
+        .filter(p => bounds.contains([p.lng, p.lat]));
       const ids = new Set(inView.map(p => p._id));
       for (const [id, marker] of markers.current) {
         if (ids.has(id)) continue;
@@ -104,11 +104,15 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
         }
       }
       const mapWidth = map.getContainer().clientWidth;
-      const next = inView.map(pin => ({ pin, flip: map.project([pin.lng, pin.lat]).x + CARD_WIDTH - CIRCLE_CENTER > mapWidth }));
+      const next = inView.map(pin => {
+        const { x, y } = map.project([pin.lng, pin.lat]);
+        const flip = x + CARD_WIDTH - CIRCLE_CENTER > mapWidth && x + CIRCLE_CENTER - CARD_WIDTH >= 0;
+        return { pin, flip, below: y < CARD_ROOM };
+      });
       // Convex can return a fresh campaign array after an impression update. Do not publish an
       // equivalent marker layout: that render would retrigger this effect and form an update loop.
       setShown(previous => previous.length === next.length && previous.every((item, index) =>
-        item.pin._id === next[index].pin._id && item.flip === next[index].flip
+        item.pin._id === next[index].pin._id && item.flip === next[index].flip && item.below === next[index].below
       ) ? previous : next);
     };
     sync();
@@ -121,8 +125,8 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     markers.current.clear();
   }, [map]);
 
-  return shown.map(({ pin, flip }) => {
+  return shown.map(({ pin, flip, below }) => {
     const element = markers.current.get(pin._id)?.getElement();
-    return element ? createPortal(<MapAd pin={pin} flip={flip} onClick={() => void recordClick(pin._id)} />, element, pin._id) : null;
+    return element ? createPortal(<MapAd pin={pin} flip={flip} below={below} onClick={() => void recordClick(pin._id)} />, element, pin._id) : null;
   });
 }
