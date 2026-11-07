@@ -2,6 +2,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import CategorySliders from '../components/CategorySliders';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
+import HomesForYou from '../components/listings/HomesForYou';
+import type { Listing } from '../components/listings/types';
 import type { Row } from '../components/results/types';
 import { useFlip } from '../components/results/useFlip';
 import { useCities, useMetrics, useRank } from '../data/hooks';
@@ -27,6 +29,8 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const ranked = useRank(metrics ? toMetricWeights(prefs.categories, metrics) : {}, prefs.filters);
   const [hovered, setHovered] = useState<string | null>(null);
   const [controlsOpen] = useState(isWide);
+  const [activeTab, setActiveTab] = useState<'towns' | 'listings'>('towns');
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
 
   const rows = useMemo<Row[] | undefined>(() => {
     if (!cities || !metrics || !ranked) return undefined;
@@ -62,7 +66,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   return (
     <main className="xl:sticky xl:top-0 xl:grid xl:h-dvh xl:grid-cols-[18rem_minmax(0,28rem)_minmax(0,1fr)]">
       <section aria-label="Map of ranked towns" className="sticky top-0 isolate z-10 order-first h-56 border-b border-rock-100 sm:h-80 xl:static xl:order-last xl:h-full xl:border-b-0">
-        <ResultsMap rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} />
+        <ResultsMap rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} listings={selectedListing ? [selectedListing] : undefined} onSelectListing={setSelectedListing} />
       </section>
 
       <aside className="border-b border-rock-100 p-5 xl:overflow-y-auto xl:border-b-0 xl:border-r">
@@ -100,8 +104,48 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
         </details>
       </aside>
 
-      <section aria-label="Ranked towns" className="p-5 xl:overflow-y-auto">
-        {!rows ? (
+      <section aria-label="Ranked towns and listings" className="p-5 xl:overflow-y-auto">
+        <div className="mb-4 flex items-center justify-between border-b border-rock-200 pb-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('towns')}
+              className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                activeTab === 'towns'
+                  ? 'bg-rock-800 text-white shadow-sm'
+                  : 'bg-rock-100 text-rock-600 hover:text-ink'
+              }`}
+            >
+              Towns {rows ? `(${rows.length})` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('listings')}
+              className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                activeTab === 'listings'
+                  ? 'bg-rock-800 text-white shadow-sm'
+                  : 'bg-rock-100 text-rock-600 hover:text-ink'
+              }`}
+            >
+              Homes for you
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'listings' ? (
+          <HomesForYou
+            prefs={prefs}
+            metrics={metrics}
+            cities={cities}
+            selectedListingId={selectedListing?.id}
+            onSelectListing={(l) => {
+              setSelectedListing(l);
+              if (l.cityId) {
+                setHovered(l.cityId);
+              }
+            }}
+          />
+        ) : !rows ? (
           <div role="status" aria-live="polite" className="space-y-3">
             <p className="text-sm text-dusk">Ranking towns</p>
             {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-24 animate-pulse rounded-2xl bg-rock-100/70" />)}

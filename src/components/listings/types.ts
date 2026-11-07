@@ -1,14 +1,6 @@
-import type { Listing as BaseListing, ListingKind, Recommendation as BaseRecommendation } from '../../../convex/lib/listings';
+import type { Listing, ListingKind, Recommendation } from '../../../convex/lib/listings';
 
-export type Listing = BaseListing & {
-  year?: number;
-};
-
-export type Recommendation = Omit<BaseRecommendation, 'listing'> & {
-  listing: Listing;
-};
-
-export type { ListingKind };
+export type { Listing, ListingKind, Recommendation };
 
 export type ListingFilter = {
   kind: ListingKind;

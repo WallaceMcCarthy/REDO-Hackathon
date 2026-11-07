@@ -18,6 +18,7 @@ describe('formatListingFinancials', () => {
     yearBuilt: 1965,
     units: null,
     propertyType: 'Single family',
+    year: 2025,
     source: 'UGRC Salt Lake County LIR parcels 2025',
     sourceUrl: 'https://opendata.gis.utah.gov/',
   };
@@ -37,6 +38,7 @@ describe('formatListingFinancials', () => {
     yearBuilt: 2012,
     units: 120,
     propertyType: 'Apartment complex',
+    year: 2025,
     source: 'HUD LIHTC Database + HUD FY2025 FMR',
     sourceUrl: 'https://lihtc.huduser.gov/',
   };
