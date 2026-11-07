@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Listing } from './types';
+import { aerialTiles } from './aerialTiles';
 
 /** Esri World Imagery keyless export, centered on the listing. */
 export function aerialUrl(l: Pick<Listing, 'lat' | 'lng' | 'kind'>, size: [number, number] = [640, 400]): string {
@@ -29,19 +30,29 @@ function MapPinIcon({ className = '' }: { className?: string }) {
 }
 
 export default function AerialPhoto({ listing, className = '', rounded = 'rounded-t-xl' }: { listing: Listing; className?: string; rounded?: string }) {
-  const [failed, setFailed] = useState(false);
+  const [source, setSource] = useState<'tiles' | 'export' | 'failed'>('tiles');
+  useEffect(() => setSource('tiles'), [listing.lat, listing.lng, listing.kind]);
+  const alt = `Aerial view of ${listing.address || listing.name || 'the property'}`;
   return (
     <div className={`relative aspect-[16/10] w-full overflow-hidden bg-rock-100 ${rounded} ${className}`}>
-      {failed ? (
+      {source === 'failed' ? (
         <div className="flex size-full items-center justify-center bg-rock-100 text-rock-300" role="img" aria-label="Aerial photo unavailable">
           <HouseIcon className="size-12" />
         </div>
       ) : (
         <>
-          <img
-            src={aerialUrl(listing)} alt={`Aerial view of ${listing.address || listing.name || 'the property'}`}
-            loading="lazy" draggable={false} onError={() => setFailed(true)} className="size-full object-cover"
-          />
+          {source === 'tiles' ? (
+            <div role="img" aria-label={alt} className="absolute inset-0 overflow-hidden">
+              {aerialTiles(listing).map(tile => (
+                <img key={tile.url} src={tile.url} alt="" aria-hidden="true" loading="lazy" decoding="async"
+                  draggable={false} onError={() => setSource('export')}
+                  className="absolute max-w-none" style={{ left: `${tile.left}%`, top: `${tile.top}%`, width: '100%', height: '160%' }} />
+              ))}
+            </div>
+          ) : (
+            <img src={aerialUrl(listing)} alt={alt} loading="lazy" decoding="async" draggable={false}
+              onError={() => setSource('failed')} className="size-full object-cover" />
+          )}
           <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
             <MapPinIcon className="h-7 w-[22px] drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]" />
           </span>
