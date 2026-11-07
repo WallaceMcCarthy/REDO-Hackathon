@@ -11,7 +11,7 @@ const readJson = (p: string) => JSON.parse(readFileSync(p, "utf8"));
 const prodFlag = process.argv.includes("--prod") ? ["--prod"] : [];
 
 function runConvex(fn: string, args: unknown) {
-  return execFileSync("npx", ["convex", "run", fn, JSON.stringify(args), ...prodFlag], { stdio: ["inherit", "pipe", "inherit"], encoding: "utf8" });
+  execFileSync("npx", ["convex", "run", fn, JSON.stringify(args), ...prodFlag], { stdio: "inherit" });
 }
 
 const cities = existsSync("data/cities.json") ? readJson("data/cities.json") : [];
@@ -25,10 +25,13 @@ runConvex("seed:replaceAll", { cities, metrics });
 
 const listingsDir = "data/listings";
 const listings = existsSync(listingsDir)
-  ? readdirSync(listingsDir).filter((f) => f.endsWith(".json") && !f.endsWith("_migration.json")).sort().flatMap((f) => readJson(join(listingsDir, f)))
+  ? readdirSync(listingsDir).filter((f) => f.endsWith(".json")).sort().flatMap((f) => {
+        // Only arrays of listing rows; skip helper files such as apartments_id_migration.json.
+        const rows = readJson(join(listingsDir, f));
+        return Array.isArray(rows) ? rows : [];
+      })
   : [];
 if (listings.length) {
-  while (Number(runConvex("seed:clearListings", {})) > 0);
   // Byte-bounded, not row-count-bounded: a fixed row count risks the OS's
   // single-argument size limit (ARG_MAX) on some platforms/shells once rows
   // get bigger (e.g. longer addresses), and risks Convex's ~1MB CLI arg cap
@@ -38,12 +41,22 @@ if (listings.length) {
   let chunk: unknown[] = [];
   let chunkBytes = 2; // "[]"
   let seeded = 0;
+  let first = true;
+
+  // Clear existing listings in batches first: one mutation deleting every row would exceed Convex's 4096-read limit.
+  for (;;) {
+    const out = execFileSync("npx", ["convex", "run", "seed:clearListingsBatch", "{}", ...prodFlag], { encoding: "utf8" });
+    const deleted = Number(out.trim().split("\n").pop());
+    if (!deleted) break;
+    console.log(`Cleared ${deleted} listings`);
+  }
 
   function flush() {
     if (chunk.length === 0) return;
-    runConvex("seed:replaceListings", { listings: chunk });
+    runConvex("seed:replaceListings", { listings: chunk, reset: false });
     seeded += chunk.length;
     console.log(`Seeded listings ${seeded}/${listings.length}`);
+    first = false;
     chunk = [];
     chunkBytes = 2;
   }
