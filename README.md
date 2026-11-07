@@ -1,67 +1,112 @@
-# 🏔️ Utah Fit
+# Utah Fit
 
-**Utah Fit** is an interactive, data-driven web app that helps people moving to Utah discover and rank 42 fixed Utah towns based on what matters most to them. 
+Utah Fit helps people moving to Utah find where they fit. You set a budget and say what matters. It ranks homes and apartments across 42 Utah towns, shows them on a map, and traces every town's score to a public source. The live site is https://cmascope.com. For a presenter's script, see [DEMO.md](./DEMO.md).
 
-Users customize their personal priorities—such as ski access, air quality, outdoor trails, transit frequency, cost of living, safety, and community culture—to receive instant, personalized rankings, detailed metric breakdowns, and an interactive geographic map.
+## What the site does
 
----
+The app has no router library. Every screen is a hash route, so `https://cmascope.com/#/results` is the results screen. `src/App.tsx` maps each route to a screen in `src/screens/`.
 
-## ⚡ Quickstart / Local Development
+| Route | Screen | Needs an account |
+| :--- | :--- | :---: |
+| `#/` | Start page. Choose Buy or Rent, set a max price or rent, pick personas, and tune eight priority sliders. | No |
+| `#/results` | Homes first. A ranked list of homes grouped by area, next to a map. Filters for max price, sort, priorities and max commute. | No |
+| `#/results?view=apartments` | The same screen on apartment complexes, with HUD fair market rent. | No |
+| `#/results?view=areas` | All 42 towns ranked, each with a "Why it fits" line. | No |
+| `#/results?town=<id>` | Homes in one town. | No |
+| `#/town/<id>` | A town page. Fit score, places to live, a feed, comments, and every metric against the Utah median with its source. | To post |
+| `#/messages` | Direct messages between users. | Yes |
+| `#/saved` | Saved homes and apartments. | Yes |
+| `#/account` | Profile. | Yes |
+| `#/roommates` | Roommate profile and matches. No link in the app leads here yet. | Yes |
+| `#/advertise` | Self-serve ad campaigns. Checkout is a sandbox, and no payment is taken. | Yes |
 
-Requires Node 20.19+ or 22.12+. On older versions the build fails with `Cannot find native binding`.
+A listing is a real public record. A home's "Est. value" is the county assessor's value, never an asking price. An apartment's rent is the HUD fair market rent for its ZIP code. On the map, a layer picker draws any one of the 21 metrics as a heat map.
 
-No Convex account or cloud login is required. You can run the entire stack locally with anonymous Convex dev mode:
+## Run it locally
+
+Node 20.19+ or 22.12+ is required. Older versions fail the build with `Cannot find native binding`.
 
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Start local Convex backend (generates .env.local automatically)
-CONVEX_AGENT_MODE=anonymous npx convex dev
-
-# 3. In another terminal, seed all 42 towns and metrics from data/
-npm run seed
-
-# 4. Start the Vite React development server
-npm run dev
+npm ci
+CONVEX_AGENT_MODE=anonymous npx convex dev   # local Convex backend, writes .env.local
+npm run seed                                 # in a second terminal: towns, metrics, listings
+npm run dev                                  # http://localhost:5173
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser to explore Utah Fit.
+`npm run seed` loads `data/cities.json`, `data/metrics/*.json` and `data/listings/*.json` into the deployment named in `.env.local`. `npm run seed:prod` targets production and needs the deploy owner's Convex login, so run it only when you own that deployment.
 
----
+## Test
 
-## 🏗️ Architecture & Project Structure
+```bash
+npm test                # vitest unit tests
+npx tsc --noEmit        # type check
+npm run build           # type check, then vite build
+npm run test:e2e        # Playwright against a local build, desktop and 390px phone
+npm run test:e2e:prod   # the same suite against https://cmascope.com
+```
 
-- **Frontend**: Vite + React 18 + TypeScript + Tailwind CSS with a custom Utah palette (red rock sandstone & alpine spruce) and React Leaflet map with ranked interactive pins.
-- **Backend & Database**: [Convex](https://www.convex.dev/) providing reactive queries (`api.search.rank`, `api.cities.list`, `api.cities.get`, `api.metrics.list`) and database schema validation.
-- **Search & Scoring**: Pure TypeScript multi-factor ranking engine (`convex/lib/scoring.ts`) featuring min-max normalization, weight multipliers, customizable filters (`maxHomeValue`), and human-readable highlight tags.
-- **Data Pipeline**: Reproducible ingestion scripts (`scripts/data/*.ts`) calculating verified public metrics stored in clean JSON contracts (`data/metrics/*.json`).
+`npm run test:e2e` builds with `VITE_CONVEX_URL` pointing at the production Convex deployment. `e2e/signed-in.spec.ts` creates real accounts, so it skips unless `VITE_CONVEX_URL` is a local backend.
+
+## Ship a change
+
+Everything pushed to `main` goes live on https://cmascope.com in a few minutes. Keep unfinished work on a branch.
+
+An auto-deployer decides what ships. It is not in this repository. It runs on a team member's Mac, watches `main` every 30 seconds, and is the only thing that deploys, because Vercel's Git auto-deploy is disconnected on purpose. For each new commit it does these things in order.
+
+1. Type checks the commit.
+2. Builds it and runs the Playwright smoke test on the build.
+3. Checks the backend gate below.
+4. Deploys, then runs the smoke test again on the live site.
+
+It posts an `[autodeploy]` line to the team board with the result. A failed check leaves the live site unchanged and says why. The build stamp on the site shows the commit and time of what is live. Do not run `vercel --prod` by hand without saying so on the board.
+
+### The backend gate
+
+`convex/PROD_DEPLOYED` holds one line, the commit SHA that was last deployed to production Convex. A commit that changes anything under `convex/` does not ship until production Convex has it, because the new frontend would call functions that do not exist there. The gate releases in two steps.
+
+1. The owner of the Convex production deployment deploys it from the commit.
+2. They commit that SHA on one line in `convex/PROD_DEPLOYED` and push to `main`.
+
+The history shows the pattern. Commits `0beadb8` and `adbe783` are named "Record Convex prod deploy of ..." and touch only that file. At the time of writing the file reads `4a84009ba6eac6be178e5155e2bab4b9efda2049`, and nothing else under `convex/` has changed since that commit.
+
+The comparison itself runs in the deployer. No file in this repository reads `convex/PROD_DEPLOYED`.
+
+### Pause deploys
+
+Ask Bob, who runs the deployer, to set a HOLD. Nothing ships while the HOLD is set, and commits to `main` wait. This is a board convention. The repository has no switch for it.
+
+## Architecture
+
+- **Frontend.** Vite, React 18, TypeScript and Tailwind CSS. The map is MapLibre GL. Shared components live in `src/components/ui`, and `#/ui` shows every state.
+- **Backend.** [Convex](https://www.convex.dev/) holds the data, the queries, and the account system (Convex Auth with email and password). The tables cover towns, metrics, listings, profiles, saved homes, comments, messages, roommate profiles, town posts, ad campaigns, and Zillow link previews.
+- **Scoring.** `convex/lib/scoring.ts` is a pure function. It normalizes each metric across the 42 towns, applies your weights, and writes the "Why it fits" highlights. `api.search.rank` wraps it.
+- **Data.** `scripts/data/*.ts` build `data/metrics/*.json` from public sources. `scripts/seed.ts` loads them into Convex. Metric files never hold invented numbers.
 
 ```
 convex/
-  schema.ts               # Database schema (cities, metrics tables)
-  cities.ts               # Town list & detail queries
-  metrics.ts              # Metric metadata queries
-  search.ts               # Search & ranking API wrapper
-  seed.ts                 # Database seed mutation
-  lib/scoring.ts          # Pure scoring & persona presets engine
+  schema.ts, *Schema.ts   tables
+  search.ts, cities.ts, metrics.ts, listings.ts   public queries
+  account.ts, social.ts, messages.ts, roommates.ts, ads.ts, zillowPreviews.ts   signed-in features
+  lib/scoring.ts          pure scoring engine
+  PROD_DEPLOYED           the backend gate
 data/
-  cities.json             # Canonical list of 42 Utah towns
-  metrics/<metric>.json   # Individual public metrics with sources and town values
+  cities.json             the 42 towns
+  metrics/<metric>.json   one file per metric, with source and year
+  listings/               homes and apartments
 scripts/
-  seed.ts                 # Loads data/ into Convex
-  sources-table.ts        # Generates & updates data source documentation table
-  data/<metric>.ts        # Reproducible data ingestion & GIS calculation scripts
+  seed.ts                 loads data/ into Convex
+  sources-table.ts        regenerates the table below
+  data/<metric>.ts        builds one metric file
 src/
-  App.tsx                 # Main application container
-  main.tsx                # App entrypoint
+  App.tsx                 hash router
+  screens/                one file per route
+  components/             UI by area
+e2e/                      Playwright specs
 ```
 
----
+## Public data sources
 
-## 📊 Public Data Sources
-
-All metrics are cited from authoritative public datasets. No numbers are invented. To regenerate this table from `data/metrics/*.json`, run `npx tsx scripts/sources-table.ts`.
+Every metric cites a public dataset. To regenerate this table from `data/metrics/*.json`, run `npx tsx scripts/sources-table.ts`.
 
 <!-- sources:start -->
 
@@ -91,16 +136,4 @@ All metrics are cited from authoritative public datasets. No numbers are invente
 
 <!-- sources:end -->
 
----
-
-## 🎯 Supported Personas
-
-Utah Fit includes preset personas to quickly explore the state's diversity:
-
-1. **The Powder Chaser / Skier**: Maximum weight on ski access (`ski_access`) and proximity to mountain canyons (Park City, Cottonwood Heights, Sandy, Midway).
-2. **The Young Family**: High weight on safety, cost of living, community amenities, and parks.
-3. **The Remote Tech Worker**: Balances transit access, outdoor recreation, dining, and housing value along the Silicon Slopes corridor (Lehi, Draper, Sandy, Salt Lake City).
-4. **The Outdoor Explorer**: Prioritizes trail density (`trails`), National Parks (`national_parks`), and BLM public land access (Moab, Springdale, Hurricane, Cedar City).
-5. **The Retiree / Quiet Living**: Prioritizes low noise, clean air, scenic vistas, and healthcare access.
-
-See [DEMO.md](./DEMO.md) for a structured 2-minute demonstration walkthrough.
+The persona presets on the start page are Skier, Family, Remote worker and Foodie. They stack, and each one sets the eight sliders.

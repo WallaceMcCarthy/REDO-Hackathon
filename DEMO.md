@@ -1,49 +1,97 @@
-# Utah Fit: 2-minute demo script
+# Utah Fit demo script
 
-Every click and result below was run in the live app against the shared Convex backend on 2026-11-06, with 42 towns and 15 metrics.
+This is a 3-minute walkthrough of https://cmascope.com. It is read-only. Every step below was run on the live site on 2026-11-06, in Chrome at 1440x900 and again at 390x844, with the build stamp reading `a6a67fa`.
 
-**Before presenting:** run all three personas again. Rankings move when data changes, and the trails, transit, restaurant and venue data were still being rebuilt when this was written. If a town below no longer matches, say what the screen shows. Never quote a number that isn't on screen.
+## Before you present
 
-**Setup:** open the app on the landing page, on a laptop. Nothing selected.
+Rankings move when the data or the scoring changes. Run the path once first. If a town or number below no longer matches, say what the screen shows. Never quote a number that is not on screen.
+
+Open https://cmascope.com on a laptop with nothing selected. On a phone, the list and the map are two panes. Tap **List** or **Map** under the filters to switch.
 
 ## 0:00 to 0:20. The problem
 
-**Action:** show the landing page.
+Show the start page.
 
-> "Utah isn't one place. Living in Park City is nothing like living in Lehi, Moab or Logan. Today, people moving here juggle a dozen tabs to work out where they belong. Utah Fit ranks 42 Utah towns on public data, weighted by what you care about."
+> Utah is not one place. Park City, Lehi, Moab and Logan are different lives. People moving here juggle a dozen tabs to work out where they fit. Utah Fit ranks homes across 42 Utah towns on public data, weighted by what you care about.
 
-## 0:20 to 0:50. Skier
+## 0:20 to 0:50. Pick a persona
 
-**Action:** click **Skier**. Point out that the sliders moved, then click **Show my towns**.
+Leave **Buy** selected and the price blank. Click **Skier**. The sliders move to Cost of living 1, Safety 0, Air & water 3, Outdoors 5, and 0 for the rest. Click **Show my matches**.
 
-**Expect:** Park City, Heber City and Midway on top. Park City shows "Best for ski resort access".
+You see "Showing 60 homes in 8 areas · 640 matches". The list is grouped by area, and Heber City comes first at 74 / 100, then Midway at 73 / 100. Each card shows an estimated value, an address, a score bar, and a line that starts "Why this place".
 
-> "Pick a persona and the sliders set themselves. For a skier, the Wasatch Back comes out on top, and the badges say why."
+> Pick a persona and the sliders set themselves. Personas stack, so you can pick two and fine tune after. The value is a county assessor estimate, not an asking price. The "i" next to it says so.
 
-**Action:** drag one slider on the left.
+## 0:50 to 1:10. Open a home
 
-> "It's live. Every slider re-ranks all 42 towns and the map instantly."
+Click a card. On a laptop a panel opens over the map. On a phone a sheet slides up, and you can swipe it down. The panel has an aerial photo or a Zillow photo, the score, the "Why this place" line, a link to Zillow, a link to the town page, and a comment box. The arrows step through the 60 homes (the counter reads 1 / 60). Press Escape or the close button to leave.
 
-## 0:50 to 1:20. Family
+> Every home is a real county record. The score is the score of its town for your priorities.
 
-**Action:** click **Change my answers** (persona cards reset here), click **Family**, then **Show my towns**. Drag **Max home value** to the left.
+## 1:10 to 1:30. Show the data behind the score
 
-**Expect:** the mountain towns drop out of the lead. Ephraim, Kaysville, Lehi, Bountiful and South Jordan sit within about a point of each other at the top. The count above the list falls as the cap tightens.
+On a phone, tap **Map** first. In the **Map layer** control choose **Median home value**.
 
-> "Same data, different person. A family puts safety, schools and cost first, so the top of the list changes completely. A budget cap removes towns they can't afford, from the list and the map."
+The map turns into a heat map. The legend shows 251,322 to 1,757,800 USD and says "Better: lower values". The note under it says colour shows each town's rank among the 42 measured towns, and that colours between towns are estimated.
 
-## 1:20 to 1:45. Why should you believe it?
+> Any of the 21 metrics can be a layer. Green is always better. The grey dots are the measured towns. Everything between them is interpolated, and the legend says so.
 
-**Action:** click the top town to open its detail page. Open one source link.
+## 1:30 to 1:45. Set a budget
 
-> "No black box. Every metric sits next to the Utah median, says in plain words whether this town is better or worse, and links to where the number came from."
+On a phone, tap **List**. Set **Max price** to **$500k**.
 
-## 1:45 to 2:00. Close
+The count drops to "172 matches" for the Skier answers. The list and the map pins both narrow.
 
-> "Utah Fit is React and TypeScript on a Convex backend. Its data comes from the Census Bureau, the EPA, the Utah Bureau of Criminal Identification, the Utah Transit Authority, the National Park Service and OpenStreetMap. Tell it what matters, and it shows you where you fit."
+## 1:45 to 2:20. Compare areas and check a source
+
+Open **Areas**. The page reads "All 42 areas ranked". Heber City, Midway and Park City are first, with 74, 73 and 71 out of 100. Each row has a "Why it fits" line, the median home value and the median rent.
+
+Click **See homes in Heber City**. The list filters to one area and shows a "Heber City (clear)" chip. Go back to **Areas** and click **About Heber City**.
+
+The town page shows the fit score and rank ("ranked 1 of 42"), the places to live there, and a section called **The numbers**. Each metric sits next to the Utah median, says whether the town is better or worse, and gives the source and year. For Heber City, median home value is 728,790 USD against a Utah median of 554,100, marked "Worse than the Utah median, 32% higher".
+
+> No black box. Every score traces to a Census, EPA, UTA, Utah BCI or OpenStreetMap number you can read.
+
+## 2:20 to 2:40. Rent instead of buy
+
+On a laptop, click **Change my answers**. On a phone, tap the **Utah Fit** logo, because the link is hidden at that width. Choose **Rent**, type 2000 in **Max rent per month**, click **Family**, and click **Show my matches**.
+
+You land on the **Apartments** view: "Showing 60 apartments in 8 areas · 128 matches". Cards show "HUD 2-bed fair market rent", not a listing price.
+
+> Apartments are real complexes. The rent is the federal fair market rent for the ZIP code.
+
+## 2:40 to 3:00. Accounts, then close
+
+Click **Messages**, then **Saved**, then the heart on a home. Each asks you to sign in or create an account. Click **Advertise**. The page shows "Sandbox: REDO payments are not connected yet. No charge is made."
+
+> Saving, comments, messages, roommates and ads need an account. Ads are always labelled Sponsored, and nothing goes live until a payment is confirmed.
+
+Close.
+
+> Utah Fit is React and TypeScript on Convex. Tell it what matters, and it shows you where you fit.
+
+## Not run on the live site
+
+These need an account or create real data, so no step above runs them. `e2e/signed-in.spec.ts` covers them against a local Convex backend.
+
+- Creating an account and signing in.
+- Saving a home, and the My saved places list.
+- Posting a comment, posting to a town feed, and reporting.
+- Sending a message.
+- Creating a roommate profile or a connection.
+- Creating an ad campaign and the sandbox checkout.
+
+## Avoid in a live demo
+
+Each of these was seen on the live site on 2026-11-06.
+
+- **Sort: Lowest estimated value.** The first home is an "Est. value" of $3k, a county record with an implausibly low assessed value. Use **Best fit**.
+- **Rent with no number.** Choosing **Rent** and leaving the rent blank opens the Homes view, not Apartments. Type a rent first.
+- **Roommate finder.** It exists at `#/roommates`, but no link in the app leads to it.
+- **Zillow photos.** Some homes show the Zillow logo in place of a photo.
 
 ## If something goes wrong
 
-- **Map tiles don't load:** keep going. The ranked list doesn't depend on them.
-- **"We couldn't load the towns":** click **Reload**.
-- **Foodie:** leave it out until restaurant data lands. Until then its ranking leans on transit.
+- **Map tiles do not load.** Keep going. The ranked list does not depend on them.
+- **A page says it could not load.** Reload. The data comes from one Convex deployment.
+- **The numbers differ from this script.** Say what the screen shows. The build stamp names the commit and deploy time. It is at the bottom-left of the page today, and moves into the header in commit `1ad3d1d`.
