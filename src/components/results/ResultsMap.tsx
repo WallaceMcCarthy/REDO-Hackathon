@@ -11,6 +11,8 @@ import SponsoredMapPins from '../ads/SponsoredMapPins';
 import SafeSectionBoundary from '../SafeSectionBoundary';
 import { BOUNDS, UTAH, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
+import PoiLayer, { type PoiKind } from './PoiLayer';
+import PoiToggle from './PoiToggle';
 import type { MapPin } from '../../data/mapPoints';
 import type { Row } from './types';
 
@@ -99,6 +101,7 @@ const townPinRadius: maplibregl.ExpressionSpecification = [
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
   const [layerId, setLayerId] = useState('');
   const [ready, setReady] = useState(false);
+  const [pois, setPois] = useState<Set<PoiKind>>(() => new Set<PoiKind>(['restaurant', 'trail', 'ski', 'school']));
   const [grouped, setGrouped] = useState(readGrouped);
   const groupedRef = useRef(grouped);
   groupedRef.current = grouped;
@@ -403,6 +406,14 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         </label>
       )}
       <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+      <SafeSectionBoundary>
+        <PoiLayer map={ready ? mapRef.current : null} enabled={pois} />
+        <PoiToggle enabled={pois} onToggle={kind => setPois(prev => {
+          const next = new Set(prev);
+          if (!next.delete(kind)) next.add(kind);
+          return next;
+        })} />
+      </SafeSectionBoundary>
       {ready && mapRef.current && <SafeSectionBoundary><SponsoredMapPins map={mapRef.current} cities={cities} selectedTown={selectedTown} /></SafeSectionBoundary>}
       {tip && (
         <div

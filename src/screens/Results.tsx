@@ -125,7 +125,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     return new Set((rows ?? []).map(r => r.city.id).filter(id => !townFilter || id === townFilter));
   }, [rows, townFilter, maxCommute]);
   const allPins = useMemo(
-    () => (view === 'areas' ? NONE : (listings ?? NONE).slice(0, 100)),
+    () => (view === 'areas' ? NONE : mapPins(points ?? NONE, listings ?? NONE, budget, townIds)),
     [view, points, listings, budget, townIds],
   );
   // Selecting must keep the same array when it can: a new one re-clusters every point.

@@ -17,7 +17,7 @@ type Props = { map: maplibregl.Map | null; enabled: ReadonlySet<PoiKind> };
 /** Adds one shared GeoJSON source and four cheap symbol layers. The map owns rendering, so React does not create a DOM marker per POI. */
 export default function PoiLayer({ map, enabled }: Props) {
   useEffect(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map) return;
     let cancelled = false;
     let popup: maplibregl.Popup | null = null;
 
