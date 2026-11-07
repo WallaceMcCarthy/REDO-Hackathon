@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useConvexAuth } from 'convex/react';
+import { AD_CATEGORIES, AD_CATEGORY_IDS, type AdCategory } from '../../../convex/lib/adCategories';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
 import { useCreateCheckout, useMyCampaigns, usePaymentProvider } from '../../data/adsHooks';
 import type { City } from '../../types';
+import AdImage from './AdImage';
+import { campaignPlacement } from './campaignPlacement';
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Select, Skeleton, Textarea } from '../ui';
 
 const KINDS = [
@@ -28,9 +31,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const returnedCanceled = hashParams.has('canceled');
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
+  const [category, setCategory] = useState<AdCategory | ''>('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [cityId, setCityId] = useState('');
   const [durationDays, setDurationDays] = useState(7);
   const [submitting, setSubmitting] = useState(false);
@@ -38,6 +43,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
 
   const selectedCity = cities.find((c) => c.id === cityId);
+  const now = Date.now();
 
   // Rate card: Map pin = $5/day ($500 cents), Featured = $10/day ($1000 cents), Job = $7/day ($700 cents)
   const ratePerDay = kind === 'featured' ? 10 : kind === 'job' ? 7 : 5;
@@ -45,7 +51,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !url.trim() || submitting) return;
+    if (!category || !title.trim() || !url.trim() || submitting) return;
     setSubmitting(true);
     setCheckoutNotice(null);
     setPendingCheckoutUrl(null);
@@ -53,9 +59,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
     try {
       const res = await createCheckout({
         kind,
+        category,
         title: title.trim(),
         body: body.trim(),
         url: url.trim(),
+        imageUrl: imageUrl.trim() || undefined,
         lat: selectedCity?.lat,
         lng: selectedCity?.lng,
         cityId: cityId || undefined,
@@ -72,9 +80,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
           'Campaign created as pending payment. Nothing was charged and it is not live.'
         );
         // Clear form
+        setCategory('');
         setTitle('');
         setBody('');
         setUrl('');
+        setImageUrl('');
       }
     } catch (err) {
       setCheckoutNotice(err instanceof ConvexError ? String(err.data) : 'Could not create the campaign. Check that you are signed in and try again.');
@@ -127,22 +137,33 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               {[0, 1].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
             </div>
           ) : campaigns.length === 0 ? (
-            <EmptyState title="No campaigns yet" description="Create your first sponsored pin or featured listing with the form." />
+            <EmptyState title="No campaigns yet" description="Create your first campaign with the form." />
           ) : (
             <ul className="space-y-3">
               {campaigns.map((c) => {
                 const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(1) : '0.0';
+                const townName = cities.find((t) => t.id === c.cityId)?.name;
+                const placement = campaignPlacement(c, townName, provider, now);
                 return (
                   <Card as="li" key={c._id}>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge>{KINDS.find((k) => k.value === c.kind)?.label ?? c.kind}</Badge>
                       {c.isSample && <Badge tone="sample" />}
-                      <Badge>{c.status.replace('_', ' ')}</Badge>
+                      <Badge>{AD_CATEGORIES[c.category ?? 'other'].label}</Badge>
+                      <Badge>{c.cityId ? townName ?? c.cityId : 'All Utah towns'}</Badge>
                     </div>
-                    <h3 className="mt-2 break-words font-semibold text-text">{c.title}</h3>
-                    {c.status === 'pending_payment' && (
-                      <p className="mt-1 text-caption text-text-muted">Awaiting verified payment. Not live.</p>
-                    )}
+                    <div className="mt-2 flex min-w-0 gap-3">
+                      <AdImage campaign={c} />
+                      <h3 className="min-w-0 break-words font-semibold text-text">{c.title}</h3>
+                    </div>
+                    <div className="mt-2 rounded-control bg-surface-sunken p-3">
+                      <p className="text-small font-semibold text-text">{placement.label}</p>
+                      <p className="mt-1 text-small text-text">{placement.text}</p>
+                      {placement.next && <p className="mt-1 text-small text-text-muted">{placement.next}</p>}
+                      {placement.link && (
+                        <a href={placement.link.href} className="mt-1 inline-flex min-h-11 items-center text-small text-alpine-700 underline underline-offset-2">{placement.link.label}</a>
+                      )}
+                    </div>
                     <p className="mt-2 line-clamp-2 break-words text-small text-text-muted">{c.body}</p>
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-small sm:grid-cols-4">
                       <div><dt className="text-text-muted">Impressions</dt><dd className="font-semibold text-text">{c.impressions}</dd></div>
@@ -162,48 +183,43 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
 
         <Card as="section" raised aria-labelledby="create-heading" className="self-start">
           <h2 id="create-heading" className="font-display text-title text-text">Create a campaign</h2>
-          <p className="mt-1 text-small text-text-muted">Reach Utah movers on map and town results.</p>
+          <p className="mt-1 text-small text-text-muted">Any Utah business or employer can reach people researching a town.</p>
 
           <form onSubmit={handleCreate} className="mt-stack space-y-stack">
+            <Field label="Location" hint={`Shown in the Sponsored section of ${selectedCity ? `the ${selectedCity.name} town page` : 'every town page'} once payment is verified.`}>
+              <Select value={cityId} onChange={(e) => setCityId(e.target.value)}>
+                <option value="">All Utah towns</option>
+                {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </Field>
+
+            <Field label="Image URL" hint="Optional. HTTPS only.">
+              <Input type="url" maxLength={500} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
+            </Field>
+
+            <Field label="Business name">
+              <Input type="text" required minLength={3} maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Your business" />
+            </Field>
+
+            <Field label="Message">
+              <Textarea required minLength={5} maxLength={300} rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Short pitch or offer" />
+            </Field>
+
+            <Field label="Link" hint="HTTPS only.">
+              <Input type="url" required maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/promo" />
+            </Field>
+
+            <Field label="Business category">
+              <Select required value={category} onChange={(e) => setCategory(e.target.value as AdCategory | '')}>
+                <option value="" disabled>Choose a category</option>
+                {AD_CATEGORY_IDS.map((id) => <option key={id} value={id}>{AD_CATEGORIES[id].label}</option>)}
+              </Select>
+            </Field>
+
             <div>
               <p className="mb-1.5 text-small font-semibold text-text">Ad type</p>
               <Segmented label="Ad type" options={KINDS} value={kind} onChange={setKind} />
             </div>
-
-            <Field label="Headline">
-              <Input
-                type="text"
-                required
-                minLength={3}
-                maxLength={80}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={kind === 'job' ? 'Apply to REDO!' : kind === 'featured' ? 'Park City Luxury Mountain Living' : "Eat at Freddy's Cafe"}
-              />
-            </Field>
-
-            <Field label="Description">
-              <Textarea
-                required
-                rows={3}
-                minLength={5}
-                maxLength={300}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Short pitch or offer"
-              />
-            </Field>
-
-            <Field label="Destination URL" hint="HTTPS only.">
-              <Input type="url" required maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/promo" />
-            </Field>
-
-            <Field label="Target city">
-              <Select value={cityId} onChange={(e) => setCityId(e.target.value)}>
-                <option value="">Statewide / Salt Lake Metro</option>
-                {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </Field>
 
             <Field label="Duration">
               <Select value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value))}>

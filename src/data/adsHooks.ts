@@ -1,13 +1,16 @@
 import { useCallback } from 'react';
 import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import type { AdCategory } from '../../convex/lib/adCategories';
 
 export interface CampaignRecord {
   _id: string;
   kind: 'pin' | 'featured' | 'job';
+  category?: AdCategory;
   title: string;
   body: string;
   url: string;
+  imageUrl?: string;
   lat?: number;
   lng?: number;
   listingId?: string;
@@ -35,35 +38,19 @@ export function useActiveFeatured(cityId?: string): CampaignRecord[] | undefined
   return result as CampaignRecord[] | undefined;
 }
 
+/** Every active campaign shown for a town, featured first. Undefined while loading. */
+export function useTownCampaigns(cityId: string): CampaignRecord[] | undefined {
+  const pins = useActivePins(cityId);
+  const featured = useActiveFeatured(cityId);
+  return pins && featured ? [...featured, ...pins] : undefined;
+}
+
 export function useMyCampaigns(): CampaignRecord[] | undefined {
   const { isAuthenticated } = useConvexAuth();
   const queryFn = (api as any).ads?.listMyCampaigns;
   // The query throws for signed-out visitors, which would take the whole app down.
   const result = useQuery(queryFn, queryFn && isAuthenticated ? {} : 'skip');
   return result as CampaignRecord[] | undefined;
-}
-
-export function useCreateCampaign() {
-  const mutationFn = (api as any).ads?.createCampaign;
-  const mutate = useMutation(mutationFn ?? (() => Promise.resolve({ campaignId: '', checkoutUrl: '', amount: 0 })));
-
-  return useCallback(
-    async (params: {
-      kind: 'pin' | 'featured' | 'job';
-      title: string;
-      body: string;
-      url: string;
-      lat?: number;
-      lng?: number;
-      listingId?: string;
-      cityId?: string;
-      durationDays: number;
-    }) => {
-      if (!mutationFn) return null;
-      return await mutate(params);
-    },
-    [mutate, mutationFn],
-  );
 }
 
 export function useCreateCheckout() {
@@ -73,9 +60,11 @@ export function useCreateCheckout() {
   return useCallback(
     async (params: {
       kind: 'pin' | 'featured' | 'job';
+      category: AdCategory;
       title: string;
       body: string;
       url: string;
+      imageUrl?: string;
       lat?: number;
       lng?: number;
       listingId?: string;

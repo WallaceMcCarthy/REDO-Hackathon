@@ -1,11 +1,14 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { AD_CATEGORY_IDS } from "./lib/adCategories";
 
 export const campaignKindValidator = v.union(
   v.literal("pin"),
   v.literal("featured"),
   v.literal("job"),
 );
+
+export const campaignCategoryValidator = v.union(...AD_CATEGORY_IDS.map((c) => v.literal(c)));
 
 export const campaignStatusValidator = v.union(
   v.literal("pending_payment"),
@@ -22,9 +25,12 @@ export const adsTables = {
     // Unset once the advertiser deletes their account; the row stays because payments point at it.
     advertiserUserId: v.optional(v.id("users")),
     kind: campaignKindValidator,
+    // Optional because rows created before categories exist have none; readers treat those as "other".
+    category: v.optional(campaignCategoryValidator),
     title: v.string(),
     body: v.string(),
     url: v.string(),
+    imageUrl: v.optional(v.string()),
     lat: v.optional(v.number()),
     lng: v.optional(v.number()),
     listingId: v.optional(v.string()),

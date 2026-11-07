@@ -51,6 +51,7 @@ const campaigns: Step = async (ctx, userId) => {
       title: "Deleted advertiser",
       body: "",
       url: "",
+      imageUrl: undefined,
       lat: undefined,
       lng: undefined,
       listingId: undefined,

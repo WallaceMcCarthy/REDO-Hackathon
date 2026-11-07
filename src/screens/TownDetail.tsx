@@ -86,7 +86,7 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
       </SafeSectionBoundary>
 
       <SafeSectionBoundary fallback={<Unavailable>Local businesses aren’t available right now. Try again in a moment.</Unavailable>}>
-        <TownBusinessHighlights cityId={id} cityName={town.name} />
+        <TownBusinessHighlights cityId={id} cityName={town.name} metrics={metrics} />
       </SafeSectionBoundary>
 
       <SafeSectionBoundary fallback={<Unavailable>The {town.name} feed couldn’t load right now. Try again in a moment.</Unavailable>}>

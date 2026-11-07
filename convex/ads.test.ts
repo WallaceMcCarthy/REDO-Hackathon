@@ -1,10 +1,14 @@
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { AD_CATEGORY_IDS } from "./lib/adCategories";
 import schema from "./schema";
 
 const modules = {
   "./ads.ts": () => import("./ads"),
+  "./search.ts": () => import("./search"),
+  "./sampleData.ts": () => import("./sampleData"),
   "./_generated/server.js": () => import("./_generated/server.js"),
 };
 
@@ -16,6 +20,8 @@ const refs = {
   recordImpression: makeFunctionReference<"mutation">("ads:recordImpression"),
   recordClick: makeFunctionReference<"mutation">("ads:recordClick"),
   fulfillRedoPayment: makeFunctionReference<"mutation">("ads:fulfillRedoPayment"),
+  rank: makeFunctionReference<"query">("search:rank"),
+  seedSample: makeFunctionReference<"mutation">("sampleData:seedSampleContent"),
 };
 
 async function setup() {
@@ -181,5 +187,103 @@ describe("ads security & exploit resistance", () => {
     myCampaigns = await advertiser.query(refs.listMyCampaigns, {});
     expect(myCampaigns[0].impressions).toBe(1);
     expect(myCampaigns[0].clicks).toBe(1);
+  });
+});
+
+describe("ad categories and placement", () => {
+  const cities: any[] = JSON.parse(readFileSync("data/cities.json", "utf8"));
+  const draft = { kind: "pin", title: "Corner Shop", body: "A short pitch", url: "https://example.com/a", durationDays: 7 };
+  const seedCities = (t: any) => t.run(async (ctx: any) => { for (const c of cities) await ctx.db.insert("cities", c); });
+  const campaign = { kind: "featured", title: "Paid slot", body: "A short pitch", url: "https://example.com/a", startsAt: 0, impressions: 0, clicks: 0, isSample: false };
+
+  it("stores a valid category and files a missing one under other", async () => {
+    const { t, advertiser } = await setup();
+    await advertiser.mutation(refs.createCampaign, { ...draft, category: "food" });
+    await advertiser.mutation(refs.createCampaign, draft);
+    const rows: any[] = await t.run((ctx: any) => ctx.db.query("campaigns").collect());
+    expect(rows.map((r) => r.category).sort()).toEqual(["food", "other"]);
+  });
+
+  it("rejects a category outside the list", async () => {
+    const { advertiser } = await setup();
+    await expect(advertiser.mutation(refs.createCampaign, { ...draft, category: "casino" })).rejects.toThrow(/casino/);
+  });
+
+  it("stores an https image and rejects any other image URL", async () => {
+    const { t, advertiser } = await setup();
+    await advertiser.mutation(refs.createCampaign, { ...draft, imageUrl: "https://example.com/a.png" });
+    const rows: any[] = await t.run((ctx: any) => ctx.db.query("campaigns").collect());
+    expect(rows[0].imageUrl).toBe("https://example.com/a.png");
+    for (const imageUrl of ["http://example.com/a.png", "javascript:alert(1)", "data:image/svg+xml,<svg/>", "/sample-ads/food.svg"]) {
+      await expect(advertiser.mutation(refs.createCampaign, { ...draft, imageUrl })).rejects.toThrow(/Image URL/);
+    }
+  });
+
+  it("rejects a target town that does not exist and accepts a real one", async () => {
+    const { t, advertiser } = await setup();
+    await seedCities(t);
+    await expect(advertiser.mutation(refs.createCampaign, { ...draft, cityId: "atlantis" })).rejects.toThrow("Choose a target town from the list");
+    await expect(advertiser.mutation(refs.createCampaign, { ...draft, cityId: "provo" })).resolves.toBeDefined();
+  });
+
+  it("never changes rankTowns output, even for active campaigns on the last-ranked town", async () => {
+    const { t } = await setup();
+    await seedCities(t);
+    await t.run(async (ctx: any) => {
+      await ctx.db.insert("metrics", {
+        id: "trails", label: "Trails", category: "outdoors", unit: "trails", higherIsBetter: true, description: "", source: "", sourceUrl: "", year: 2024,
+        values: Object.fromEntries(cities.map((c, i) => [c.id, i])),
+      });
+    });
+    const args = { weights: { trails: 1 } };
+    const before: any[] = await t.query(refs.rank, args);
+    const last = before[before.length - 1].cityId;
+    expect(last).toBe(cities[0].id);
+
+    await t.run(async (ctx: any) => {
+      for (const kind of ["featured", "pin", "job"]) {
+        await ctx.db.insert("campaigns", { ...campaign, kind, cityId: last, category: "food", status: "active", endsAt: Date.now() + 1e9 });
+      }
+    });
+    await t.mutation(refs.seedSample, {});
+
+    expect(await t.query(refs.rank, args)).toEqual(before);
+  });
+
+  it("never shows a pending, expired, or out-of-date campaign", async () => {
+    const { t } = await setup();
+    const future = Date.now() + 1e9;
+    await t.run(async (ctx: any) => {
+      for (const kind of ["featured", "pin"]) {
+        await ctx.db.insert("campaigns", { ...campaign, kind, cityId: "provo", status: "pending_payment", endsAt: future });
+        await ctx.db.insert("campaigns", { ...campaign, kind, cityId: "provo", status: "expired", endsAt: future });
+        await ctx.db.insert("campaigns", { ...campaign, kind, cityId: "provo", status: "active", endsAt: Date.now() - 1 });
+      }
+    });
+    expect(await t.query(refs.getActivePins, { cityId: "provo" })).toEqual([]);
+    expect(await t.query(refs.getActiveFeatured, { cityId: "provo" })).toEqual([]);
+  });
+
+  it("seeds varied labelled samples idempotently and leaves paying campaigns alone", async () => {
+    const { t } = await setup();
+    await seedCities(t);
+    await t.run((ctx: any) => ctx.db.insert("campaigns", { ...campaign, status: "active", endsAt: Date.now() + 1e9 }));
+    await t.mutation(refs.seedSample, {});
+    await t.mutation(refs.seedSample, {});
+
+    const rows: any[] = await t.run((ctx: any) => ctx.db.query("campaigns").collect());
+    const samples = rows.filter((r) => r.isSample);
+    expect(rows.length - samples.length).toBe(1);
+    expect(samples.length).toBeGreaterThanOrEqual(25);
+    expect(new Set(samples.map((s) => s.cityId)).size).toBeGreaterThanOrEqual(10);
+    expect(new Set(samples.map((s) => s.category))).toEqual(new Set(AD_CATEGORY_IDS));
+    for (const s of samples) {
+      const city = cities.find((c) => c.id === s.cityId);
+      expect([s.lat, s.lng]).toEqual([city.lat, city.lng]);
+      expect(s.url).toMatch(/^https:\/\//);
+      expect(existsSync(`public${s.imageUrl}`)).toBe(true);
+      expect(s.advertiserUserId).toBeUndefined();
+      expect(s.status).toBe("active");
+    }
   });
 });

@@ -3,6 +3,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { campaignCategoryValidator } from "./adsSchema";
+import type { AdCategory } from "./lib/adCategories";
 import { requireUserId } from "./lib/auth";
 import { redoClient, selectPaymentClient } from "./lib/payments";
 import { priceCents, type CampaignKind } from "./lib/pricing";
@@ -23,22 +25,22 @@ export const UTAH_BOUNDS = {
  * 2. Must use strictly HTTPS protocol (no javascript:, data:, http:, etc.)
  * 3. Enforces reasonable length bound (<= 500 chars)
  */
-export function validateHttpsUrl(rawUrl: string): string {
+export function validateHttpsUrl(rawUrl: string, label = "Destination URL"): string {
   const trimmed = (rawUrl || "").trim();
   if (!trimmed) {
-    throw new ConvexError("Destination URL is required");
+    throw new ConvexError(`${label} is required`);
   }
   if (trimmed.length > 500) {
-    throw new ConvexError("Destination URL exceeds maximum length of 500 characters");
+    throw new ConvexError(`${label} exceeds maximum length of 500 characters`);
   }
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new ConvexError("Invalid destination URL format");
+    throw new ConvexError(`Invalid ${label} format`);
   }
   if (parsed.protocol !== "https:") {
-    throw new ConvexError("Destination URL must use HTTPS protocol (https://)");
+    throw new ConvexError(`${label} must use HTTPS protocol (https://)`);
   }
   return parsed.toString();
 }
@@ -96,9 +98,11 @@ export const listMyCampaigns = query({
 
 const campaignArgs = {
   kind: v.union(v.literal("pin"), v.literal("featured"), v.literal("job")),
+  category: v.optional(campaignCategoryValidator),
   title: v.string(),
   body: v.string(),
   url: v.string(),
+  imageUrl: v.optional(v.string()),
   lat: v.optional(v.number()),
   lng: v.optional(v.number()),
   listingId: v.optional(v.string()),
@@ -108,9 +112,11 @@ const campaignArgs = {
 
 type CampaignInput = {
   kind: CampaignKind;
+  category?: AdCategory;
   title: string;
   body: string;
   url: string;
+  imageUrl?: string;
   lat?: number;
   lng?: number;
   listingId?: string;
@@ -134,6 +140,7 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
 
   // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
   const validUrl = validateHttpsUrl(args.url);
+  const imageUrl = args.imageUrl?.trim() ? validateHttpsUrl(args.imageUrl, "Image URL") : undefined;
 
   // 4. Duration bounds
   const durationDays = Math.round(args.durationDays);
@@ -159,6 +166,12 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
     }
   }
 
+  // 6. A campaign aimed at an unknown town would be paid for and shown nowhere
+  const { cityId } = args;
+  if (cityId && !(await ctx.db.query("cities").withIndex("by_cityId", (q) => q.eq("id", cityId)).unique())) {
+    throw new ConvexError("Choose a target town from the list");
+  }
+
   const now = Date.now();
   const durationMs = durationDays * 24 * 3600 * 1000;
   const amount = priceCents(args.kind, durationDays);
@@ -166,9 +179,11 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
   const campaignId = await ctx.db.insert("campaigns", {
     advertiserUserId: userId,
     kind: args.kind,
+    category: args.category ?? "other",
     title,
     body,
     url: validUrl,
+    imageUrl,
     lat: args.lat,
     lng: args.lng,
     listingId: args.listingId,

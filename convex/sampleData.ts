@@ -1,10 +1,68 @@
+import { ConvexError } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import type { AdCategory } from "./lib/adCategories";
+
+const SAMPLE_DURATION_MS = 365 * 24 * 3600 * 1000;
+
+type SampleCampaign = {
+  kind: "pin" | "featured" | "job";
+  category: AdCategory;
+  cityId: string;
+  title: string;
+  body: string;
+  url: string;
+};
+
+const sample = (kind: SampleCampaign["kind"], category: AdCategory, cityId: string, title: string, body: string): SampleCampaign => ({
+  kind,
+  category,
+  cityId,
+  title,
+  body,
+  url: `https://example.com/sample/${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+});
+
+/** Invented businesses on example.com. REDO is the one real name, agreed in CONTRACT.md. Copy makes no factual claims. */
+export const SAMPLE_CAMPAIGNS: SampleCampaign[] = [
+  {
+    kind: "job",
+    category: "tech_jobs",
+    cityId: "salt-lake-city",
+    title: "Apply to REDO!",
+    body: "We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.",
+    url: "https://getredo.com/careers",
+  },
+  sample("pin", "food", "salt-lake-city", "Snowplow Waffle Cart", "Sweet and savory waffles for the morning commute."),
+  sample("pin", "services", "salt-lake-city", "Pigeonhole Moving Helpers", "Help with the heavy lifting when you land in a new apartment."),
+  sample("pin", "food", "park-city", "Marmot and Mustard Deli", "Stacked sandwiches to carry up the canyon."),
+  sample("pin", "outdoor", "park-city", "Pika Powder Ski Tuning", "Edges, wax, and bindings checked before the first storm."),
+  sample("featured", "retail", "park-city", "Thistlewick Mountain Mercantile", "Wool layers, camp mugs, and small gifts for new neighbors."),
+  sample("pin", "outdoor", "moab", "Redfin Lizard Bike Rentals", "Full-suspension rentals and trail maps for desert riding."),
+  sample("pin", "food", "moab", "Saltbush Taco Window", "Quick tacos and cold drinks after a long day outside."),
+  sample("pin", "food", "provo", "Lanternfish Noodle Counter", "Hand-pulled noodles and late hours for campus neighbors."),
+  sample("job", "tech_jobs", "provo", "Quillfeather Data Works", "Hiring junior analysts for a pretend data team near campus."),
+  sample("pin", "health", "provo", "Gentlemolar Family Dental", "New-patient cleanings for families settling into town."),
+  sample("job", "tech_jobs", "lehi", "Bitterroot Byte Foundry", "Hiring backend engineers for an invented cloud tools startup."),
+  sample("pin", "services", "lehi", "Wrenfield Home Inspections", "Walk through a house with an inspector before you sign."),
+  sample("pin", "food", "ogden", "Cinderloaf Bakery", "Fresh rolls and fruit hand pies near the old rail yard."),
+  sample("pin", "recreation", "ogden", "Gearjammer Climbing Barn", "Indoor bouldering for rainy days and beginners."),
+  sample("pin", "outdoor", "st-george", "Sunscald Canyon Guides", "Half-day canyon walks for newcomers to the red rock."),
+  sample("pin", "health", "st-george", "Quailbrush Physical Therapy", "Recovery plans for runners and weekend hikers."),
+  sample("pin", "food", "logan", "Cachehollow Creamery Cart", "Small-batch ice cream on summer evenings."),
+  sample("pin", "retail", "logan", "Inkmoth Paperback Nook", "Secondhand paperbacks and a quiet reading corner."),
+  sample("pin", "outdoor", "heber-city", "Larkspur Float Outfitters", "Tube and paddleboard rentals for slow summer days."),
+  sample("pin", "recreation", "cedar-city", "Grand Marmalade Players", "A pretend community theater looking for new faces."),
+  sample("pin", "services", "cedar-city", "Juniperjack Pet Sitting", "Drop-in visits while you settle into a new job."),
+  sample("pin", "outdoor", "kanab", "Vermilion Goat Trail Shuttle", "Point-to-point shuttles so you can hike one way."),
+  sample("pin", "other", "vernal", "Fossilfern Community Print Shop", "Flyers and yard signs for local clubs and events."),
+  sample("featured", "retail", "sandy", "Copperquail Furniture Barn", "Sturdy tables and shelves for a first Utah home."),
+  sample("job", "services", "sandy", "Hollowbrook Snow Removal Crew", "Seasonal drivers wanted for invented neighborhood routes."),
+];
 
 export const seedSampleContent = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const duration30Days = 30 * 24 * 3600 * 1000;
 
     // 1. Remove existing sample records to keep seed idempotent
     try {
@@ -36,80 +94,23 @@ export const seedSampleContent = internalMutation({
       demoUserId = "sample_user_demo";
     }
 
-    // 3. Seed Sample Campaigns (Pins, Featured Slot, Job Opening)
-    const sampleCampaigns = [
-      {
-        advertiserUserId: demoUserId,
-        kind: "job",
-        title: "Apply to REDO!",
-        body: "We are hiring engineers, product builders, and designers in Utah! Build software that moves mountains.",
-        url: "https://getredo.com/careers",
-        lat: 40.7608,
-        lng: -111.8910,
-        cityId: "salt-lake-city",
+    // 3. Seed sample campaigns at their real town coordinates. They have no advertiser, so they sit in nobody's dashboard.
+    const cities = await ctx.db.query("cities").collect();
+    for (const camp of SAMPLE_CAMPAIGNS) {
+      const city = cities.find((c) => c.id === camp.cityId);
+      if (!city) throw new ConvexError(`Seed cities first: no town ${camp.cityId}`);
+      await ctx.db.insert("campaigns", {
+        ...camp,
+        imageUrl: `/sample-ads/${camp.category}.svg`,
+        lat: city.lat,
+        lng: city.lng,
         startsAt: now,
-        endsAt: now + duration30Days,
+        endsAt: now + SAMPLE_DURATION_MS,
         status: "active",
-        impressions: 1420,
-        clicks: 184,
+        impressions: 0,
+        clicks: 0,
         isSample: true,
-      },
-      {
-        advertiserUserId: demoUserId,
-        kind: "pin",
-        title: "Freddy's Alpine Bakery",
-        body: "Handcrafted artisan sourdough and single-origin espresso. Fuel up before heading up the canyon!",
-        url: "https://example.com/freddys-alpine",
-        lat: 40.6461,
-        lng: -111.4980,
-        cityId: "park-city",
-        startsAt: now,
-        endsAt: now + duration30Days,
-        status: "active",
-        impressions: 890,
-        clicks: 76,
-        isSample: true,
-      },
-      {
-        advertiserUserId: demoUserId,
-        kind: "featured",
-        title: "Wasatch Crest Mountain Residence",
-        body: "Ski-in/ski-out luxury living with panoramic mountain views and modern timber craftsmanship.",
-        url: "https://example.com/featured-wasatch-crest",
-        lat: 40.638,
-        lng: -111.512,
-        cityId: "park-city",
-        startsAt: now,
-        endsAt: now + duration30Days,
-        status: "active",
-        impressions: 2150,
-        clicks: 198,
-        isSample: true,
-      },
-      {
-        advertiserUserId: demoUserId,
-        kind: "pin",
-        title: "Moab Slickrock Outfitters",
-        body: "Full-suspension mountain bike rentals, desert gear, and guided trail expeditions.",
-        url: "https://example.com/moab-slickrock",
-        lat: 38.5733,
-        lng: -109.5498,
-        cityId: "moab",
-        startsAt: now,
-        endsAt: now + duration30Days,
-        status: "active",
-        impressions: 640,
-        clicks: 53,
-        isSample: true,
-      },
-    ];
-
-    for (const camp of sampleCampaigns) {
-      try {
-        await (ctx.db.insert as any)("campaigns", camp);
-      } catch (err) {
-        console.warn("Could not insert sample campaign:", err);
-      }
+      });
     }
 
     // 4. Seed Sample Town Comments (with 1-level nested replies)
@@ -208,7 +209,7 @@ export const seedSampleContent = internalMutation({
 
     return {
       status: "success",
-      sampleCampaignsCount: sampleCampaigns.length,
+      sampleCampaignsCount: SAMPLE_CAMPAIGNS.length,
       sampleCommentsCount: sampleComments.length,
     };
   },

@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
+import { AD_CATEGORIES } from '../../../convex/lib/adCategories';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { Badge, Button, Card } from '../ui';
+import AdImage from './AdImage';
 import { safeHttpsHref } from './safeHttpsHref';
 
 interface FeaturedListingSlotProps {
@@ -32,10 +34,15 @@ export default function FeaturedListingSlot({
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="sponsored" />
           {campaign.isSample && <Badge tone="sample" />}
-          <span className="text-caption text-text-muted">Featured placement</span>
+          <span className="text-caption text-text-muted">{AD_CATEGORIES[campaign.category ?? 'other'].label}</span>
         </div>
-        <h3 className="mt-2 break-words font-display text-title text-text">{campaign.title}</h3>
-        <p className="mt-1 break-words text-small text-text-muted">{campaign.body}</p>
+        <div className="mt-2 flex min-w-0 gap-3">
+          <AdImage campaign={campaign} />
+          <div className="min-w-0">
+            <h3 className="break-words font-display text-title text-text">{campaign.title}</h3>
+            <p className="mt-1 break-words text-small text-text-muted">{campaign.body}</p>
+          </div>
+        </div>
       </div>
 
       <div className="mt-stack border-t border-border pt-3">
