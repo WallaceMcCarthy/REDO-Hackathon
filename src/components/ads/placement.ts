@@ -17,13 +17,14 @@ export function adLink({ listingId, cityId, url }: Pick<CampaignRecord, 'listing
 /** The call to action on an ad for a listing. */
 export const listingAction = (listingId: string) => (isRental(listingId) ? 'View rental' : 'View home');
 
-/** Featured campaigns for the towns on screen, first town first. Statewide campaigns only fill what is left. */
+/** Featured campaigns for the towns on screen: paid ads, then sample ads for real listings, then other samples. First town first within each. */
 export function pickFeatured(featured: CampaignRecord[], townIds: string[], max: number): CampaignRecord[] {
   const order = new Map(townIds.map((id, i) => [id, i]));
   const rank = (c: CampaignRecord) => (c.cityId ? order.get(c.cityId) : townIds.length);
+  const tier = (c: CampaignRecord) => (!c.isSample ? 0 : c.listingId ? 1 : 2);
   return [...new Map(featured.map(c => [c._id, c])).values()]
     .filter(c => rank(c) !== undefined)
-    .sort((a, b) => rank(a)! - rank(b)!)
+    .sort((a, b) => tier(a) - tier(b) || rank(a)! - rank(b)!)
     .slice(0, max);
 }
 
