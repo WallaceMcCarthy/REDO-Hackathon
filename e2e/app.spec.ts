@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cardNames, cards, gotoAreas, gotoResults, showList, showMap, openControls, pins, setRange, TOWNS, settledZoom, zoomOf } from './helpers';
+import { cardNames, cards, gotoAreas, gotoResults, showList, showMap, openControls, pinCount, setRange, TOWNS, settledZoom, zoomOf } from './helpers';
 
-const TILE_HOST = /arcgisonline\.com/;
+const TILE_HOST = /tiles\.openfreemap\.org/;
 
 function watch(page: Page) {
   const errors: string[] = [];
@@ -17,10 +17,10 @@ test.describe('Utah Fit', () => {
   test('1. landing loads clean and a persona reaches results', async ({ page }) => {
     const w = watch(page);
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find the Utah town');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find a home in Utah');
     await page.getByRole('button', { name: /Skier/ }).click();
     await expect(page.getByRole('button', { name: /Skier/ })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Show my towns' }).click();
+    await page.getByRole('button', { name: 'Show my matches' }).click();
     await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
     await page.waitForLoadState('networkidle');
     expect(w.errors, 'console errors').toEqual([]);
@@ -31,7 +31,7 @@ test.describe('Utah Fit', () => {
     await gotoAreas(page);
     await expect(cards(page)).toHaveCount(TOWNS);
     await showMap(page);
-    await expect(pins(page)).toHaveCount(TOWNS);
+    await expect.poll(() => pinCount(page)).toBe(TOWNS);
     await showList(page);
     await openControls(page);
     // Zero out outdoors first, then max it; the top of the list should differ.
@@ -48,91 +48,74 @@ test.describe('Utah Fit', () => {
   test('3. map tiles render real imagery', async ({ page }) => {
     const tiles: { url: string; status: number; len: number }[] = [];
     page.on('response', async r => {
-      if (/\/tile\//.test(r.url()) || /cartocdn/.test(r.url())) {
+      if (/\.pbf/.test(r.url()) || /cartocdn/.test(r.url())) {
         const body = await r.body().catch(() => Buffer.alloc(0));
         tiles.push({ url: r.url(), status: r.status(), len: body.length });
       }
     });
     await gotoResults(page);
     await showMap(page);
-    await expect.poll(() => page.locator('img.leaflet-tile-loaded').count()).toBeGreaterThan(3);
-    await page.waitForLoadState('networkidle');
-    expect(tiles.length).toBeGreaterThan(3);
+    await settledZoom(page);
+    await expect.poll(() => tiles.length).toBeGreaterThan(3);
     for (const t of tiles) {
       expect(t.status, t.url).toBe(200);
       expect(t.url).not.toMatch(/basemaps\.cartocdn\.com/);
       expect(t.url).toMatch(TILE_HOST);
     }
     expect(new Set(tiles.map(t => t.len)).size, 'tile byte sizes should vary').toBeGreaterThan(1);
-    // Pixel check: loaded tiles must not be a single flat colour (placeholder-like).
-    const stats = await page.evaluate(async () => {
-      const imgs = [...document.querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded')];
-      const out: { w: number; colors: number }[] = [];
-      for (const img of imgs.slice(0, 12)) {
-        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
-        const ctx = c.getContext('2d')!;
-        const im = new Image(); im.crossOrigin = 'anonymous'; im.src = img.src;
-        try { await im.decode(); ctx.drawImage(im, 0, 0); } catch { continue; }
-        const d = ctx.getImageData(0, 0, c.width, c.height).data;
-        const seen = new Set<number>();
-        for (let i = 0; i < d.length; i += 16) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
-        out.push({ w: c.width, colors: seen.size });
-      }
-      return out;
-    });
-    console.log('tile pixel stats', JSON.stringify(stats));
-    test.info().annotations.push({ type: 'tiles', description: `${tiles.length} tiles, sizes ${[...new Set(tiles.map(t => t.len))].slice(0, 8).join(',')}` });
+    // Pixel check: the drawn canvas must not be a single flat colour, which is what a dead WebGL context looks like.
+    const shot = (await page.locator('canvas.maplibregl-canvas').screenshot()).toString('base64');
+    const colors = await page.evaluate(async b64 => {
+      const im = new Image();
+      im.src = `data:image/png;base64,${b64}`;
+      await im.decode();
+      const c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const ctx = c.getContext('2d')!;
+      ctx.drawImage(im, 0, 0);
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      const seen = new Set<number>();
+      for (let i = 0; i < d.length; i += 16) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      return seen.size;
+    }, shot);
+    expect(colors, 'distinct colours on the map canvas').toBeGreaterThan(50);
   });
 
   test('4. zoom with + control and mouse wheel', async ({ page, isMobile }) => {
-    await gotoResults(page);
+    const tileUrls = new Set<string>();
+    page.on('response', r => { if (/\.pbf/.test(r.url())) tileUrls.add(r.url()); });
+    await gotoAreas(page);
     await showMap(page);
-    await expect.poll(() => page.locator('img.leaflet-tile-loaded').count()).toBeGreaterThan(3);
-    await page.waitForLoadState('networkidle');
+    await expect.poll(() => pinCount(page)).toBe(TOWNS);
     const z0 = await settledZoom(page);
-    const urls0 = new Set(await page.locator('img.leaflet-tile').evaluateAll(els => els.map(e => (e as HTMLImageElement).src)));
-    const map = page.locator('.leaflet-container');
-    // Remember the pin furthest from the map centre; zooming about the centre must scale its offset by 2^dz.
-    const offsetOf = () => page.evaluate(() => {
-      const m = document.querySelector('.leaflet-container')!.getBoundingClientRect();
-      const cx = m.x + m.width / 2, cy = m.y + m.height / 2;
-      return [...document.querySelectorAll('.leaflet-marker-icon')].map(e => {
-        const r = e.getBoundingClientRect();
-        return { title: e.getAttribute('title'), dx: r.x + r.width / 2 - cx, dy: r.y + r.height / 2 - cy };
-      });
-    });
-    const offs0 = await offsetOf();
-    const far = offs0.reduce((a, b) => (Math.hypot(b.dx, b.dy) > Math.hypot(a.dx, a.dy) ? b : a));
-    const t0 = Date.now();
-    // The opening fit is fractional (zoomSnap 0.25) and the first + click snaps to a whole level, so assert each click raises zoom.
-    let prev = z0;
+    const tiles0 = tileUrls.size;
     for (let i = 0; i < 3; i++) {
+      const before = await zoomOf(page);
       await page.getByRole('button', { name: 'Zoom in' }).click();
-      await expect.poll(() => zoomOf(page), { timeout: 20_000 }).toBeGreaterThan(prev + 0.2);
-      prev = await settledZoom(page);
+      await expect.poll(() => zoomOf(page), { timeout: 20_000 }).toBeGreaterThan(before + 0.2);
+      await settledZoom(page);
     }
     const z1 = await settledZoom(page);
-    const ms = Date.now() - t0;
-    console.log(`ZOOM_TIMING ${isMobile ? 'mobile' : 'desktop'} 3x + button: ${ms} ms (z ${z0} -> ${z1})`);
     expect(z1).toBeGreaterThanOrEqual(z0 + 2.5);
-    const urls1 = await page.locator('img.leaflet-tile').evaluateAll(els => els.map(e => (e as HTMLImageElement).src));
-    expect(urls1.some(u => !urls0.has(u)), 'new tiles loaded').toBe(true);
-    expect(await pins(page).count(), 'pins remain attached').toBeGreaterThan(0);
-    const after = (await offsetOf()).find(p => p.title === far.title)!;
-    const ratio = Math.hypot(after.dx, after.dy) / Math.hypot(far.dx, far.dy);
-    console.log(`pin "${far.title}" offset ratio ${ratio.toFixed(2)} vs expected ${(2 ** (z1 - z0)).toFixed(2)}`);
-    expect(ratio / 2 ** (z1 - z0), 'pin stays attached to its lat/lng').toBeGreaterThan(0.9);
-    expect(ratio / 2 ** (z1 - z0)).toBeLessThan(1.1);
+    expect(tileUrls.size, 'new tiles loaded').toBeGreaterThan(tiles0);
 
-    // Pin stays glued to its lat/lng: after wheel zoom the pin must still be inside the map and tooltip-able.
+    // A rendered pin must sit on the screen point its lat/lng projects to.
+    const onItsPoint = await page.evaluate(() => {
+      const map = window.__utahMap!;
+      const layers = ['towns-circle', 'towns-dots'];
+      const drawn = map.queryRenderedFeatures({ layers });
+      return drawn.length > 0 && drawn.every(f => {
+        const p = map.project((f.geometry as unknown as { coordinates: [number, number] }).coordinates);
+        return map.queryRenderedFeatures([[p.x - 4, p.y - 4], [p.x + 4, p.y + 4]], { layers }).some(h => h.properties.id === f.properties.id);
+      });
+    });
+    expect(onItsPoint, 'pins stay attached to their lat/lng').toBe(true);
+
     if (!isMobile) {
-      const box = (await map.boundingBox())!;
+      const box = (await page.locator('canvas.maplibregl-canvas').boundingBox())!;
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      const tw = Date.now();
       await page.mouse.wheel(0, -300);
       await expect.poll(() => zoomOf(page), { timeout: 20_000 }).toBeGreaterThan(z1);
-      const z2 = await settledZoom(page);
-      console.log(`ZOOM_TIMING desktop wheel: ${Date.now() - tw} ms (z ${z1} -> ${z2})`);
     }
   });
 
@@ -148,21 +131,23 @@ test.describe('Utah Fit', () => {
     await expect(page.getByText(`${n} of ${TOWNS} areas match`)).toBeVisible();
     await page.keyboard.press('Escape');
     await showMap(page);
-    expect(await pins(page).count(), 'pins follow filter').toBe(n);
+    await expect.poll(() => pinCount(page), 'pins follow filter').toBe(n);
     await showList(page);
     await openControls(page);
     await setRange(page, /Max commute/, 'max');
+    // On phones the Priorities sheet covers the List/Map toggle until it is dismissed.
+    await page.keyboard.press('Escape');
     await showList(page);
     await expect(cards(page)).toHaveCount(TOWNS);
     await showMap(page);
-    await expect(pins(page)).toHaveCount(TOWNS);
+    await expect.poll(() => pinCount(page)).toBe(TOWNS);
   });
 
   test('5b. homes budget filters homes; empty state offers a way out', async ({ page }) => {
     await gotoResults(page);
     await page.getByRole('combobox', { name: 'Max price' }).selectOption({ index: 2 });
     await expect(page.getByText(/Showing \d+ homes|No homes under/)).toBeVisible();
-    await page.getByRole('combobox', { name: 'Sort' }).selectOption('price');
+    await page.getByRole('combobox', { name: 'Sort' }).selectOption('price_asc');
     const amounts = await page.locator('article p.font-display').allTextContents();
     const nums = amounts.map(a => (a.endsWith('M') ? parseFloat(a.slice(1)) * 1e6 : parseFloat(a.slice(1)) * 1e3));
     for (const v of nums) expect(v).toBeLessThanOrEqual(400_000);
@@ -176,6 +161,30 @@ test.describe('Utah Fit', () => {
     await expect(page.getByRole('button', { pressed: true, name: 'Homes', exact: true })).toBeVisible();
     await expect(page.getByText(new RegExp(`Showing \\d+ homes in 1 area`))).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: `${name} (clear)` })).toBeVisible();
+  });
+
+  test('5d. See homes in on the town page opens Homes filtered to that town', async ({ page }) => {
+    await page.goto('/#/town/provo');
+    await page.getByRole('link', { name: 'See homes in Provo' }).click();
+    await expect(page).toHaveURL(/#\/results\?town=provo$/);
+    await expect(page.getByRole('button', { name: 'Provo (clear)' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Showing \d+ homes in 1 area/)).toBeVisible();
+    await page.getByRole('button', { name: 'Provo (clear)' }).click();
+    await expect(page).toHaveURL(/#\/results$/);
+    await expect(page.getByText(/Showing \d+ homes in [2-9]\d* areas/)).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('5e. header nav opens Homes and Areas and tracks the view', async ({ page }) => {
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await nav.getByRole('link', { name: 'Homes' }).click();
+    await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
+    await expect(nav.getByRole('link', { name: 'Homes' })).toHaveAttribute('aria-current', 'page');
+    await nav.getByRole('link', { name: 'Areas' }).click();
+    await expect(page.getByText(/areas ranked|areas match/)).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Areas' })).toHaveAttribute('aria-current', 'page');
+    await page.getByRole('button', { name: 'Homes', exact: true }).click();
+    await expect(nav.getByRole('link', { name: 'Homes' })).toHaveAttribute('aria-current', 'page');
   });
 
   test('6. town detail shows metrics vs median back works', async ({ page }) => {

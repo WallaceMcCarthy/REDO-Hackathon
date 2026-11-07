@@ -24,8 +24,8 @@ test.describe('Task #35: Phone & Tablet UX Audit (390px and 768px)', () => {
 
         await checkNoHorizontalOverflow(page, 'Quiz');
 
-        // Check Show my towns button tap target
-        const btn = page.getByRole('button', { name: 'Show my towns' });
+        // Check Show my matches button tap target
+        const btn = page.getByRole('button', { name: 'Show my matches' });
         await expect(btn).toBeVisible();
         const box = await btn.boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -51,11 +51,11 @@ test.describe('Task #35: Phone & Tablet UX Audit (390px and 768px)', () => {
       test('3. Ads sandbox checkout screen has no overflow and clear notices', async ({ page }) => {
         await page.goto('/#/ads-sandbox-checkout?campaignId=test_123&amount=3500&title=Sample+Campaign');
         await page.waitForLoadState('domcontentloaded');
-        await expect(page.getByText(/SANDBOX: REDO payments not connected yet/)).toBeVisible();
+        await expect(page.getByText(/Sandbox: REDO payments are not connected yet/)).toBeVisible();
 
         await checkNoHorizontalOverflow(page, 'AdsSandboxCheckout');
 
-        const backBtn = page.getByRole('button', { name: /Return to Dashboard/ });
+        const backBtn = page.getByRole('button', { name: /Return to dashboard/ });
         await expect(backBtn).toBeVisible();
         const box = await backBtn.boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);

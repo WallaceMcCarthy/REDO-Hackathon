@@ -1,72 +1,140 @@
-import { useState } from 'react';
+import { forwardRef, useEffect, useRef, useState, type InputHTMLAttributes } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { Button, Field, Input } from '../ui';
+
+type Mode = 'signIn' | 'signUp';
+
+const MIN_PASSWORD = 8;
+
+const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold transition-colors';
+
+/** Field overwrites aria-invalid on its direct child unless it renders its own error, and here one banner covers both inputs. */
+const CredentialInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid: boolean }>(function CredentialInput({ invalid, ...rest }, ref) {
+  return <Input ref={ref} {...rest} aria-invalid={invalid || undefined} />;
+});
+
+/** Convex Auth throws "Invalid credentials" (bad sign in), "Invalid password" (under 8 chars) and "Account X already exists" (sign up). Production may redact the text, so fall back by mode. */
+function plainError(err: unknown, mode: Mode): string {
+  const text = err instanceof Error ? err.message : '';
+  if (/invalid password/i.test(text)) return `Use at least ${MIN_PASSWORD} characters for your password.`;
+  if (/already exists/i.test(text)) return 'That email already has an account. Try signing in instead.';
+  if (/invalid credentials|invalidsecret|invalidaccountid/i.test(text)) return 'Wrong email or password. Check both and try again.';
+  if (/server error/i.test(text)) {
+    return mode === 'signIn'
+      ? 'Wrong email or password. Check both and try again.'
+      : 'That email already has an account. Try signing in instead.';
+  }
+  return 'Something went wrong. Check your connection and try again.';
+}
 
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const { signIn } = useAuthActions();
-  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+  const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const dialog = useRef<HTMLDivElement>(null);
+  const emailInput = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    emailInput.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') return onCloseRef.current();
+      if (e.key !== 'Tab' || !dialog.current) return;
+      const items = dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), input');
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus();
+    };
+  }, []);
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (mode === 'signUp' && password.length < MIN_PASSWORD) {
+      setError(`Use at least ${MIN_PASSWORD} characters for your password.`);
+      return;
+    }
     setBusy(true);
     try {
       await signIn('password', { email, password, flow: mode });
       onClose();
-    } catch {
-      setError(mode === 'signIn' ? 'Wrong email or password.' : 'Could not create that account.');
+    } catch (err) {
+      setError(plainError(err, mode));
     } finally {
       setBusy(false);
     }
   }
 
+  const signingIn = mode === 'signIn';
+  const describedBy = error ? 'auth-error' : undefined;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
+    <div className="fixed inset-0 z-50 flex overflow-y-auto bg-alpine-900/60 p-gutter backdrop-blur-sm" onClick={onClose}>
+      <div
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-title"
         onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900"
+        className="relative m-auto w-full max-w-md rounded-card bg-surface-raised p-6 text-text shadow-overlay sm:p-8"
       >
-        <h2 className="mb-4 text-lg font-semibold">{mode === 'signIn' ? 'Sign in' : 'Create an account'}</h2>
-        <label className="mb-2 block text-sm">
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </label>
-        <label className="mb-4 block text-sm">
-          Password
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </label>
-        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={busy} className="w-full rounded bg-red-700 py-2 font-medium text-white disabled:opacity-50">
-          {busy ? 'Working...' : mode === 'signIn' ? 'Sign in' : 'Create account'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
-          className="mt-3 w-full text-sm text-neutral-600 underline"
-        >
-          {mode === 'signIn' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
-        </button>
-        <button type="button" onClick={onClose} className="mt-2 w-full text-sm text-neutral-400">
-          Cancel
-        </button>
-      </form>
+        <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close" className="absolute right-2 top-2 w-11 px-0">
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </Button>
+        <h2 id="auth-title" className="pr-10 font-display text-heading">
+          {signingIn ? 'Welcome back' : 'Create your account'}
+        </h2>
+        <p className="mt-2 text-body text-text-muted">
+          {signingIn ? 'Sign in to see your saved towns.' : 'Save towns and homes, and come back to them later.'}
+        </p>
+
+        <div className="mt-6 flex gap-1 rounded-pill bg-surface-sunken p-1" role="group" aria-label="Sign in or create account">
+          {([['signIn', 'Sign in'], ['signUp', 'Create account']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              onClick={() => switchMode(value)}
+              className={`${TAB} ${mode === value ? 'bg-surface-raised text-text shadow-raised' : 'text-text-muted hover:text-text'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+          <Field label="Email">
+            <CredentialInput ref={emailInput} invalid={!!error} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={describedBy} />
+          </Field>
+          <Field label="Password" hint={signingIn ? undefined : `At least ${MIN_PASSWORD} characters.`}>
+            <CredentialInput invalid={!!error} type="password" required autoComplete={signingIn ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={describedBy} />
+          </Field>
+          <p id="auth-error" role="alert" className={error ? 'flex gap-2 rounded-control border border-rock-300 bg-surface-sunken px-3 py-2.5 text-small font-semibold text-danger' : 'sr-only'}>
+            {error && (
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="mt-px size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5M12 16v.01" /></svg>
+            )}
+            {error}
+          </p>
+          <Button type="submit" size="lg" fullWidth loading={busy}>
+            {busy ? (signingIn ? 'Signing in...' : 'Creating account...') : signingIn ? 'Sign in' : 'Create account'}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

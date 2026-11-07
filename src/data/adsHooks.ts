@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 export interface CampaignRecord {
@@ -36,8 +36,10 @@ export function useActiveFeatured(cityId?: string): CampaignRecord[] | undefined
 }
 
 export function useMyCampaigns(): CampaignRecord[] | undefined {
+  const { isAuthenticated } = useConvexAuth();
   const queryFn = (api as any).ads?.listMyCampaigns;
-  const result = useQuery(queryFn, queryFn ? {} : 'skip');
+  // The query throws for signed-out visitors, which would take the whole app down.
+  const result = useQuery(queryFn, queryFn && isAuthenticated ? {} : 'skip');
   return result as CampaignRecord[] | undefined;
 }
 

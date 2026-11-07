@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { deleteCommentsFor } from "./social";
+import { deleteCommentsFor, deleteReportsFor } from "./social";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { isRateLimited, nextLikes, newestFirst, RATE_LIMIT_POSTS, shouldHide, validateBody } from "./lib/feed";
 
@@ -83,6 +83,20 @@ export const create = mutation({
   },
 });
 
+/**
+ * Deletes at most `limit` rows, the post itself last, and returns how many; repeat until it is gone.
+ * Reports need no limit: a post stops accepting them once hidden, at three.
+ */
+export async function deletePostBatch(ctx: MutationCtx, post: Doc<"posts">, limit: number): Promise<number> {
+  const likes = await ctx.db.query("postLikes").withIndex("by_post_user", (q) => q.eq("postId", post._id)).take(limit);
+  for (const like of likes) await ctx.db.delete(like._id);
+  const deleted = likes.length + (await deleteCommentsFor(ctx, "post", post._id, limit - likes.length));
+  if (deleted === limit) return limit;
+  await deleteReportsFor(ctx, "post", post._id);
+  await ctx.db.delete(post._id);
+  return deleted + 1;
+}
+
 /** Real delete, with likes, comments and reports going with it. */
 export const remove = mutation({
   args: { postId: v.id("posts") },
@@ -91,17 +105,7 @@ export const remove = mutation({
     const post = await ctx.db.get(args.postId);
     if (!post) return; // already gone
     if (post.userId !== userId) throw new ConvexError("Only the author can delete this post");
-    for (const like of await ctx.db.query("postLikes").withIndex("by_post_user", (q) => q.eq("postId", post._id)).collect()) {
-      await ctx.db.delete(like._id);
-    }
-    await deleteCommentsFor(ctx, "post", post._id);
-    for (const r of await ctx.db
-      .query("contentReports")
-      .withIndex("by_target", (q) => q.eq("targetType", "post").eq("targetId", post._id))
-      .collect()) {
-      await ctx.db.delete(r._id);
-    }
-    await ctx.db.delete(post._id);
+    while (await ctx.db.get(post._id)) await deletePostBatch(ctx, post, 1000);
   },
 });
 

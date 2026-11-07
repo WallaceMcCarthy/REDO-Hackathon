@@ -11,3 +11,4 @@ hackathon_board.db*
 .agents/mcp_config.json
 # <<< agent-board
 .env*
+test-results/

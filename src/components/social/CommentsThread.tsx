@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { useAddComment, useComments, useDeleteComment, useReportComment } from '../../data/socialHooks';
+import { Badge, Button, Card, EmptyState, Field, Skeleton, Textarea } from '../ui';
 import { openSignIn } from '../auth/AccountMenu';
 import type { CommentItem, CommentTargetType } from './types';
 
@@ -36,6 +38,7 @@ function SingleComment({
   const [reported, setReported] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { isAuthenticated } = useConvexAuth();
   const addComment = useAddComment();
   const deleteComment = useDeleteComment();
   const reportComment = useReportComment();
@@ -72,108 +75,54 @@ function SingleComment({
   };
 
   return (
-    <div className={`space-y-2 ${isReply ? 'ml-2.5 sm:ml-6 mt-3 border-l-2 border-rock-200 pl-2.5 sm:pl-3' : 'py-3'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-ink">{comment.displayName || 'Anonymous'}</span>
-          {comment.isSample && (
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-              Sample
-            </span>
-          )}
-          <span className="text-rock-400">
-            {new Date(comment.createdAt).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 text-rock-400">
-          {comment.canDelete && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="inline-flex min-h-[36px] items-center px-2 py-1 text-xs hover:text-rose-600 focus-visible:outline-alpine-500"
-            >
-              Delete
-            </button>
-          )}
-          {onMessageUser && !comment.canDelete && comment.userId && (
-            <button
-              type="button"
-              onClick={() => onMessageUser(comment.userId, targetId)}
-              className="inline-flex min-h-[36px] items-center px-2 py-1 text-xs font-medium text-alpine-700 hover:text-alpine-900 focus-visible:outline-alpine-500"
-            >
-              Message
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleReport}
-            disabled={reported}
-            className={`inline-flex min-h-[36px] items-center px-2 py-1 text-xs hover:text-rock-700 focus-visible:outline-alpine-500 ${
-              reported ? 'text-rock-300' : ''
-            }`}
-          >
-            {reported ? 'Reported' : 'Report'}
-          </button>
-          {!isReply && (
-            <button
-              type="button"
-              onClick={() => setReplyOpen(!replyOpen)}
-              className="inline-flex min-h-[36px] items-center px-2 py-1 text-xs font-medium text-alpine-700 hover:text-alpine-900 focus-visible:outline-alpine-500"
-            >
-              {replyOpen ? 'Cancel' : 'Reply'}
-            </button>
-          )}
-        </div>
+    <div data-comment={comment._id} className={isReply ? 'ml-2 mt-3 border-l-2 border-border pl-3 sm:ml-4' : 'py-3'}>
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-small">
+        <span className="break-words font-semibold text-text [overflow-wrap:anywhere]">{comment.displayName || 'Anonymous'}</span>
+        {comment.isSample && <Badge tone="sample" />}
+        <span className="text-caption text-text-muted">
+          {new Date(comment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+        </span>
       </div>
 
-      <p className="text-xs text-rock-700 leading-relaxed break-words [overflow-wrap:anywhere]">{comment.body}</p>
+      {/* plain text only: React escapes it, whitespace is preserved by CSS */}
+      <p className="mt-1 whitespace-pre-wrap break-words text-small text-text [overflow-wrap:anywhere]">{comment.body}</p>
 
-      {/* Reply input */}
+      {(comment.canDelete || isAuthenticated) && (
+        <div className="-ml-3 flex flex-wrap items-center">
+          {comment.canDelete && <Button variant="ghost" size="sm" onClick={handleDelete}>Delete</Button>}
+          {isAuthenticated && onMessageUser && !comment.canDelete && comment.userId && (
+            <Button variant="ghost" size="sm" onClick={() => onMessageUser(comment.userId, targetId)}>Message</Button>
+          )}
+          {isAuthenticated && <Button variant="ghost" size="sm" onClick={handleReport} disabled={reported}>{reported ? 'Reported' : 'Report'}</Button>}
+          {!isReply && isAuthenticated && (
+            <Button variant="ghost" size="sm" onClick={() => setReplyOpen(!replyOpen)}>{replyOpen ? 'Cancel' : 'Reply'}</Button>
+          )}
+        </div>
+      )}
+
       {replyOpen && (
         <form onSubmit={handleSendReply} className="mt-2 space-y-2">
-          <textarea
-            required
-            rows={2}
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder={`Reply to ${comment.displayName || 'this comment'}...`}
-            className="w-full rounded-xl border border-rock-200 p-2 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
-          />
+          <Field label="Reply" className="[&>label]:sr-only">
+            <Textarea
+              required
+              rows={2}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              maxLength={2000}
+              placeholder={`Reply to ${comment.displayName || 'this comment'}...`}
+            />
+          </Field>
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setReplyOpen(false)}
-              className="min-h-[44px] inline-flex items-center rounded-full border border-rock-200 px-3 py-1 text-xs text-rock-600 hover:bg-rock-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!replyText.trim() || submitting}
-              className="min-h-[44px] inline-flex items-center rounded-full bg-alpine-700 px-4 py-1 text-xs font-semibold text-white hover:bg-alpine-800 disabled:opacity-50"
-            >
-              {submitting ? 'Posting...' : 'Reply'}
-            </button>
+            <Button variant="secondary" size="sm" onClick={() => setReplyOpen(false)}>Cancel</Button>
+            <Button type="submit" size="sm" loading={submitting} disabled={!replyText.trim()}>{submitting ? 'Posting' : 'Reply'}</Button>
           </div>
         </form>
       )}
 
-      {/* Nested Replies */}
       {comment.replies && comment.replies.length > 0 && (
         <div className="space-y-1">
           {comment.replies.map((reply) => (
-            <SingleComment
-              key={reply._id}
-              comment={reply}
-              targetType={targetType}
-              targetId={targetId}
-              isReply
-              onMessageUser={onMessageUser}
-            />
+            <SingleComment key={reply._id} comment={reply} targetType={targetType} targetId={targetId} isReply onMessageUser={onMessageUser} />
           ))}
         </div>
       )}
@@ -224,72 +173,47 @@ export default function CommentsThread({
   const isLoading = comments === undefined;
 
   return (
-    <section aria-label="Comments" className={`rounded-2xl border border-rock-200 bg-white p-4 ${className}`}>
-      <div className="flex items-center justify-between border-b border-rock-100 pb-3">
-        <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
+    <Card as="section" aria-label="Comments" className={className}>
+      <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+        <h3 className="font-display text-title text-text">{title}</h3>
         {comments && (
-          <span className="text-xs text-dusk">
+          <span className="shrink-0 text-small text-text-muted">
             {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
           </span>
         )}
       </div>
 
-      {authError && (
-        <div className="mt-2 rounded-xl bg-rose-50 p-2 text-xs text-rose-800">
-          {authError}
-        </div>
-      )}
+      {helper && <p className="mt-3 text-small text-text-muted">{helper}</p>}
 
-      {helper && <p className="mt-3 text-xs text-dusk">{helper}</p>}
-
-      {/* New comment input */}
       <form onSubmit={handlePost} className="mt-3 space-y-2">
-        <textarea
-          value={newBody}
-          onChange={(e) => setNewBody(e.target.value)}
-          maxLength={2000}
-          placeholder={placeholder}
-          rows={3}
-          className="w-full rounded-xl border border-rock-200 p-2.5 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
-        />
+        <Field label="Add a comment" className="[&>label]:sr-only" error={authError}>
+          <Textarea
+            value={newBody}
+            onChange={(e) => setNewBody(e.target.value)}
+            maxLength={2000}
+            placeholder={placeholder}
+            rows={3}
+          />
+        </Field>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[10px] text-rock-400">
-            {newBody.length}/2000 characters
-          </span>
-          <button
-            type="submit"
-            disabled={!newBody.trim() || submitting}
-            className="inline-flex min-h-[44px] items-center justify-center cursor-pointer rounded-full bg-alpine-700 px-5 py-2 text-xs font-semibold text-white hover:bg-alpine-800 disabled:opacity-50"
-          >
-            {submitting ? 'Posting...' : 'Post comment'}
-          </button>
+          <span className="text-caption text-text-muted">{newBody.length}/2000 characters</span>
+          <Button type="submit" size="sm" loading={submitting} disabled={!newBody.trim()}>
+            {submitting ? 'Posting' : 'Post comment'}
+          </Button>
         </div>
       </form>
 
-      {/* Comments list */}
-      <div className="mt-4 divide-y divide-rock-100">
+      <div className="mt-4 divide-y divide-border">
         {isLoading ? (
-          <div className="space-y-3 py-2">
-            {[0, 1].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-xl bg-rock-50" />
-            ))}
+          <div className="space-y-3 py-2" aria-busy="true">
+            {[0, 1].map((i) => <Skeleton key={i} className="h-16" />)}
           </div>
         ) : comments.length === 0 ? (
-          <p className="py-6 text-center text-xs text-dusk">
-            No comments yet. Start the conversation!
-          </p>
+          <EmptyState className="my-3" title="No comments yet" description="Start the conversation." />
         ) : (
-          comments.map((c) => (
-            <SingleComment
-              key={c._id}
-              comment={c}
-              targetType={targetType}
-              targetId={targetId}
-              onMessageUser={onMessageUser}
-            />
-          ))
+          comments.map((c) => <SingleComment key={c._id} comment={c} targetType={targetType} targetId={targetId} onMessageUser={onMessageUser} />)
         )}
       </div>
-    </section>
+    </Card>
   );
 }

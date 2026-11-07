@@ -139,7 +139,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
           helper="Looking for roommates? Say what you're after. Others interested in this place can reply or message you."
           placeholder="Looking for roommates? Say what you're after..."
           onMessageUser={onMessageUser}
-          className="mt-4"
+          className="mt-4 !border-0 !bg-transparent !p-0 !shadow-none"
         />
       </div>
     </aside>

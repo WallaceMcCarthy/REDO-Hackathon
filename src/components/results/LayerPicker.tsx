@@ -12,7 +12,7 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
   const [aboutOpen] = useState(() => window.matchMedia('(min-width: 640px)').matches);
   const nums = selected ? Object.values(selected.values) : [];
   return (
-    <div className="absolute right-2 top-2 z-[1000] w-44 sm:w-60 space-y-1.5 text-ink">
+    <div className="absolute right-2 top-14 z-[1000] w-44 sm:w-60 space-y-1.5 text-ink">
       <label className="block rounded-lg border border-rock-100 bg-sand/95 px-2 py-1 shadow-sm">
         <span className="block text-[10px] font-semibold uppercase tracking-wide text-dusk">Map layer</span>
         <select
