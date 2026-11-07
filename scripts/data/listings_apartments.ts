@@ -1,6 +1,8 @@
 // Apartment complexes across Utah towns from HUD LIHTC, HUD Multifamily, and OpenStreetMap.
+// Municipal containment: strictly inside official UGRC municipal polygons (insideMunicipality).
+// Persistent source-derived IDs: apt-lihtc-<id>, apt-mf-<id>, apt-osm-<type>-<id>.
 // Rents are HUD FY2025 Fair Market Rent (2-Bedroom) by county/metro area.
-// Schema conforms to CONTRACT.md Phase 2 and agent-board coordination msgs #91, #95, #99.
+// Schema conforms to CONTRACT.md Phase 2 and agent-board coordination msgs #91, #95, #99, #278, #283, #296.
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -14,6 +16,9 @@ const OUT_FILE = resolve(REPO_ROOT, "data/listings/apartments.json");
 const RAW_LIHTC = resolve(RAW_DIR, "hud_lihtc_ut.json");
 const RAW_MULTIFAMILY = resolve(RAW_DIR, "hud_multifamily_ut.json");
 const RAW_OSM = resolve(RAW_DIR, "osm_apartments.json");
+const RAW_MUNICIPAL = resolve(RAW_DIR, "utah_municipal_boundaries.json");
+
+export type Point = [number, number]; // [lng, lat]
 
 export interface ListingRecord {
   id: string;
@@ -36,6 +41,7 @@ export interface ListingRecord {
 }
 
 interface RawCandidate {
+  id: string;
   name: string;
   address: string | null;
   lat: number;
@@ -48,15 +54,7 @@ interface RawCandidate {
 }
 
 // HUD FY2025 Fair Market Rent (2-Bedroom) by County / Metro Area.
-// Source: https://www.huduser.gov/portal/datasets/fmr.html (huduser.gov's own
-// FMR documentation pages return a bot-check response to scripted fetches, so
-// these values were cross-checked against the "2 BR FMR" column of the
-// National Low Income Housing Coalition's "Out of Reach 2025" Utah report,
-// https://nlihc.org/sites/default/files/oor/2025_OOR-Utah.pdf, which states
-// on each table page "2: FMR = Fiscal Year 2025 Fair Market Rent" and is
-// itself built directly from HUD's official FY2025 FMR release. Several
-// entries below differed from the prior hand-typed values (Summit, Wasatch,
-// Tooele, Grand, Kane especially) and were corrected to match.
+// Source: https://www.huduser.gov/portal/datasets/fmr.html
 export const COUNTY_FMR_2BR_2025: Record<string, number> = {
   "Salt Lake": 1748,
   "Utah": 1355,
@@ -77,7 +75,23 @@ export const COUNTY_FMR_2BR_2025: Record<string, number> = {
   "Kane": 1401,
 };
 
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+/** Even/odd ray-casting rule handles multiple municipal parts and interior holes. */
+export function insideMunicipality([x, y]: Point, rings: Point[][]): boolean {
+  if (x == null || y == null) return false;
+  let inside = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+  }
+  return inside;
+}
+
+export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371.0;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -98,7 +112,7 @@ async function fetchIfMissing(url: string, path: string): Promise<string> {
   if (!existsSync(RAW_DIR)) {
     mkdirSync(RAW_DIR, { recursive: true });
   }
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { "User-Agent": "UtahFit/1.0" } });
   if (!res.ok) {
     throw new Error(`Failed to fetch ${url}: ${res.statusText}`);
   }
@@ -112,7 +126,34 @@ export async function generateApartments(): Promise<ListingRecord[]> {
   const cities: Array<{ id: string; name: string; county: string; lat: number; lng: number }> =
     JSON.parse(citiesRaw);
 
-  // Fetch or load raw data
+  // 1. Municipal Boundaries from UGRC
+  const muniJsonStr = await fetchIfMissing(
+    "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/UtahMunicipalBoundaries/FeatureServer/0/query?where=1%3D1&outFields=NAME,OBJECTID&outSR=4326&returnGeometry=true&resultRecordCount=2000&f=json",
+    RAW_MUNICIPAL
+  );
+  const muniData = JSON.parse(muniJsonStr);
+  const byMuniName = new Map<string, Point[][]>();
+  for (const feature of muniData.features || []) {
+    const rawName = feature.attributes?.NAME;
+    const name = typeof rawName === "string" ? rawName.trim().toLowerCase() : null;
+    const rings = feature.geometry?.rings as Point[][] | undefined;
+    if (name && rings && rings.length > 0) {
+      byMuniName.set(name, [...(byMuniName.get(name) ?? []), ...rings]);
+    }
+  }
+
+  // Map each canonical city to its municipal polygon rings
+  const cityPolygons = new Map<string, Point[][]>();
+  for (const c of cities) {
+    const rings = byMuniName.get(c.name.trim().toLowerCase());
+    if (rings && rings.length > 0) {
+      cityPolygons.set(c.id, rings);
+    } else {
+      console.warn(`Warning: No municipal polygon boundary found for ${c.name} (${c.id})`);
+    }
+  }
+
+  // 2. Fetch or load raw data layers
   const lihtcJsonStr = await fetchIfMissing(
     "https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/LIHTC/FeatureServer/0/query?where=PROJ_ST%3D'UT'&outFields=*&f=json",
     RAW_LIHTC
@@ -149,7 +190,7 @@ out center tags;`;
 
   const candidates: RawCandidate[] = [];
 
-  // 1. HUD LIHTC
+  // 1. HUD LIHTC Database
   for (const f of lihtcData.features || []) {
     const attr = f.attributes || {};
     const lat = attr.LAT;
@@ -174,8 +215,12 @@ out center tags;`;
       if (!isNaN(y) && y >= 1850 && y <= 2026) yearBuilt = y;
     }
 
+    const hudId = attr.HUD_ID;
     const objectId = attr.OBJECTID;
+    const stableId = `apt-lihtc-${hudId || objectId}`;
+
     candidates.push({
+      id: stableId,
       name: name.trim(),
       address,
       lat: Number(Number(lat).toFixed(6)),
@@ -190,7 +235,7 @@ out center tags;`;
     });
   }
 
-  // 2. HUD Multifamily Assisted
+  // 2. HUD Multifamily Assisted Properties
   for (const f of mfData.features || []) {
     const attr = f.attributes || {};
     let lat = attr.LATITUDE ?? attr.LAT;
@@ -214,8 +259,12 @@ out center tags;`;
       if (!isNaN(u) && u > 0) units = u;
     }
 
+    const propId = attr.PROPERTY_ID;
     const objectId = attr.OBJECTID;
+    const stableId = `apt-mf-${propId || objectId}`;
+
     candidates.push({
+      id: stableId,
       name: name.trim(),
       address,
       lat: Number(Number(lat).toFixed(6)),
@@ -265,7 +314,9 @@ out center tags;`;
       if (!isNaN(y) && y >= 1850 && y <= 2026) yearBuilt = y;
     }
 
+    const stableId = `apt-osm-${el.type}-${el.id}`;
     candidates.push({
+      id: stableId,
       name: name.trim(),
       address,
       lat: Number(Number(lat).toFixed(6)),
@@ -280,62 +331,26 @@ out center tags;`;
     });
   }
 
-  // Map candidates to cities
+  // Point-in-polygon containment: map candidates strictly inside official municipal boundaries
   const cityCandidates: Record<string, Array<{ dist: number; priority: number; item: RawCandidate }>> = {};
   for (const c of cities) {
     cityCandidates[c.id] = [];
   }
 
-  // Towns whose municipal area is spread thin across a large or sparsely-built
-  // county: allow a wider catchment radius than the dense Wasatch Front default.
-  const ruralCities = new Set([
-    "moab", "vernal", "price", "richfield", "kanab", "ephraim",
-    "cedar-city", "tooele", "brigham-city", "heber-city", "hurricane",
-    "herriman", "spanish-fork",
-  ]);
-
-  // "Ambiguous far pin" guard: a candidate whose nearest canonical town is only
-  // reachable at a rural-radius distance (>12 km, i.e. beyond what any normal
-  // town's own catchment would allow), AND whose second-nearest town is almost
-  // exactly as far away (<2.5 km gap), is more likely sitting in a real but
-  // untracked third town between the two (e.g. Kamas, between Heber City and
-  // Park City) than genuinely inside either one's catchment. Verified against
-  // the full candidate set: this fires on exactly the one confirmed
-  // misattribution (two LIHTC records in Kamas, UT wrongly claimed by
-  // heber-city) and nothing else, so it's safe to exclude rather than guess.
   for (const cand of candidates) {
-    const sorted = cities
-      .map((c) => ({ city: c, dist: haversineKm(cand.lat, cand.lng, c.lat, c.lng) }))
-      .sort((a, b) => a.dist - b.dist);
-    const [best, second] = sorted;
-
-    if (best.dist > 12.0 && second.dist - best.dist < 2.5) {
-      continue; // Ambiguous between two distant towns; likely a third, untracked town. Drop it.
-    }
-
-    const maxRadius = ruralCities.has(best.city.id) ? 25.0 : 12.0;
-    if (best.dist <= maxRadius) {
-      cityCandidates[best.city.id].push({
-        dist: best.dist,
-        priority: cand.priority,
-        item: cand,
-      });
+    for (const c of cities) {
+      const rings = cityPolygons.get(c.id);
+      if (!rings) continue;
+      if (insideMunicipality([cand.lng, cand.lat], rings)) {
+        cityCandidates[c.id].push({
+          dist: haversineKm(cand.lat, cand.lng, c.lat, c.lng),
+          priority: cand.priority,
+          item: cand,
+        });
+        break; // A coordinate resides in at most one municipality
+      }
     }
   }
-
-  // There used to be a "fallback" here that filled Eagle Mountain and Midway
-  // by raw distance alone (within 14km, later tried at 25km) whenever the
-  // normal nearest-city loop above found nothing for them, ignoring whether
-  // some other town was actually closer. That's what put six real Heber
-  // City/Park City apartment complexes on Midway's page and ten real
-  // Saratoga Springs complexes on Eagle Mountain's: duplicated listings
-  // (identical name+address+coords) under the wrong town, not real records
-  // for that town. Checked with a nearest-city-respecting search out to
-  // 30km: zero LIHTC/HUD-Multifamily/OSM-tagged complexes are ever actually
-  // closer to Eagle Mountain's or Midway's center than to some other
-  // canonical town, so there's no fallback radius that would find real,
-  // correctly-attributed candidates for them. Removed rather than kept at a
-  // radius that would just relabel someone else's complexes again.
 
   const listings: ListingRecord[] = [];
   const townCounts: Record<string, number> = {};
@@ -345,12 +360,14 @@ out center tags;`;
     const county = c.county;
     const rent = COUNTY_FMR_2BR_2025[county] ?? 1350;
 
+    // Prioritize richer official datasets (LIHTC > MF > OSM), then proximity to town center
     const list = cityCandidates[cid].sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.dist - b.dist;
     });
 
     const seenNames = new Set<string>();
+    const seenIds = new Set<string>();
     const townApts: ListingRecord[] = [];
 
     for (const { item } of list) {
@@ -361,12 +378,12 @@ out center tags;`;
         .replace(/apts/g, "")
         .trim();
 
-      if (!norm || seenNames.has(norm)) continue;
+      if (!norm || seenNames.has(norm) || seenIds.has(item.id)) continue;
       seenNames.add(norm);
+      seenIds.add(item.id);
 
-      const listingId = `apt-${cid}-${townApts.length + 1}`;
       townApts.push({
-        id: listingId,
+        id: item.id,
         cityId: cid,
         kind: "apartment",
         name: item.name,
@@ -392,17 +409,32 @@ out center tags;`;
     listings.push(...townApts);
   }
 
+  // Sort listings deterministically by town and stable id
+  listings.sort((a, b) => a.cityId.localeCompare(b.cityId) || a.id.localeCompare(b.id));
+
+  // Verify ID uniqueness across the whole dataset
+  const uniqueIds = new Set(listings.map((l) => l.id));
+  if (uniqueIds.size !== listings.length) {
+    throw new Error(`Duplicate listing IDs detected: ${listings.length} rows, ${uniqueIds.size} unique`);
+  }
+
   // Ensure listings output directory exists
   const outDir = resolve(REPO_ROOT, "data/listings");
   if (!existsSync(outDir)) {
     mkdirSync(outDir, { recursive: true });
   }
 
-  writeFileSync(OUT_FILE, JSON.stringify(listings, null, 2) + "\n", "utf-8");
-  const sizeKb = statSync(OUT_FILE).size / 1024;
+  const outputBody = JSON.stringify(listings, null, 2) + "\n";
+  writeFileSync(OUT_FILE, outputBody, "utf-8");
+  const bytes = Buffer.byteLength(outputBody);
+  const sizeKb = bytes / 1024;
+
+  if (bytes >= 2_000_000) {
+    throw new Error(`Apartments file exceeds 2 MB limit: ${bytes} bytes`);
+  }
 
   console.log(`Generated ${listings.length} apartment listings across ${cities.length} towns.`);
-  console.log(`Output: ${OUT_FILE} (${sizeKb.toFixed(1)} KB)`);
+  console.log(`Output: ${OUT_FILE} (${sizeKb.toFixed(1)} KB, ${uniqueIds.size} unique stable IDs)`);
 
   return listings;
 }
