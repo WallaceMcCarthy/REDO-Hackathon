@@ -93,6 +93,7 @@ describe("ads security & exploit resistance", () => {
       url: "https://example.com/bakery",
       durationDays: 7,
       lat: 40.7608,
+      imageUrl: "https://example.com/i.png",
       lng: -111.891,
     });
 
@@ -168,6 +169,9 @@ describe("ads security & exploit resistance", () => {
       body: "Downtown living at its finest",
       url: "https://example.com/condo",
       durationDays: 14,
+      lat: 40.76,
+      lng: -111.89,
+      imageUrl: "https://example.com/i.png",
     });
 
     // Activate via webhook
@@ -199,7 +203,7 @@ describe("ads security & exploit resistance", () => {
   it("dedupes per viewer per hour, counts other viewers, skips inactive, and ignores client key when signed in", async () => {
     const { t, advertiser, attacker } = await setup();
     const mk = async () => {
-      const c = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Test Ad", body: "Body text", url: "https://example.com/x", durationDays: 7 });
+      const c = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Test Ad", body: "Body text", url: "https://example.com/x", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" });
       return c;
     };
     const created = await mk();
@@ -230,7 +234,7 @@ describe("ads security & exploit resistance", () => {
 
   it("aggregates accepted events by day, surface, and page town", async () => {
     const { t, advertiser } = await setup();
-    const created = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Stats", body: "Body text", url: "https://example.com", durationDays: 7 });
+    const created = await advertiser.mutation(refs.createCampaign, { kind: "featured", title: "Stats", body: "Body text", url: "https://example.com", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" });
     await t.mutation(refs.fulfillRedoPayment, { campaignId: created.campaignId, redoPaymentId: "pay_stats", amount: created.amount, currency: "USD", rawEventId: "evt_stats" });
     await t.mutation(refs.recordImpression, { campaignId: created.campaignId, viewerKey: "statskey_111", surface: "town_highlights", pageTownId: "provo" });
     await t.mutation(refs.recordClick, { campaignId: created.campaignId, viewerKey: "statskey_111", surface: "town_highlights", pageTownId: "provo" });
@@ -271,7 +275,7 @@ describe("ads security & exploit resistance", () => {
   it("resumes Stripe checkout for an owned pending campaign without inserting a duplicate", async () => {
     const { t, advertiser, attacker } = await setup();
     const created = await advertiser.mutation(refs.createCampaign, {
-      kind: "featured", title: "Resume me", body: "Pending campaign", url: "https://example.com", durationDays: 7,
+      kind: "featured", title: "Resume me", body: "Pending campaign", url: "https://example.com", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png",
     });
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_resume");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
@@ -292,7 +296,7 @@ describe("ads security & exploit resistance", () => {
 
 describe("ad categories and placement", () => {
   const cities: any[] = JSON.parse(readFileSync("data/cities.json", "utf8"));
-  const draft = { kind: "pin", title: "Corner Shop", body: "A short pitch", url: "https://example.com/a", durationDays: 7 };
+  const draft = { kind: "pin", title: "Corner Shop", body: "A short pitch", url: "https://example.com/a", durationDays: 7, lat: 40.76, lng: -111.89, imageUrl: "https://example.com/i.png" };
   const seedCities = (t: any) => t.run(async (ctx: any) => { for (const c of cities) await ctx.db.insert("cities", c); });
   const campaign = { kind: "featured", title: "Paid slot", body: "A short pitch", url: "https://example.com/a", startsAt: 0, impressions: 0, clicks: 0, isSample: false };
 

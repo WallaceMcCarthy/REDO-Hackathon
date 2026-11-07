@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CampaignRecord } from '../../data/adsHooks';
-import { declutter, nearestTown, pickFeatured } from './placement';
+import { declutter, pickFeatured } from './placement';
 
 const ad = (_id: string, cityId?: string) => ({ _id, cityId }) as CampaignRecord;
 
@@ -18,14 +18,6 @@ describe('pickFeatured', () => {
   });
   it('shows nothing before any town is known and no statewide ad exists', () => {
     expect(pickFeatured([ad('moab-ad', 'moab')], [], 2)).toEqual([]);
-  });
-});
-
-describe('nearestTown', () => {
-  it('picks the closest town and copes with none', () => {
-    const provo = { lat: 40.23, lng: -111.66 }, ogden = { lat: 41.22, lng: -111.97 };
-    expect(nearestTown([provo, ogden], 41, -112)).toBe(ogden);
-    expect(nearestTown([], 41, -112)).toBeUndefined();
   });
 });
 

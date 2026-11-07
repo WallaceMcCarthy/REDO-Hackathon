@@ -17,6 +17,7 @@ import type * as cleanup from "../cleanup.js";
 import type * as feedSchema from "../feedSchema.js";
 import type * as http from "../http.js";
 import type * as lib_adCategories from "../lib/adCategories.js";
+import type * as lib_adLocation from "../lib/adLocation.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_feed from "../lib/feed.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   feedSchema: typeof feedSchema;
   http: typeof http;
   "lib/adCategories": typeof lib_adCategories;
+  "lib/adLocation": typeof lib_adLocation;
   "lib/auth": typeof lib_auth;
   "lib/email": typeof lib_email;
   "lib/feed": typeof lib_feed;

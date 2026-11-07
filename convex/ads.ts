@@ -3,21 +3,14 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { campaignCategoryValidator } from "./adsSchema";
+import { campaignCategoryValidator, campaignKindValidator } from "./adsSchema";
 import type { AdCategory } from "./lib/adCategories";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { redoClient, selectPaymentClient } from "./lib/payments";
-import { priceCents, type CampaignKind } from "./lib/pricing";
+import { isInUtah, nearestTown, UTAH_BOUNDS } from "./lib/adLocation";
+import { DEFAULT_AD_DAYS, FREE_AD_DAYS, priceCents, type CampaignKind } from "./lib/pricing";
 
 declare const process: { env?: Record<string, string | undefined> } | undefined;
-
-/** Geographic bounding box covering the state of Utah */
-export const UTAH_BOUNDS = {
-  minLat: 36.9,
-  maxLat: 42.1,
-  minLng: -114.1,
-  maxLng: -108.9,
-};
 
 const MAX_PUBLIC_PINS = 8;
 const MAX_PUBLIC_FEATURED = 3;
@@ -109,9 +102,9 @@ export const listMyCampaigns = query({
 });
 
 const campaignArgs = {
-  kind: v.union(v.literal("pin"), v.literal("featured"), v.literal("job")),
+  kind: v.optional(campaignKindValidator),
   category: v.optional(campaignCategoryValidator),
-  title: v.string(),
+  title: v.optional(v.string()),
   body: v.string(),
   url: v.string(),
   imageUrl: v.optional(v.string()),
@@ -119,13 +112,13 @@ const campaignArgs = {
   lng: v.optional(v.number()),
   listingId: v.optional(v.string()),
   cityId: v.optional(v.string()),
-  durationDays: v.number(),
+  durationDays: v.optional(v.number()),
 };
 
 type CampaignInput = {
-  kind: CampaignKind;
+  kind?: CampaignKind;
   category?: AdCategory;
-  title: string;
+  title?: string;
   body: string;
   url: string;
   imageUrl?: string;
@@ -133,21 +126,29 @@ type CampaignInput = {
   lng?: number;
   listingId?: string;
   cityId?: string;
-  durationDays: number;
+  durationDays?: number;
 };
+
+const MAX_TITLE = 80;
+
+/** The form only asks for a message, so the name shown in lists and on the Stripe receipt comes from it. */
+function titleFromMessage(body: string) {
+  const line = body.replace(/\s+/g, " ");
+  return line.length <= MAX_TITLE ? line : `${line.slice(0, MAX_TITLE - 1).trimEnd()}…`;
+}
 
 /** Validate client input and insert a pending_payment campaign priced server-side. */
 async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args: CampaignInput) {
-  // 1. Title validation
-  const title = args.title.trim();
-  if (title.length < 3 || title.length > 80) {
-    throw new ConvexError("Campaign title must be between 3 and 80 characters");
-  }
-
-  // 2. Body validation
+  // 1. Body validation
   const body = args.body.trim();
   if (body.length < 5 || body.length > 300) {
     throw new ConvexError("Campaign description must be between 5 and 300 characters");
+  }
+
+  // 2. Title validation
+  const title = args.title?.trim() || titleFromMessage(body);
+  if (title.length < 3 || title.length > MAX_TITLE) {
+    throw new ConvexError(`Campaign title must be between 3 and ${MAX_TITLE} characters`);
   }
 
   // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
@@ -155,51 +156,50 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
   const imageUrl = args.imageUrl?.trim() ? validateHttpsUrl(args.imageUrl, "Image URL") : undefined;
 
   // 4. Duration bounds
-  const durationDays = Math.round(args.durationDays);
+  const durationDays = Math.round(args.durationDays ?? DEFAULT_AD_DAYS);
   if (durationDays < 1 || durationDays > 90) {
     throw new ConvexError("Campaign duration must be between 1 and 90 days");
   }
 
-  // 5. Geographic validation for map pins
-  if (args.kind === "pin" || args.kind === "job") {
-    if (args.lat !== undefined || args.lng !== undefined) {
-      if (
-        args.lat === undefined ||
-        args.lng === undefined ||
-        args.lat < UTAH_BOUNDS.minLat ||
-        args.lat > UTAH_BOUNDS.maxLat ||
-        args.lng < UTAH_BOUNDS.minLng ||
-        args.lng > UTAH_BOUNDS.maxLng
-      ) {
-        throw new ConvexError(
-          `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
-        );
-      }
-    }
+  // 5. Every ad is a spot on the map with an image
+  const { lat, lng } = args;
+  if (lat === undefined || lng === undefined) {
+    throw new ConvexError("Choose a location on the map");
+  }
+  if (!isInUtah(lat, lng)) {
+    throw new ConvexError(
+      `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
+    );
+  }
+  if (!imageUrl) {
+    throw new ConvexError("Enter an image URL");
   }
 
   // 6. A campaign aimed at an unknown town would be paid for and shown nowhere
-  const { cityId } = args;
-  if (cityId && !(await ctx.db.query("cities").withIndex("by_cityId", (q) => q.eq("id", cityId)).unique())) {
+  const { cityId: chosenCityId } = args;
+  if (chosenCityId && !(await ctx.db.query("cities").withIndex("by_cityId", (q) => q.eq("id", chosenCityId)).unique())) {
     throw new ConvexError("Choose a target town from the list");
   }
+  // Without a town the ad would run on every town page, so the pin picks the page it belongs on.
+  const cityId = chosenCityId ?? nearestTown(await ctx.db.query("cities").collect(), lat, lng)?.id;
 
+  const kind = args.kind ?? "pin";
   const now = Date.now();
   const durationMs = durationDays * 24 * 3600 * 1000;
-  const amount = priceCents(args.kind, durationDays);
+  const amount = priceCents(kind, durationDays);
 
   const campaignId = await ctx.db.insert("campaigns", {
     advertiserUserId: userId,
-    kind: args.kind,
+    kind,
     category: args.category ?? "other",
     title,
     body,
     url: validUrl,
     imageUrl,
-    lat: args.lat,
-    lng: args.lng,
+    lat,
+    lng,
     listingId: args.listingId,
-    cityId: args.cityId,
+    cityId,
     startsAt: now,
     endsAt: now + durationMs,
     status: "pending_payment",
@@ -211,7 +211,7 @@ async function insertPendingCampaign(ctx: MutationCtx, userId: Id<"users">, args
     expectedCurrency: "USD",
   });
 
-  return { campaignId, amount, title, durationDays };
+  return { campaignId, amount, title, durationDays, kind };
 }
 
 const siteUrl = () => (process?.env?.SITE_URL || "https://cmascope.com").replace(/\/+$/, "");
@@ -221,13 +221,13 @@ export const createCampaign = mutation({
   args: campaignArgs,
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
-    const { campaignId, amount, title, durationDays } = await insertPendingCampaign(ctx, userId, args);
+    const { campaignId, amount, title, durationDays, kind } = await insertPendingCampaign(ctx, userId, args);
 
     const session = await redoClient.createCheckoutSession({
       campaignId: String(campaignId),
       amount,
       currency: "USD",
-      title: `${args.kind.toUpperCase()} Campaign: ${title}`,
+      title: `${kind.toUpperCase()} Campaign: ${title}`,
       description: `Utah Fit advertising sponsorship (${durationDays} days)`,
       successUrl: `${siteUrl()}/ads/success`,
       cancelUrl: `${siteUrl()}/ads/cancel`,
@@ -244,8 +244,7 @@ export const createCampaign = mutation({
 export const createPendingCampaign = internalMutation({
   args: { userId: v.id("users"), ...campaignArgs },
   handler: async (ctx, { userId, ...args }) => {
-    const r = await insertPendingCampaign(ctx, userId, args);
-    return { campaignId: r.campaignId, amount: r.amount, title: r.title, durationDays: r.durationDays };
+    return insertPendingCampaign(ctx, userId, args);
   },
 });
 
@@ -271,11 +270,13 @@ export const recordCheckoutSession = internalMutation({
 });
 
 const MAX_LIVE_UNPAID_CAMPAIGNS = 5;
+const MAX_FREE_ADS_PER_DAY = 3;
+const DAY_MS = 24 * 3600 * 1000;
 
 /** No-payment publishing: payment no longer limits abuse here, so the cap and the activation share one transaction. */
 export const publishCampaign = internalMutation({
-  args: { userId: v.id("users"), ...campaignArgs },
-  handler: async (ctx, { userId, ...args }) => {
+  args: { userId: v.id("users"), free: v.optional(v.boolean()), ...campaignArgs },
+  handler: async (ctx, { userId, free, ...args }) => {
     const now = Date.now();
     const mine = await ctx.db
       .query("campaigns")
@@ -286,40 +287,46 @@ export const publishCampaign = internalMutation({
         `You already have ${MAX_LIVE_UNPAID_CAMPAIGNS} live ads. Wait for one to end before publishing another.`,
       );
     }
+    // Ended free ads still count, or an advertiser could cycle them. An expected amount of 0 is what marks a free ad.
+    if (free && mine.filter((c) => c.expectedAmount === 0 && c.startsAt > now - DAY_MS).length >= MAX_FREE_ADS_PER_DAY) {
+      throw new ConvexError(`You can publish ${MAX_FREE_ADS_PER_DAY} free ads every 24 hours. Try again later or choose the paid option.`);
+    }
     // The insert just set startsAt to now and endsAt to now plus the duration, as fulfillStripePayment would.
-    const { campaignId } = await insertPendingCampaign(ctx, userId, args);
-    await ctx.db.patch(campaignId, { status: "active" });
+    // A free ad takes nothing from the client but its content, so it cannot ask for a bigger placement or a longer run.
+    const { campaignId } = await insertPendingCampaign(ctx, userId, free ? { ...args, kind: "pin", durationDays: FREE_AD_DAYS } : args);
+    await ctx.db.patch(campaignId, free ? { status: "active", expectedAmount: 0 } : { status: "active" });
     return campaignId;
   },
 });
 
 /**
- * Entry point for the advertiser form. Stripe checkout when STRIPE_SECRET_KEY is set; otherwise the
- * ad goes live at once with no payment row. The Stripe amount is computed server-side.
+ * Entry point for the advertiser form. Stripe checkout when STRIPE_SECRET_KEY is set; otherwise, or for
+ * a free ad, the ad goes live at once with no payment row. The Stripe amount is computed server-side.
+ * `free` stays out of campaignArgs so the pending-payment paths can never see it.
  */
 export const createCheckout = action({
-  args: campaignArgs,
+  args: { free: v.optional(v.boolean()), ...campaignArgs },
   handler: async (
     ctx,
-    args,
+    { free, ...args },
   ): Promise<{ campaignId: string; checkoutUrl: string; amount: number; provider: "none" | "stripe" }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Sign in required");
 
     const client = selectPaymentClient();
-    if (client.provider !== "stripe") {
-      const campaignId: Id<"campaigns"> = await ctx.runMutation(internal.ads.publishCampaign, { userId, ...args });
+    if (free || client.provider !== "stripe") {
+      const campaignId: Id<"campaigns"> = await ctx.runMutation(internal.ads.publishCampaign, { userId, free, ...args });
       return { campaignId: String(campaignId), checkoutUrl: "/#/advertise", amount: 0, provider: "none" };
     }
 
-    const created: { campaignId: Id<"campaigns">; amount: number; title: string; durationDays: number } =
+    const created: { campaignId: Id<"campaigns">; amount: number; title: string; durationDays: number; kind: CampaignKind } =
       await ctx.runMutation(internal.ads.createPendingCampaign, { userId, ...args });
 
     const session = await client.createCheckoutSession({
       campaignId: String(created.campaignId),
       amount: created.amount,
       currency: "USD",
-      title: `${created.title}, ${args.kind}`,
+      title: `${created.title}, ${created.kind}`,
       description: `Utah Fit advertising sponsorship (${created.durationDays} days)`,
       successUrl: `${siteUrl()}/#ads?paid={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${siteUrl()}/#ads?canceled=1`,

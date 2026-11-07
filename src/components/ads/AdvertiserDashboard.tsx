@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useConvexAuth } from 'convex/react';
-import { AD_CATEGORIES, AD_CATEGORY_IDS, type AdCategory } from '../../../convex/lib/adCategories';
+import { AD_CATEGORIES } from '../../../convex/lib/adCategories';
+import { DEFAULT_AD_DAYS, FREE_AD_DAYS, priceCents } from '../../../convex/lib/pricing';
 import { ConvexError } from 'convex/values';
 import { openSignIn } from '../auth/AccountMenu';
 import { useConfirmCheckout, useCreateCheckout, useMyCampaigns, useMyCampaignStats, usePaymentProvider, useResumeCheckout } from '../../data/adsHooks';
 import type { City } from '../../types';
 import AdImage from './AdImage';
-import { campaignPlacement } from './campaignPlacement';
-import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Select, Skeleton, Textarea } from '../ui';
+import AdLocationPicker, { type AdLocation } from './AdLocationPicker';
+import { campaignPlacement, titleRepeatsMessage } from './campaignPlacement';
+import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Skeleton, Textarea } from '../ui';
 
 const KINDS = [
   { value: 'pin', label: 'Map pin' },
@@ -36,14 +38,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const returnedCanceled = hashParams.has('canceled');
 
-  const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
-  const [category, setCategory] = useState<AdCategory | ''>('');
-  const [title, setTitle] = useState('');
+  const [location, setLocation] = useState<AdLocation | null>(null);
+  const [plan, setPlan] = useState<'paid' | 'free'>('paid');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [cityId, setCityId] = useState('');
-  const [durationDays, setDurationDays] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [resumingId, setResumingId] = useState<string | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
@@ -71,32 +70,23 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paidSessionId]);
 
-  const selectedCity = cities.find((c) => c.id === cityId);
   const now = Date.now();
-
-  // Rate card: Map pin = $5/day ($500 cents), Featured = $10/day ($1000 cents), Job = $7/day ($700 cents)
-  const ratePerDay = kind === 'featured' ? 10 : kind === 'job' ? 7 : 5;
-  const totalCost = ratePerDay * durationDays;
-  const durationLabel = (days: number) => (isStripe ? `${days} days ($${ratePerDay * days})` : `${days} days`);
+  const totalCost = priceCents('pin', DEFAULT_AD_DAYS) / 100;
+  const free = isStripe && plan === 'free';
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!category || !title.trim() || !url.trim() || submitting) return;
+    if (!location || submitting) return;
     setSubmitting(true);
     setCheckoutNotice(null);
 
     try {
       const res = await createCheckout({
-        kind,
-        category,
-        title: title.trim(),
+        ...location,
         body: body.trim(),
         url: url.trim(),
-        imageUrl: imageUrl.trim() || undefined,
-        lat: selectedCity?.lat,
-        lng: selectedCity?.lng,
-        cityId: cityId || undefined,
-        durationDays,
+        imageUrl: imageUrl.trim(),
+        free,
       });
 
       if (res?.provider === 'stripe' && res.checkoutUrl) {
@@ -105,8 +95,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       }
       if (res) {
         setCheckoutNotice('Your ad is live. It is labelled Sponsored and listed under Your campaigns.');
-        setCategory('');
-        setTitle('');
+        setLocation(null);
         setBody('');
         setUrl('');
         setImageUrl('');
@@ -201,7 +190,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                     </div>
                     <div className="mt-2 flex min-w-0 gap-3">
                       <AdImage campaign={c} />
-                      <h3 className="min-w-0 break-words font-semibold text-text">{c.title}</h3>
+                      <h3 className="min-w-0 break-words font-semibold text-text">{titleRepeatsMessage(c) ? c.body : c.title}</h3>
                     </div>
                     <div className="mt-2 rounded-control bg-surface-sunken p-3">
                       <p className="text-small font-semibold text-text">{placement.label}</p>
@@ -222,7 +211,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                       <div><dt>Town views</dt><dd className="font-semibold text-text">{townViews}</dd></div>
                       <div><dt>Results views</dt><dd className="font-semibold text-text">{resultViews}</dd></div>
                     </dl>
-                    <p className="mt-2 line-clamp-2 break-words text-small text-text-muted">{c.body}</p>
+                    {!titleRepeatsMessage(c) && <p className="mt-2 line-clamp-2 break-words text-small text-text-muted">{c.body}</p>}
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-small sm:grid-cols-4">
                       <div><dt className="text-text-muted">Views</dt><dd className="font-semibold text-text">{c.impressions}</dd></div>
                       <div><dt className="text-text-muted">Clicks</dt><dd className="font-semibold text-text">{c.clicks}</dd></div>
@@ -241,7 +230,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
 
         <Card as="section" raised aria-labelledby="create-heading" className="self-start">
           <h2 id="create-heading" className="font-display text-title text-text">Create a campaign</h2>
-          <p className="mt-1 text-small text-text-muted">Any Utah business or employer can reach people researching a town.</p>
+          <p className="mt-1 text-small text-text-muted">Your image and message sit on the map at your pin, labelled Sponsored. A click opens your link.</p>
 
           {signedOut && (
             <div className="mt-stack rounded-control bg-surface-sunken p-3">
@@ -252,19 +241,10 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
           )}
 
           <form onSubmit={handleCreate} className="mt-stack space-y-stack">
-            <Field label="Location" hint={`Shown in the Sponsored section of ${selectedCity ? `the ${selectedCity.name} town page` : 'every town page'}${isStripe ? ' once paid' : ''}.`}>
-              <Select value={cityId} onChange={(e) => setCityId(e.target.value)}>
-                <option value="">All Utah towns</option>
-                {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </Field>
+            <AdLocationPicker cities={cities} value={location} onChange={setLocation} />
 
-            <Field label="Image URL" hint="Optional. Must start with https://">
-              <Input type="url" maxLength={500} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
-            </Field>
-
-            <Field label="Business name">
-              <Input type="text" required minLength={3} maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Your business" />
+            <Field label="Image URL" hint="Shown in a circle on the map. Must start with https://">
+              <Input type="url" required maxLength={500} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
             </Field>
 
             <Field label="Message">
@@ -275,35 +255,21 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               <Input type="url" required maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/promo" />
             </Field>
 
-            <Field label="Business category">
-              <Select required value={category} onChange={(e) => setCategory(e.target.value as AdCategory | '')}>
-                <option value="" disabled>Choose a category</option>
-                {AD_CATEGORY_IDS.map((id) => <option key={id} value={id}>{AD_CATEGORIES[id].label}</option>)}
-              </Select>
-            </Field>
-
-            <div>
-              <p className="mb-1.5 text-small font-semibold text-text">Ad type</p>
-              <Segmented label="Ad type" options={KINDS} value={kind} onChange={setKind} />
-            </div>
-
-            <Field label="Duration">
-              <Select value={durationDays} onChange={(e) => setDurationDays(Number(e.target.value))}>
-                {[7, 14, 30].map((days) => <option key={days} value={days}>{durationLabel(days)}</option>)}
-              </Select>
-            </Field>
-
             {isStripe ? (
-              <div className="rounded-control bg-surface-sunken p-3 text-small">
-                <div className="flex justify-between font-semibold text-text">
-                  <span>Listed price</span>
-                  <span>${totalCost}.00 USD</span>
-                </div>
-                <p className="mt-1 text-caption text-text-muted">Billed securely via Stripe (test mode).</p>
+              <div className="space-y-2">
+                <Segmented
+                  label="Payment" value={plan} onChange={setPlan}
+                  options={[{ value: 'paid', label: `$${totalCost}, ${DEFAULT_AD_DAYS} days` }, { value: 'free', label: `Free, ${FREE_AD_DAYS} day` }]}
+                />
+                <p className="rounded-control bg-surface-sunken p-3 text-caption text-text-muted">
+                  {free
+                    ? `No payment. Your ad goes live at once for ${FREE_AD_DAYS} day. You can publish 3 free ads every 24 hours.`
+                    : 'Billed securely via Stripe (test mode).'}
+                </p>
               </div>
             ) : provider === 'none' && (
               <p className="rounded-control bg-surface-sunken p-3 text-small text-text">
-                No payment needed. Your ad goes live as soon as you publish it. You can have up to 5 live ads at a time.
+                No payment needed. Your ad goes live as soon as you publish it and runs for {DEFAULT_AD_DAYS} days. You can have up to 5 live ads at a time.
               </p>
             )}
 
@@ -315,7 +281,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               <Button fullWidth onClick={openSignIn}>Sign in to continue</Button>
             ) : (
               <Button type="submit" fullWidth loading={submitting} disabled={provider === undefined}>
-                {submitting ? 'Publishing...' : isStripe ? `Pay $${totalCost} with Stripe` : 'Publish ad'}
+                {submitting ? 'Publishing...' : isStripe && !free ? `Pay $${totalCost} with Stripe` : 'Publish ad'}
               </Button>
             )}
           </form>

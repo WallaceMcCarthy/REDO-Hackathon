@@ -5,6 +5,7 @@ import { useRecordClick, useRecordImpression, useTownCampaigns } from '../../dat
 import type { Metric } from '../../types';
 import { Badge, Button, Card } from '../ui';
 import AdImage from './AdImage';
+import { titleRepeatsMessage } from './campaignPlacement';
 import { safeHttpsHref } from './safeHttpsHref';
 
 interface Props {
@@ -26,6 +27,7 @@ function BusinessCard({ campaign, cityId }: { campaign: CampaignRecord; cityId: 
   }, [campaign._id, cityId, recordImpression]);
 
   const href = safeHttpsHref(campaign.url);
+  const messageOnly = titleRepeatsMessage(campaign);
 
   return (
     <Card as="article" className="flex min-w-0 flex-col gap-2">
@@ -37,8 +39,8 @@ function BusinessCard({ campaign, cityId }: { campaign: CampaignRecord; cityId: 
       <div className="flex min-w-0 gap-3">
         <AdImage campaign={campaign} />
         <div className="min-w-0">
-          <h4 className="break-words font-semibold text-text">{campaign.title}</h4>
-          <p className="break-words text-small text-text-muted">{campaign.body}</p>
+          <h4 className="break-words font-semibold text-text">{messageOnly ? campaign.body : campaign.title}</h4>
+          {!messageOnly && <p className="break-words text-small text-text-muted">{campaign.body}</p>}
         </div>
       </div>
       {href && (
