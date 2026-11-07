@@ -10,7 +10,7 @@ export type ListingFilter = {
 
 /**
  * Format listing financial information honestly according to public data sources.
- * Never labels values as asking prices or verified rents.
+ * Distinguishes active asking amounts from assessor estimates and area benchmarks.
  */
 export function formatListingFinancials(listing: Listing): {
   amountFormatted: string;
@@ -18,6 +18,15 @@ export function formatListingFinancials(listing: Listing): {
   benchmarkBadge: string;
   disclaimer: string;
 } {
+  if (listing.market) {
+    const amount = listing.askingPrice ?? (listing.market === 'for_rent' ? listing.rent : listing.value);
+    return {
+      amountFormatted: amount == null ? 'N/A' : listing.market === 'for_rent' ? `$${amount.toLocaleString()}/mo` : `$${amount.toLocaleString()}`,
+      label: listing.market === 'for_rent' ? 'Asking rent' : 'Asking price',
+      benchmarkBadge: listing.market === 'for_rent' ? 'For rent' : 'For sale',
+      disclaimer: 'Active listing snapshot; availability and asking amounts can change.',
+    };
+  }
   if (listing.kind === 'home') {
     const val = listing.value;
     const formatted =
