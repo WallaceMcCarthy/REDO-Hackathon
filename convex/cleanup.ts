@@ -128,7 +128,7 @@ export const deleteTestAccounts = internalMutation({
       deletedRecords.authSessions = sessions.length;
 
       // 12. Delete private messages & conversations
-      await deleteConversationsForUser(ctx, userId);
+      while ((await deleteConversationsForUser(ctx, userId)) > 0);
       deletedRecords.conversations = 1;
 
       // 13. Delete user row itself

@@ -10,7 +10,8 @@ export default defineConfig({
   fullyParallel: true,
   retries: 0,
   reporter: [['list']],
-  use: { baseURL, trace: 'retain-on-failure' },
+  // Software WebGL, so MapLibre runs on machines and CI without a usable GPU.
+  use: { baseURL, trace: 'retain-on-failure', launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] } },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium' } },

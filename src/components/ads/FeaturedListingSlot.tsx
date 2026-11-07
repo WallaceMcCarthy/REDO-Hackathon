@@ -1,22 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
+import { Badge, Button, Card } from '../ui';
+import { safeHttpsHref } from './safeHttpsHref';
 
 interface FeaturedListingSlotProps {
   campaign: CampaignRecord;
   className?: string;
-}
-
-/** Defense-in-depth: only allow https URLs to be rendered into href */
-function safeHttpsHref(rawUrl?: string): string | undefined {
-  if (!rawUrl) return undefined;
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.protocol === 'https:') {
-      return parsed.toString();
-    }
-  } catch {}
-  return undefined;
 }
 
 export default function FeaturedListingSlot({
@@ -37,45 +27,34 @@ export default function FeaturedListingSlot({
   const href = safeHttpsHref(campaign.url);
 
   return (
-    <article
-      className={`group relative flex flex-col justify-between rounded-2xl border-2 border-purple-300 bg-gradient-to-br from-purple-50/50 to-white p-4 shadow-sm hover:border-purple-400 ${className}`}
-    >
+    <Card as="article" raised className={`flex flex-col justify-between ${className}`}>
       <div>
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 font-bold text-purple-900">
-              Sponsored {campaign.isSample && '(sample)'}
-            </span>
-            <span className="text-[11px] font-medium text-purple-700">
-              Featured placement
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="sponsored" />
+          {campaign.isSample && <Badge tone="sample" />}
+          <span className="text-caption text-text-muted">Featured placement</span>
         </div>
-
-        <div className="mt-2.5">
-          <h3 className="font-display text-lg font-bold leading-snug text-ink group-hover:text-purple-950">
-            {campaign.title}
-          </h3>
-          <p className="mt-1 text-xs leading-relaxed text-rock-700">{campaign.body}</p>
-        </div>
+        <h3 className="mt-2 break-words font-display text-title text-text">{campaign.title}</h3>
+        <p className="mt-1 break-words text-small text-text-muted">{campaign.body}</p>
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-purple-100 pt-2.5 text-xs">
-        <span className="text-[10px] text-purple-600">Verified Sponsor via REDO Payments</span>
+      <div className="mt-stack border-t border-border pt-3">
         {href ? (
-          <a
+          <Button
             href={href}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => recordClick(campaign._id)}
-            className="inline-flex items-center gap-1 font-semibold text-purple-800 underline underline-offset-2 hover:text-purple-950"
+            variant="secondary"
+            size="sm"
+            fullWidth
           >
-            Learn more ↗
-          </a>
+            Learn more
+          </Button>
         ) : (
-          <span className="text-[11px] text-rock-400">Website link unavailable</span>
+          <span className="text-small text-text-muted">Website link unavailable</span>
         )}
       </div>
-    </article>
+    </Card>
   );
 }

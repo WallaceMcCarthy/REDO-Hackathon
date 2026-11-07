@@ -19,7 +19,8 @@ export const campaignStatusValidator = v.union(
  */
 export const adsTables = {
   campaigns: defineTable({
-    advertiserUserId: v.id("users"),
+    // Unset once the advertiser deletes their account; the row stays because payments point at it.
+    advertiserUserId: v.optional(v.id("users")),
     kind: campaignKindValidator,
     title: v.string(),
     body: v.string(),

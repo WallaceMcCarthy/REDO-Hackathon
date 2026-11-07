@@ -1,4 +1,9 @@
 import { expect, type Page } from '@playwright/test';
+import type { Map as MapLibreMap } from 'maplibre-gl';
+
+declare global {
+  interface Window { __utahMap?: MapLibreMap }
+}
 
 export const TOWNS = 42;
 
@@ -12,7 +17,7 @@ export async function openControls(page: Page) {
 export async function gotoResults(page: Page, persona = 'Skier') {
   await page.goto('/');
   await page.getByRole('button', { name: persona, exact: false }).first().click();
-  await page.getByRole('button', { name: 'Show my towns' }).click();
+  await page.getByRole('button', { name: 'Show my matches' }).click();
   await expect(page).toHaveURL(/#\/results$/);
   await expect(page.getByText(/Showing \d+ homes in \d+ areas?/)).toBeVisible({ timeout: 20_000 });
 }
@@ -24,7 +29,15 @@ export async function gotoAreas(page: Page, persona = 'Skier') {
 }
 
 export const cards = (page: Page) => page.getByRole('region', { name: 'Ranked towns' }).getByRole('listitem');
-export const pins = (page: Page) => page.locator('.leaflet-marker-icon');
+
+/** Town pins are WebGL circles, not DOM nodes, so count the distinct towns the map actually drew. */
+export const pinCount = (page: Page) =>
+  page.evaluate(() => {
+    const map = window.__utahMap;
+    if (!map?.getLayer('towns-circle')) return -1;
+    const drawn = map.queryRenderedFeatures({ layers: ['towns-circle', 'towns-dots'] });
+    return new Set(drawn.map(f => f.properties.id)).size;
+  });
 
 export async function cardNames(page: Page, n: number) {
   return cards(page).locator('.font-display.text-xl').evaluateAll((els, k) => els.slice(0, k).map(e => e.textContent), n);
@@ -40,30 +53,16 @@ export async function setRange(page: Page, name: RegExp, value: number | 'min' |
   }, value);
 }
 
-/**
- * Leaflet exposes no map global, so derive the (possibly fractional) zoom from a loaded tile:
- * tile z from its URL plus log2 of its rendered width over the native 256px.
- */
-export const zoomOf = (page: Page) =>
-  page.evaluate(() => {
-    const t = [...document.querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded')]
-      .map(img => ({ z: Number(img.src.match(/tile\/(\d+)\//)?.[1]), w: img.getBoundingClientRect().width }))
-      .filter(x => Number.isFinite(x.z) && x.w > 0);
-    if (!t.length) return -1;
-    const top = t.reduce((a, b) => (b.z > a.z ? b : a));
-    return Math.round((top.z + Math.log2(top.w / 256)) * 100) / 100;
-  });
+/** Needs a build with VITE_EXPOSE_MAP=1, which sets window.__utahMap. */
+export const zoomOf = (page: Page) => page.evaluate(() => window.__utahMap?.getZoom() ?? -1);
 
-/** Zoom once animations and tile fades have stopped moving it. */
+/** Zoom once the camera has stopped and every visible tile has loaded. */
 export async function settledZoom(page: Page) {
-  let last = await zoomOf(page);
-  for (let i = 0; i < 40; i++) {
-    await page.waitForTimeout(250);
-    const z = await zoomOf(page);
-    if (z === last && (await page.locator('img.leaflet-tile-loading').count()) === 0) return z;
-    last = z;
-  }
-  return last;
+  await expect.poll(() => page.evaluate(() => {
+    const map = window.__utahMap;
+    return !!map && !map.isMoving() && map.areTilesLoaded();
+  }), { timeout: 20_000 }).toBe(true);
+  return zoomOf(page);
 }
 
 /** Phones show the list or the map, not both. */
