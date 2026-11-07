@@ -11,6 +11,7 @@ const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-se
 /** Convex Auth throws "Invalid credentials" (bad sign in), "Invalid password" (under 8 chars) and "Account X already exists" (sign up). Production may redact the text, so fall back by mode. */
 function plainError(err: unknown, mode: Mode): string {
   const text = err instanceof Error ? err.message : '';
+  if (/valid email/i.test(text)) return 'Enter a valid email address.';
   if (/invalid password/i.test(text)) return `Use at least ${MIN_PASSWORD} characters for your password.`;
   if (/already exists/i.test(text)) return 'That email already has an account. Try signing in instead.';
   if (/invalid credentials|invalidsecret|invalidaccountid/i.test(text)) return 'Wrong email or password. Check both and try again.';
