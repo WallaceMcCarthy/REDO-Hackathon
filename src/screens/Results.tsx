@@ -91,6 +91,10 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
             Saved places
           </button>
           <span className="text-rock-300">•</span>
+          <a href="#/account" className="font-semibold text-alpine-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-alpine-500">
+            My account
+          </a>
+          <span className="text-rock-300">•</span>
           <button type="button" onClick={() => setViewMode('ads')} className="font-semibold text-purple-700 underline underline-offset-2 hover:text-purple-900 focus-visible:outline-alpine-500">
             Advertise
           </button>
