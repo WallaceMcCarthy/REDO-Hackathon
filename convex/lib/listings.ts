@@ -22,19 +22,26 @@ export type Listing = {
   sourceUrl: string;
   year: number | null;
   /** Derived at the API boundary; rent is never a quoted property asking rent. */
-  rentKind?: "area_benchmark" | null;
+  rentKind?: "area_benchmark" | "asking" | null;
   rentBenchmarkBedrooms?: number | null;
   rentSourceUrl?: string | null;
+  market?: "for_sale" | "for_rent";
+  askingPrice?: number | null;
+  baths?: number | null;
+  listedDate?: string | null;
+  daysOnMarket?: number | null;
+  priceKind?: "asking_price" | "asking_rent";
+  sourceId?: string;
 };
 
 /** Existing apartment source beds=2 means the benchmark size, not a unit attribute. */
 export function withListingMetadata<T extends Listing>(listing: T) {
   return {
     ...listing,
-    beds: listing.kind === "apartment" ? null : listing.beds,
-    rentKind: listing.kind === "apartment" ? "area_benchmark" as const : null,
-    rentBenchmarkBedrooms: listing.kind === "apartment" ? 2 : null,
-    rentSourceUrl: listing.kind === "apartment" ? "https://www.huduser.gov/portal/datasets/fmr.html#2025" : null,
+    beds: listing.kind === "apartment" && !listing.market ? null : listing.beds,
+    rentKind: listing.kind === "apartment" ? listing.market ? "asking" as const : "area_benchmark" as const : null,
+    rentBenchmarkBedrooms: listing.kind === "apartment" && !listing.market ? 2 : null,
+    rentSourceUrl: listing.kind === "apartment" ? listing.market ? listing.sourceUrl : "https://www.huduser.gov/portal/datasets/fmr.html#2025" : null,
   };
 }
 

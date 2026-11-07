@@ -3,22 +3,25 @@ import { v } from "convex/values";
 import { marketRowValidator } from "./marketSchema";
 import { normalizeMarketRow, type Market } from "./lib/market";
 
-type Delta = { cityId: string | null; market: Market; add: number[]; remove: number[] };
-function addDelta(changes: Map<string, Delta>, row: { cityId: string | null; market: Market; residential: boolean; price: number | null }, remove: boolean) {
+type OrderEntry = { rcId: string; price: number; yearBuilt: number };
+type Delta = { cityId: string | null; market: Market; add: OrderEntry[]; remove: string[] };
+function addDelta(changes: Map<string, Delta>, row: { cityId: string | null; market: Market; residential: boolean; price: number | null; rcId: string; sortYearBuilt: number }, remove: boolean) {
   if (!row.residential || row.price === null) return;
   const key = JSON.stringify([row.cityId, row.market]);
   const delta = changes.get(key) ?? { cityId: row.cityId, market: row.market, add: [], remove: [] };
-  (remove ? delta.remove : delta.add).push(row.price); changes.set(key, delta);
+  if (remove) delta.remove.push(row.rcId);
+  else delta.add.push({ rcId: row.rcId, price: row.price, yearBuilt: row.sortYearBuilt });
+  changes.set(key, delta);
 }
 async function updateStats(ctx: MutationCtx, changes: Map<string, Delta>) {
   for (const delta of changes.values()) {
     const existing = await ctx.db.query("marketListingStats").withIndex("by_city_market", q => q.eq("cityId", delta.cityId).eq("market", delta.market)).unique();
-    const counts = new Map<number, number>();
-    for (const price of existing?.prices ?? []) counts.set(price, (counts.get(price) ?? 0) + 1);
-    for (const price of delta.remove) counts.set(price, Math.max(0, (counts.get(price) ?? 0) - 1));
-    for (const price of delta.add) counts.set(price, (counts.get(price) ?? 0) + 1);
-    const prices = [...counts].flatMap(([price, count]) => Array<number>(count).fill(price)).sort((a, b) => a - b);
-    const value = { cityId: delta.cityId, market: delta.market, prices, updatedAt: Date.now() };
+    const entries = new Map((existing?.yearOrder ?? []).map(entry => [entry.rcId, entry]));
+    for (const id of delta.remove) entries.delete(id);
+    for (const entry of delta.add) entries.set(entry.rcId, entry);
+    const yearOrder = [...entries.values()].sort((a, b) => b.yearBuilt - a.yearBuilt || a.price - b.price || a.rcId.localeCompare(b.rcId));
+    const prices = yearOrder.map(entry => entry.price).sort((a, b) => a - b);
+    const value = { cityId: delta.cityId, market: delta.market, prices, yearOrder, updatedAt: Date.now() };
     if (existing) await ctx.db.replace(existing._id, value); else await ctx.db.insert("marketListingStats", value);
   }
 }

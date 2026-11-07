@@ -19,6 +19,7 @@ export const marketTables = {
     .index("by_market_rcId", ["market", "rcId"])
     .index("by_city_market_residential_price", ["cityId", "market", "residential", "price", "rcId"])
     .index("by_city_market_residential_year", ["cityId", "market", "residential", "sortYearBuilt", "rcId"]),
-  marketListingStats: defineTable({ cityId: stringOrNull, market: v.union(v.literal("for_sale"), v.literal("for_rent")), prices: v.array(v.number()), updatedAt: v.number() })
+  marketListingStats: defineTable({ cityId: stringOrNull, market: v.union(v.literal("for_sale"), v.literal("for_rent")), prices: v.array(v.number()),
+    yearOrder: v.optional(v.array(v.object({ rcId: v.string(), price: v.number(), yearBuilt: v.number() }))), updatedAt: v.number() })
     .index("by_city_market", ["cityId", "market"]).index("by_market", ["market"]),
 };

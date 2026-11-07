@@ -66,5 +66,7 @@ export default defineSchema({
     source: v.string(),
     sourceUrl: v.string(),
     year: v.union(v.number(), v.null()),
-  }).index("by_cityId", ["cityId"]).index("by_kind", ["kind"]).index("by_listingId", ["id"]),
+  }).index("by_cityId", ["cityId"]).index("by_kind", ["kind"]).index("by_listingId", ["id"])
+    .index("by_city_kind_value", ["cityId", "kind", "value"])
+    .index("by_city_kind_rent", ["cityId", "kind", "rent"]),
 });

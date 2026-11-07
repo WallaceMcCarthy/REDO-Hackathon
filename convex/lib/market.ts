@@ -40,3 +40,15 @@ export function pricesWithinBudget(sortedPrices: readonly number[], cap?: number
   }
   return low;
 }
+import type { Listing } from "./listings";
+
+export function marketToListing(row: MarketInput & { cityId: string | null; importedAt: number }): Listing | null {
+  if (!row.cityId || row.lat === null || row.lng === null) return null;
+  const rental = row.market === "for_rent";
+  return { id: `market:${row.market}:${row.rcId}`, cityId: row.cityId, kind: rental ? "apartment" : "home",
+    name: null, address: row.address, lat: row.lat, lng: row.lng, value: rental ? null : row.price, rent: rental ? row.price : null,
+    beds: row.beds, baths: row.baths, sqft: row.sqft, yearBuilt: row.yearBuilt, units: null, propertyType: row.propertyType,
+    source: "RentCast active listing snapshot", sourceUrl: "https://www.rentcast.io/", sourceId: row.rcId,
+    year: new Date(row.importedAt).getUTCFullYear(), market: row.market, askingPrice: row.price, listedDate: row.listedDate,
+    daysOnMarket: row.daysOnMarket, priceKind: rental ? "asking_rent" : "asking_price", rentKind: rental ? "asking" : null };
+}
