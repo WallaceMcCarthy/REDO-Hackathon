@@ -311,7 +311,11 @@ describe("ad categories and placement", () => {
     expect(new Set(samples.map((s) => s.category))).toEqual(new Set(AD_CATEGORY_IDS));
     for (const s of samples) {
       const city = cities.find((c) => c.id === s.cityId);
-      expect([s.lat, s.lng]).toEqual([city.lat, city.lng]);
+      // Generated ads (url /sample/<town>/<slug>) scatter near their town; hand-written ones sit on it.
+      if (s.url.includes(`/sample/${s.cityId}/`)) {
+        expect(Math.abs(s.lat - city.lat)).toBeLessThan(0.2);
+        expect(Math.abs(s.lng - city.lng)).toBeLessThan(0.2);
+      } else expect([s.lat, s.lng]).toEqual([city.lat, city.lng]);
       expect(s.url).toMatch(/^https:\/\//);
       expect(existsSync(`public${s.imageUrl}`)).toBe(true);
       expect(s.advertiserUserId).toBeUndefined();

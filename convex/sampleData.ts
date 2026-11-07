@@ -1,6 +1,8 @@
 import { ConvexError } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 import type { AdCategory } from "./lib/adCategories";
+import { buildSampleAds } from "./sampleAds";
 
 const SAMPLE_DURATION_MS = 365 * 24 * 3600 * 1000;
 
@@ -64,37 +66,14 @@ export const seedSampleContent = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
 
-    // 1. Remove existing sample records to keep seed idempotent
-    try {
-      const existingCampaigns = (await (ctx.db.query as any)("campaigns").collect()) as any[];
-      for (const c of existingCampaigns) {
-        if (c.isSample) await (ctx.db.delete as any)(c._id);
+    // Reruns delete only isSample rows (campaigns, comments, profiles), then reinsert.
+    for (const table of ["campaigns", "comments", "profiles"] as const) {
+      for (const row of await ctx.db.query(table).collect()) {
+        if (row.isSample) await ctx.db.delete(row._id);
       }
-    } catch {}
-
-    try {
-      const existingComments = (await (ctx.db.query as any)("comments").collect()) as any[];
-      for (const c of existingComments) {
-        if (c.isSample) await (ctx.db.delete as any)(c._id);
-      }
-    } catch {}
-
-    // 2. Create a fictional demo user ID for sample authors
-    let demoUserId: any;
-    try {
-      const users = (await (ctx.db.query as any)("users").collect()) as any[];
-      demoUserId = users[0]?._id;
-      if (!demoUserId) {
-        demoUserId = await (ctx.db.insert as any)("users", {
-          name: "Sample Demo Persona",
-          email: "demo-persona@example.com",
-        });
-      }
-    } catch {
-      demoUserId = "sample_user_demo";
     }
 
-    // 3. Seed sample campaigns at their real town coordinates. They have no advertiser, so they sit in nobody's dashboard.
+    // Sample ads carry no advertiserUserId, so they sit in nobody's dashboard.
     const cities = await ctx.db.query("cities").collect();
     for (const camp of SAMPLE_CAMPAIGNS) {
       const city = cities.find((c) => c.id === camp.cityId);
@@ -112,13 +91,13 @@ export const seedSampleContent = internalMutation({
         isSample: true,
       });
     }
+    for (const ad of buildSampleAds(now)) await ctx.db.insert("campaigns", ad);
 
     // 4. Seed Sample Town Comments (with 1-level nested replies)
     const sampleComments = [
       {
         targetType: "town",
         targetId: "salt-lake-city",
-        userId: demoUserId,
         displayName: "Taylor Reed (Sample)",
         body: "The TRAX light rail connection directly from downtown to the airport and universities makes commuting so convenient without needing a car every day.",
         parentId: null,
@@ -134,7 +113,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "moab",
-        userId: demoUserId,
         displayName: "Casey Morgan (Sample)",
         body: "Unbeatable access to Arches and Canyonlands. Just make sure you prepare for summer heat and high tourist seasons!",
         parentId: null,
@@ -150,7 +128,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "park-city",
-        userId: demoUserId,
         displayName: "Jordan Lee (Sample)",
         body: "World-class ski resorts and incredible trail systems right outside your door. High housing costs, but the outdoor culture is vibrant.",
         parentId: null,
@@ -163,7 +140,6 @@ export const seedSampleContent = internalMutation({
       {
         targetType: "town",
         targetId: "provo",
-        userId: demoUserId,
         displayName: "Devon Chen (Sample)",
         body: "Great community feel near Utah Lake and Rock Canyon. Tech jobs along the Silicon Slopes corridor are expanding rapidly.",
         parentId: null,
@@ -175,41 +151,47 @@ export const seedSampleContent = internalMutation({
       },
     ];
 
-    for (const c of sampleComments) {
-      try {
-        const rootId = await (ctx.db.insert as any)("comments", {
-          targetType: c.targetType,
-          targetId: c.targetId,
-          userId: c.userId,
-          displayName: c.displayName,
-          body: c.body,
-          parentId: null,
-          reports: c.reports,
-          hidden: c.hidden,
-          isSample: c.isSample,
-        });
+    // Comment names come from profiles, and a profile is one per user, so each author gets a fictional user plus a sample profile.
+    const authorIds = new Map<string, Id<"users">>();
+    const ensureAuthor = async (displayName: string) => {
+      const known = authorIds.get(displayName);
+      if (known) return known;
+      const email = `sample-${displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}@example.com`;
+      const existing = await ctx.db.query("users").filter((q) => q.eq(q.field("email"), email)).first();
+      const userId = existing?._id ?? (await ctx.db.insert("users", { name: displayName, email }));
+      await ctx.db.insert("profiles", { userId, displayName, cityId: null, moveBy: null, budget: null, household: null, isSample: true });
+      authorIds.set(displayName, userId);
+      return userId;
+    };
 
-        if (c.reply && rootId) {
-          await (ctx.db.insert as any)("comments", {
-            targetType: c.targetType,
-            targetId: c.targetId,
-            userId: c.userId,
-            displayName: c.reply.displayName,
-            body: c.reply.body,
-            parentId: rootId,
-            reports: 0,
-            hidden: false,
-            isSample: true,
-          });
-        }
-      } catch (err) {
-        console.warn("Could not insert sample comment:", err);
+    for (const c of sampleComments) {
+      const rootId = await ctx.db.insert("comments", {
+        targetType: "town",
+        targetId: c.targetId,
+        userId: await ensureAuthor(c.displayName),
+        body: c.body,
+        parentId: null,
+        reports: 0,
+        hidden: false,
+        isSample: true,
+      });
+      if (c.reply) {
+        await ctx.db.insert("comments", {
+          targetType: "town",
+          targetId: c.targetId,
+          userId: await ensureAuthor(c.reply.displayName),
+          body: c.reply.body,
+          parentId: rootId,
+          reports: 0,
+          hidden: false,
+          isSample: true,
+        });
       }
     }
 
     return {
       status: "success",
-      sampleCampaignsCount: SAMPLE_CAMPAIGNS.length,
+      sampleCampaignsCount: SAMPLE_CAMPAIGNS.length + buildSampleAds(now).length,
       sampleCommentsCount: sampleComments.length,
     };
   },
