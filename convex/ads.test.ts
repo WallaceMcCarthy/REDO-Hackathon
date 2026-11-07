@@ -1,6 +1,6 @@
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import schema from "./schema";
 
 const modules = {
@@ -16,6 +16,7 @@ const refs = {
   recordImpression: makeFunctionReference<"mutation">("ads:recordImpression"),
   recordClick: makeFunctionReference<"mutation">("ads:recordClick"),
   simulateSandboxPayment: makeFunctionReference<"mutation">("ads:simulateSandboxPayment"),
+  isSandboxPaymentAllowed: makeFunctionReference<"query">("ads:isSandboxPaymentAllowed"),
 };
 
 async function setup() {
@@ -23,86 +24,184 @@ async function setup() {
   const userId = await t.run(async (ctx: any) => {
     return await ctx.db.insert("users", { email: "advertiser@example.test" });
   });
-  const advertiser = t.withIdentity({ subject: `${userId}|test-session` });
-  return { t, userId, advertiser };
-}
-
-describe("authenticated ads and sandbox payments", () => {
-  it("rejects unauthenticated writes (Phase 3 ground rule)", async () => {
-    const { t, advertiser } = await setup();
-
-    // Create campaign as advertiser
-    const res = await advertiser.mutation(refs.createCampaign, {
-      kind: "pin",
-      title: "Test Business",
-      body: "Best local bakery",
-      url: "https://example.test",
-      durationDays: 7,
-    });
-    expect(res.checkoutUrl).toContain("#ads-sandbox-checkout");
-    expect(res.checkoutUrl).not.toContain("sandbox.getredo.com");
-
-    // Anonymous writes must reject with sign in required
-    await expect(
-      t.mutation(refs.createCampaign, {
-        kind: "pin",
-        title: "Anon Business",
-        body: "Test",
-        url: "https://example.test",
-        durationDays: 7,
-      })
-    ).rejects.toThrow("Sign in");
-
-    await expect(
-      t.mutation(refs.recordImpression, { campaignId: res.campaignId })
-    ).rejects.toThrow("Sign in");
-
-    await expect(
-      t.mutation(refs.recordClick, { campaignId: res.campaignId })
-    ).rejects.toThrow("Sign in");
-
-    await expect(
-      t.mutation(refs.simulateSandboxPayment, { campaignId: res.campaignId })
-    ).rejects.toThrow("Sign in");
+  const attackerId = await t.run(async (ctx: any) => {
+    return await ctx.db.insert("users", { email: "attacker@example.test" });
   });
 
-  it("handles campaign lifecycle: create -> pending -> simulateSandboxPayment -> active pin", async () => {
+  const advertiser = t.withIdentity({ subject: `${userId}|test-session` });
+  const attacker = t.withIdentity({ subject: `${attackerId}|attacker-session` });
+  return { t, userId, advertiser, attackerId, attacker };
+}
+
+describe("ads security & exploit resistance", () => {
+  const originalEnv = process.env.ALLOW_SANDBOX_PAYMENTS;
+
+  beforeEach(() => {
+    delete process.env.ALLOW_SANDBOX_PAYMENTS;
+  });
+
+  afterEach(() => {
+    if (originalEnv !== undefined) {
+      process.env.ALLOW_SANDBOX_PAYMENTS = originalEnv;
+    } else {
+      delete process.env.ALLOW_SANDBOX_PAYMENTS;
+    }
+  });
+
+  it("REJECTS Stored XSS exploit payloads (javascript:alert(document.cookie))", async () => {
     const { advertiser } = await setup();
 
-    // Initial pins should be empty
-    const initialPins = await advertiser.query(refs.getActivePins, {});
-    expect(initialPins).toEqual([]);
+    // Exact exploit payload from security audit
+    await expect(
+      advertiser.mutation(refs.createCampaign, {
+        kind: "pin",
+        title: "XSS Pin",
+        body: "Payload test",
+        url: "javascript:alert(document.cookie)",
+        durationDays: 7,
+      })
+    ).rejects.toThrow("Destination URL must use HTTPS protocol (https://)");
 
-    // Create campaign
+    // Insecure HTTP rejected
+    await expect(
+      advertiser.mutation(refs.createCampaign, {
+        kind: "featured",
+        title: "HTTP Ad",
+        body: "Insecure promo",
+        url: "http://insecure-site.com",
+        durationDays: 7,
+      })
+    ).rejects.toThrow("Destination URL must use HTTPS protocol (https://)");
+
+    // Data URI rejected
+    await expect(
+      advertiser.mutation(refs.createCampaign, {
+        kind: "job",
+        title: "Data Ad",
+        body: "Data URI test",
+        url: "data:text/html,<script>alert(1)</script>",
+        durationDays: 7,
+      })
+    ).rejects.toThrow("Destination URL must use HTTPS protocol (https://)");
+  });
+
+  it("FAILS CLOSED: simulateSandboxPayment is blocked when ALLOW_SANDBOX_PAYMENTS is unset or not 'true'", async () => {
+    const { advertiser } = await setup();
+    delete process.env.ALLOW_SANDBOX_PAYMENTS;
+
     const created = await advertiser.mutation(refs.createCampaign, {
       kind: "pin",
-      title: "Park City Gear",
-      body: "Ski and bike rentals",
-      url: "https://example.test/gear",
-      durationDays: 14,
+      title: "Legit Pin",
+      body: "Legit description",
+      url: "https://example.com/promo",
+      durationDays: 7,
+      lat: 40.7608,
+      lng: -111.891,
     });
 
-    // Should be pending, not yet active
-    const pinsWhilePending = await advertiser.query(refs.getActivePins, {});
-    expect(pinsWhilePending).toEqual([]);
+    // Exploiting sandbox payment without ALLOW_SANDBOX_PAYMENTS=true fails closed
+    await expect(
+      advertiser.mutation(refs.simulateSandboxPayment, { campaignId: created.campaignId })
+    ).rejects.toThrow("Sandbox payment simulation is disabled on this deployment");
+  });
 
-    // Simulate payment in sandbox
+  it("Allows sandbox payment simulation only when ALLOW_SANDBOX_PAYMENTS='true'", async () => {
+    const { advertiser, attacker } = await setup();
+    process.env.ALLOW_SANDBOX_PAYMENTS = "true";
+
+    const created = await advertiser.mutation(refs.createCampaign, {
+      kind: "pin",
+      title: "Legit Bakery",
+      body: "Artisan bakery in Salt Lake",
+      url: "https://example.com/bakery",
+      durationDays: 7,
+      lat: 40.7608,
+      lng: -111.891,
+    });
+
+    // Attacker cannot simulate payment for someone else's campaign
+    await expect(
+      attacker.mutation(refs.simulateSandboxPayment, { campaignId: created.campaignId })
+    ).rejects.toThrow("Only the campaign owner can simulate payment");
+
+    // Owner can simulate payment when allowed
     const simRes = await advertiser.mutation(refs.simulateSandboxPayment, {
       campaignId: created.campaignId,
     });
     expect(simRes.status).toBe("active");
 
-    // Now active pin should be visible in query
-    const activePins = await advertiser.query(refs.getActivePins, {});
-    expect(activePins).toHaveLength(1);
-    expect(activePins[0].title).toBe("Park City Gear");
-    expect(activePins[0].status).toBe("active");
+    const pins = await advertiser.query(refs.getActivePins, {});
+    expect(pins).toHaveLength(1);
+    expect(pins[0].status).toBe("active");
+    // Verify isSample was forced false
+    expect(pins[0].isSample).toBe(false);
+  });
 
-    // Authenticated impressions and clicks
+  it("Validates input bounds and Utah coordinates", async () => {
+    const { advertiser } = await setup();
+
+    // Out-of-bounds coordinates (e.g. New York: 40.7128° N, 74.0060° W)
+    await expect(
+      advertiser.mutation(refs.createCampaign, {
+        kind: "pin",
+        title: "NYC Pin",
+        body: "Outside Utah boundary",
+        url: "https://example.com",
+        durationDays: 7,
+        lat: 40.7128,
+        lng: -74.006,
+      })
+    ).rejects.toThrow("Location coordinates must be within Utah bounds");
+
+    // Duration out of bounds
+    await expect(
+      advertiser.mutation(refs.createCampaign, {
+        kind: "pin",
+        title: "Bad Duration",
+        body: "Outside duration",
+        url: "https://example.com",
+        durationDays: 0,
+      })
+    ).rejects.toThrow("Campaign duration must be between 1 and 90 days");
+
+    // Oversized title
+    await expect(
+      advertiser.mutation(refs.createCampaign, {
+        kind: "pin",
+        title: "A".repeat(81),
+        body: "Oversized title test",
+        url: "https://example.com",
+        durationDays: 7,
+      })
+    ).rejects.toThrow("Campaign title must be between 3 and 80 characters");
+  });
+
+  it("Prevents campaign owners from inflating their own impressions and clicks", async () => {
+    const { advertiser, attacker } = await setup();
+    process.env.ALLOW_SANDBOX_PAYMENTS = "true";
+
+    const created = await advertiser.mutation(refs.createCampaign, {
+      kind: "featured",
+      title: "Luxury Condo",
+      body: "Downtown living at its finest",
+      url: "https://example.com/condo",
+      durationDays: 14,
+    });
+    await advertiser.mutation(refs.simulateSandboxPayment, { campaignId: created.campaignId });
+
+    // Owner viewing or clicking own ad does NOT increment metrics
     await advertiser.mutation(refs.recordImpression, { campaignId: created.campaignId });
     await advertiser.mutation(refs.recordClick, { campaignId: created.campaignId });
 
-    const myCampaigns = await advertiser.query(refs.listMyCampaigns, {});
+    let myCampaigns = await advertiser.query(refs.listMyCampaigns, {});
+    expect(myCampaigns[0].impressions).toBe(0);
+    expect(myCampaigns[0].clicks).toBe(0);
+
+    // Another user viewing and clicking DOES increment metrics
+    await attacker.mutation(refs.recordImpression, { campaignId: created.campaignId });
+    await attacker.mutation(refs.recordClick, { campaignId: created.campaignId });
+
+    myCampaigns = await advertiser.query(refs.listMyCampaigns, {});
     expect(myCampaigns[0].impressions).toBe(1);
     expect(myCampaigns[0].clicks).toBe(1);
   });

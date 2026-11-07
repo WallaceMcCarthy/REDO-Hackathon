@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import React, { memo, useEffect, useMemo, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
@@ -33,6 +33,18 @@ function getSponsoredIcon(kind: 'pin' | 'featured' | 'job'): L.DivIcon {
   return icon;
 }
 
+/** Defense-in-depth: only allow https URLs to be rendered into href */
+function safeHttpsHref(rawUrl?: string): string | undefined {
+  if (!rawUrl) return undefined;
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {}
+  return undefined;
+}
+
 export const SponsoredPin = memo(function SponsoredPin({ campaign }: SponsoredPinProps) {
   const recordImpression = useRecordImpression();
   const recordClick = useRecordClick();
@@ -49,6 +61,7 @@ export const SponsoredPin = memo(function SponsoredPin({ campaign }: SponsoredPi
 
   const position: L.LatLngTuple = [campaign.lat, campaign.lng];
   const icon = getSponsoredIcon(campaign.kind);
+  const href = safeHttpsHref(campaign.url);
 
   return (
     <Marker position={position} icon={icon} zIndexOffset={1500}>
@@ -70,17 +83,19 @@ export const SponsoredPin = memo(function SponsoredPin({ campaign }: SponsoredPi
             <p className="mt-1 text-xs text-rock-600">{campaign.body}</p>
           </div>
 
-          <div className="pt-2 border-t border-rock-100">
-            <a
-              href={campaign.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => recordClick(campaign._id)}
-              className="inline-flex w-full items-center justify-center rounded-full bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-800"
-            >
-              Visit website ↗
-            </a>
-          </div>
+          {href && (
+            <div className="pt-2 border-t border-rock-100">
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => recordClick(campaign._id)}
+                className="inline-flex w-full items-center justify-center rounded-full bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-800"
+              >
+                Visit website ↗
+              </a>
+            </div>
+          )}
         </div>
       </Popup>
     </Marker>

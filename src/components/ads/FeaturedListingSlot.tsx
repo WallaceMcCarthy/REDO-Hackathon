@@ -7,6 +7,18 @@ interface FeaturedListingSlotProps {
   className?: string;
 }
 
+/** Defense-in-depth: only allow https URLs to be rendered into href */
+function safeHttpsHref(rawUrl?: string): string | undefined {
+  if (!rawUrl) return undefined;
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {}
+  return undefined;
+}
+
 export default function FeaturedListingSlot({
   campaign,
   className = '',
@@ -21,6 +33,8 @@ export default function FeaturedListingSlot({
       recordImpression(campaign._id);
     }
   }, [campaign._id, recordImpression]);
+
+  const href = safeHttpsHref(campaign.url);
 
   return (
     <article
@@ -48,15 +62,19 @@ export default function FeaturedListingSlot({
 
       <div className="mt-4 flex items-center justify-between border-t border-purple-100 pt-2.5 text-xs">
         <span className="text-[10px] text-purple-600">Verified Sponsor via REDO Payments</span>
-        <a
-          href={campaign.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => recordClick(campaign._id)}
-          className="inline-flex items-center gap-1 font-semibold text-purple-800 underline underline-offset-2 hover:text-purple-950"
-        >
-          Learn more ↗
-        </a>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => recordClick(campaign._id)}
+            className="inline-flex items-center gap-1 font-semibold text-purple-800 underline underline-offset-2 hover:text-purple-950"
+          >
+            Learn more ↗
+          </a>
+        ) : (
+          <span className="text-[11px] text-rock-400">Website link unavailable</span>
+        )}
       </div>
     </article>
   );

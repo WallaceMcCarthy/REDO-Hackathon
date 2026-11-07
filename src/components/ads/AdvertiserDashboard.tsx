@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCreateCampaign, useMyCampaigns } from '../../data/adsHooks';
+import { useCreateCampaign, useIsSandboxPaymentAllowed, useMyCampaigns } from '../../data/adsHooks';
 import type { City } from '../../types';
 
 interface AdvertiserDashboardProps {
@@ -10,6 +10,7 @@ interface AdvertiserDashboardProps {
 export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashboardProps) {
   const campaigns = useMyCampaigns();
   const createCampaign = useCreateCampaign();
+  const isSandboxAllowed = useIsSandboxPaymentAllowed();
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
   const [title, setTitle] = useState('');
@@ -17,7 +18,6 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [url, setUrl] = useState('');
   const [cityId, setCityId] = useState('');
   const [durationDays, setDurationDays] = useState(7);
-  const [isSample, setIsSample] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
@@ -45,7 +45,6 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         lng: selectedCity?.lng,
         cityId: cityId || undefined,
         durationDays,
-        isSample,
       });
 
       if (res?.checkoutUrl) {
@@ -145,12 +144,18 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                           {c.status.replace('_', ' ')}
                         </span>
                         {c.status === 'pending_payment' && (
-                          <a
-                            href={`/#ads-sandbox-checkout?campaignId=${c._id}&amount=${c.expectedAmount || 3500}&title=${encodeURIComponent(c.title)}`}
-                            className="cursor-pointer rounded-full bg-amber-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-700"
-                          >
-                            Simulate Payment →
-                          </a>
+                          isSandboxAllowed ? (
+                            <a
+                              href={`/#ads-sandbox-checkout?campaignId=${c._id}&amount=${c.expectedAmount || 3500}&title=${encodeURIComponent(c.title)}`}
+                              className="cursor-pointer rounded-full bg-amber-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-700"
+                            >
+                              Simulate Payment →
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-dusk italic">
+                              Awaiting REDO confirmation
+                            </span>
+                          )
                         )}
                       </div>
                     </div>
@@ -182,6 +187,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               })}
             </div>
           )}
+          <p className="text-[11px] text-dusk italic">
+            Metrics: Impressions and clicks are tracked server-side for authenticated visitors. Self-views are excluded to prevent metric inflation.
+          </p>
         </section>
 
         {/* Create Campaign Form */}
@@ -222,7 +230,8 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               <input
                 type="text"
                 required
-                maxLength={60}
+                minLength={3}
+                maxLength={80}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={
@@ -241,7 +250,8 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               <textarea
                 required
                 rows={2}
-                maxLength={200}
+                minLength={5}
+                maxLength={300}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Short pitch or offer to entice viewers..."
@@ -250,10 +260,11 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-ink">Destination URL</label>
+              <label className="block text-xs font-semibold text-ink">Destination URL (HTTPS only)</label>
               <input
                 type="url"
                 required
+                maxLength={500}
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com/promo"
@@ -290,26 +301,13 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isSampleCheck"
-                checked={isSample}
-                onChange={(e) => setIsSample(e.target.checked)}
-                className="rounded border-rock-300 text-purple-600 focus:ring-purple-500"
-              />
-              <label htmlFor="isSampleCheck" className="text-xs text-rock-600">
-                Mark as demo / sample ad
-              </label>
-            </div>
-
             <div className="rounded-xl bg-rock-50 p-3 text-xs">
               <div className="flex justify-between font-semibold text-ink">
                 <span>Total Due:</span>
                 <span>${totalCost}.00 USD</span>
               </div>
               <p className="mt-1 text-[10px] text-dusk">
-                Billed securely via REDO Payments (Sandbox Mode).
+                Billed securely via REDO Payments Gateway.
               </p>
             </div>
 
@@ -319,7 +317,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               </div>
             )}
 
-            {pendingCheckoutUrl && (
+            {pendingCheckoutUrl && isSandboxAllowed && (
               <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-300 space-y-2">
                 <div className="font-semibold">Simulated Checkout Available:</div>
                 <a

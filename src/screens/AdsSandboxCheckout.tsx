@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useSimulateSandboxPayment } from '../data/adsHooks';
+import { useIsSandboxPaymentAllowed, useSimulateSandboxPayment } from '../data/adsHooks';
 
 interface AdsSandboxCheckoutProps {
   onDone: () => void;
 }
 
 export default function AdsSandboxCheckout({ onDone }: AdsSandboxCheckoutProps) {
+  const isSandboxAllowed = useIsSandboxPaymentAllowed();
   const simulatePayment = useSimulateSandboxPayment();
 
   // Extract query parameters from window hash or search
@@ -90,6 +91,17 @@ export default function AdsSandboxCheckout({ onDone }: AdsSandboxCheckoutProps) 
           </div>
         </div>
 
+        {/* Sandbox Gate Notice */}
+        {!isSandboxAllowed && (
+          <div className="mt-4 rounded-xl bg-red-50 p-4 text-xs text-red-900 border border-red-300">
+            <div className="font-bold mb-1">🔒 Simulation Disabled on Production</div>
+            <p>
+              Sandbox simulation is disabled on this deployment (ALLOW_SANDBOX_PAYMENTS is unset).
+              Paid campaigns require verified webhook confirmation from the REDO payment gateway.
+            </p>
+          </div>
+        )}
+
         {/* Status Alerts */}
         {error && (
           <div className="mt-4 rounded-xl bg-red-50 p-3 text-xs text-red-800 border border-red-200">
@@ -116,14 +128,16 @@ export default function AdsSandboxCheckout({ onDone }: AdsSandboxCheckoutProps) 
           </div>
         ) : (
           <div className="mt-6 space-y-3">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={handleSimulate}
-              className="w-full cursor-pointer rounded-full bg-purple-700 py-2.5 text-xs font-bold text-white hover:bg-purple-800 disabled:opacity-50 shadow-sm"
-            >
-              {loading ? 'Simulating Payment...' : `Simulate Payment ($${amountDollars} USD)`}
-            </button>
+            {isSandboxAllowed && (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleSimulate}
+                className="w-full cursor-pointer rounded-full bg-purple-700 py-2.5 text-xs font-bold text-white hover:bg-purple-800 disabled:opacity-50 shadow-sm"
+              >
+                {loading ? 'Simulating Payment...' : `Simulate Payment ($${amountDollars} USD)`}
+              </button>
+            )}
 
             <button
               type="button"
