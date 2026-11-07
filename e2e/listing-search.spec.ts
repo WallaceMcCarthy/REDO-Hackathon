@@ -30,11 +30,11 @@ test('listing pages append unique homes and reset for sort, kind and budget', as
   await page.getByLabel('Sort', { exact: true }).selectOption('fit');
   await expect(liveCards.first().getByText('Asking rent', { exact: true })).toBeVisible();
   await expect(liveCards.first().getByText('For rent', { exact: true })).toBeVisible();
-  await page.getByLabel('Max rent', { exact: true }).selectOption('1500');
+  await page.getByLabel('Max rent', { exact: true }).fill('1500');
   await expect(page.getByText(/Showing 60 apartments/)).toBeVisible();
   await page.getByRole('button', { name: 'Load more', exact: true }).click();
   await expect(cards).toHaveCount(120);
-  await page.getByLabel('Max rent', { exact: true }).selectOption('1200');
+  await page.getByLabel('Max rent', { exact: true }).fill('1200');
   await expect(cards).toHaveCount(60);
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

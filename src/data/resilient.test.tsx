@@ -60,7 +60,7 @@ describe('useResilientQuery', () => {
       if (args.id === 2) throw new Error('boom');
       return `data-${args.id}`;
     });
-    const { result, rerender } = renderHook(({ id }) => useHook(ref, { id }), { initialProps: { id: 1 } });
+    const { result, rerender } = renderHook(({ id }: { id: number }) => useHook(ref, { id }), { initialProps: { id: 1 } });
     expect(result.current).toBe('data-1');
     rerender({ id: 2 });
     expect(result.current).toBeUndefined();

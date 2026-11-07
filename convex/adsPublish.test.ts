@@ -27,6 +27,69 @@ async function setup() {
 
 afterEach(() => vi.unstubAllEnvs());
 
+describe("sponsoring a listing", () => {
+  const rcId = "12-N-Main-St,-Provo,-UT-84601";
+  const listingId = `market:for_sale:${rcId}`;
+  const forged = { body: "", url: "https://evil.example/x", title: "Free house, $1", lat: 37.1, lng: -113.5, cityId: "st-george" };
+
+  async function withListing(residential = true) {
+    const context = await setup();
+    await context.t.run(async (ctx: any) => {
+      await ctx.db.insert("cities", { id: "provo", name: "Provo", county: "Utah", lat: 40.23, lng: -111.66, population: 1, blurb: "" });
+      await ctx.db.insert("cities", { id: "st-george", name: "St. George", county: "Washington", lat: 37.1, lng: -113.58, population: 1, blurb: "" });
+      await ctx.db.insert("marketListings", {
+        market: "for_sale", rcId, cityId: "provo", residential, address: "12 N Main St, Provo, UT 84601", city: "Provo", zip: "84601",
+        lat: 40.2345, lng: -111.6585, price: 450000, beds: 3, baths: 2, sqft: 1800, yearBuilt: 1999, propertyType: "Single Family",
+        listedDate: null, daysOnMarket: null, sortYearBuilt: 1999, importedAt: 0,
+      });
+    });
+    return context;
+  }
+
+  it("takes place, town, link and title from the listing, whatever the client sends", async () => {
+    const { t, owner } = await withListing();
+    await owner.action(refs.createCheckout, { ...forged, listingId });
+    const [pin] = await t.query(refs.getActivePins, {});
+    expect(pin).toMatchObject({
+      listingId, lat: 40.2345, lng: -111.6585, cityId: "provo", kind: "pin", status: "active",
+      title: "12 N Main St, Provo, UT 84601, $450,000", body: "12 N Main St, Provo, UT 84601, $450,000",
+      url: `https://cmascope.com/#/results?listing=${encodeURIComponent(listingId)}`,
+    });
+    expect(pin.imageUrl).toBeUndefined();
+  });
+
+  it("keeps the advertiser's own message and image, still under the listing's title", async () => {
+    const { t, owner } = await withListing();
+    await owner.action(refs.createCheckout, { ...forged, listingId, body: "Open house Saturday", imageUrl: "https://example.com/i.png" });
+    expect((await t.query(refs.getActivePins, {}))[0]).toMatchObject({ title: "12 N Main St, Provo, UT 84601, $450,000", body: "Open house Saturday", imageUrl: "https://example.com/i.png" });
+  });
+
+  it.each([["unknown", "market:for_sale:gone", true], ["non-residential", listingId, false]])("refuses a %s listing", async (_, id, residential) => {
+    const { t, owner } = await withListing(residential as boolean);
+    await expect(owner.action(refs.createCheckout, { ...forged, listingId: id })).rejects.toThrow("no longer available");
+    expect(await t.run((ctx: any) => ctx.db.query("campaigns").collect())).toEqual([]);
+  });
+
+  it("still needs sign-in, and a business ad still needs an image", async () => {
+    const { t, owner } = await withListing();
+    await expect(t.action(refs.createCheckout, { ...forged, listingId })).rejects.toThrow("Sign in required");
+    await expect(owner.action(refs.createCheckout, { ...ad, imageUrl: undefined })).rejects.toThrow("Enter an image URL");
+  });
+
+  it("counts against the five live ad cap like any other ad", async () => {
+    const { owner } = await withListing();
+    for (let i = 0; i < 5; i++) await owner.action(refs.createCheckout, { ...forged, listingId });
+    await expect(owner.action(refs.createCheckout, { ...forged, listingId })).rejects.toThrow("5 live ads");
+  });
+
+  it("counts against the free tier like any other ad", async () => {
+    const { owner } = await withListing();
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fake");
+    for (let i = 0; i < 3; i++) await owner.action(refs.createCheckout, { ...forged, listingId, free: true });
+    await expect(owner.action(refs.createCheckout, { ...forged, listingId, free: true })).rejects.toThrow("free ads every 24 hours");
+  });
+});
+
 describe("publishing without payment", () => {
   it("reports no payment provider unless a Stripe key is set", async () => {
     const { t } = await setup();

@@ -35,7 +35,7 @@ test('the map shows every match, and a price cap or town narrows it with the lis
 
   const homes = await expectMapMatchesList(page);
   expect(homes).toBeGreaterThan(1000);
-  await page.getByLabel('Max price', { exact: true }).selectOption('400000');
+  await page.getByLabel('Max price', { exact: true }).fill('400000');
   const cappedHomes = await expectMapMatchesList(page, homes);
   expect(cappedHomes).toBeLessThan(homes);
 
@@ -43,10 +43,10 @@ test('the map shows every match, and a price cap or town narrows it with the lis
   await expect(page.getByText(/Showing \d+ apartments/)).toBeAttached();
   const apartments = await expectMapMatchesList(page);
   expect(apartments).toBeGreaterThan(1000);
-  await page.getByLabel('Max rent', { exact: true }).selectOption('1500');
+  await page.getByLabel('Max rent', { exact: true }).fill('1500');
   expect(await expectMapMatchesList(page, apartments)).toBeLessThan(apartments);
 
-  await page.getByLabel('Max rent', { exact: true }).selectOption('');
+  await page.getByLabel('Max rent', { exact: true }).fill('5050');
   await page.goto('/#/results?view=apartments&town=park-city');
   await expect(page.getByText(/\(clear\)/)).toBeAttached();
   expect(await expectMapMatchesList(page)).toBeLessThan(apartments);

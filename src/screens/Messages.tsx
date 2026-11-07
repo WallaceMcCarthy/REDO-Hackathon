@@ -54,15 +54,9 @@ export default function Messages({
       {/* Top Bar */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex min-h-[44px] items-center cursor-pointer rounded-full border border-rock-300 px-4 py-2 text-sm font-semibold text-rock-800 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
-          >
-            ← Back to results
-          </button>
+          <Button variant="ghost" size="sm" onClick={onBack}>← Back to results</Button>
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">Messages</h1>
+            <h1 className="font-display text-heading text-text">Messages</h1>
             {unreadTotal > 0 && (
               <p className="text-xs font-semibold text-alpine-700">
                 {unreadTotal} unread message{unreadTotal === 1 ? '' : 's'}
@@ -74,20 +68,12 @@ export default function Messages({
 
       {/* Auth Guard */}
       {!isLoading && !isAuthenticated ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-dashed border-rock-300 bg-white p-8 text-center shadow-sm">
-          <span className="text-4xl">💬</span>
-          <h2 className="mt-4 font-display text-xl font-bold text-ink">Sign in to view messages</h2>
-          <p className="mt-2 max-w-md text-xs text-dusk sm:text-sm">
-            Chat directly with Utah roommates, landlords, and commenters regarding house and apartment listings.
-          </p>
-          <button
-            type="button"
-            onClick={onSignIn}
-            className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-alpine-700 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-alpine-700 focus-visible:outline-2 focus-visible:outline-alpine-500 cursor-pointer"
-          >
-            Sign in or create account
-          </button>
-        </div>
+        <EmptyState
+          className="mt-stack w-full"
+          title="Sign in to view messages"
+          description="Chat directly with Utah roommates, landlords, and commenters regarding house and apartment listings."
+          action={<Button onClick={onSignIn}>Sign in or create account</Button>}
+        />
       ) : (
         /* Main Messages Container */
         <div className="flex flex-1 overflow-hidden rounded-3xl border border-rock-100 bg-white shadow-sm">
@@ -124,7 +110,9 @@ export default function Messages({
               </SafeSectionBoundary>
             ) : (
               <div className="p-8 text-center text-dusk">
-                <span className="text-4xl">✉️</span>
+                <span aria-hidden="true" className="mx-auto grid size-11 place-items-center rounded-pill bg-alpine-100 text-alpine-700">
+                  <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16v11H9l-5 4z" /></svg>
+                </span>
                 <p className="mt-3 text-sm font-medium text-ink">Select a conversation</p>
                 <p className="mt-1 text-xs text-dusk">
                   Choose a chat from the left or message someone from a listing.

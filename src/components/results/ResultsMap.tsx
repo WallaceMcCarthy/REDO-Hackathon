@@ -33,10 +33,14 @@ const ROCK_500 = '#c4623a', ALPINE_700 = '#1d544f', ALPINE_500 = '#2f7f76', SAND
 const HOME_COLOR = '#0d9488', APARTMENT_COLOR = '#7c3aed';
 const NUMBERED_PINS = 10;
 const PIN_LAYERS = ['towns-circle', 'towns-dots'];
-const LISTING_LAYERS = ['listings-clusters', 'listings-cluster-count', 'listings-circle', 'listings-selected', 'listings-price'];
+const GROUPED_LAYERS = ['listings-clusters', 'listings-cluster-count', 'listings-circle', 'listings-selected', 'listings-price'];
+// Ungrouped: one unclustered source, every listing a plain circle layer (no DOM markers).
+const FLAT_LAYERS = ['flat-circle', 'flat-selected', 'flat-price'];
+const GROUP_KEY = 'results-map-group-pins';
+const readGrouped = () => { try { return localStorage.getItem(GROUP_KEY) !== 'off'; } catch { return true; } };
 const ALPINE_500_DOT = ALPINE_500;
 // Topmost first, so a listing wins over the town dot beneath it.
-const HIT_LAYERS = ['listings-clusters', 'listings-circle', 'towns-circle', 'towns-dots'];
+const HIT_LAYERS = ['listings-clusters', 'listings-circle', 'flat-circle', 'towns-circle', 'towns-dots'];
 const TOWN_MUTED = '#6e625a';
 export const AREA_MAP_LABEL_LAYOUT = {
   townNamesVisibility: 'none',
@@ -65,9 +69,10 @@ type Props = {
 };
 
 /** Switch paint, filters and visibility between the two modes. The map and its sources are never recreated. */
-function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
+function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns', grouped: boolean) {
   const towns = focus === 'towns';
-  for (const id of LISTING_LAYERS) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', towns ? 'none' : 'visible');
+  for (const id of GROUPED_LAYERS) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', !towns && grouped ? 'visible' : 'none');
+  for (const id of FLAT_LAYERS) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', !towns && !grouped ? 'visible' : 'none');
   map.setLayoutProperty('towns-circle', 'visibility', towns ? 'visible' : 'none');
   map.setLayoutProperty('towns-rank', 'visibility', towns ? 'visible' : 'none');
   // Towns focus: ranks 1-10 are the numbered circles, the rest are alpine dots. Listings focus: every town is a small muted dot.
@@ -94,6 +99,9 @@ const townPinRadius: maplibregl.ExpressionSpecification = [
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
   const [layerId, setLayerId] = useState('');
   const [ready, setReady] = useState(false);
+  const [grouped, setGrouped] = useState(readGrouped);
+  const groupedRef = useRef(grouped);
+  groupedRef.current = grouped;
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const layer = metrics.find(m => m.id === layerId);
 
@@ -147,6 +155,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
 
     map.on('load', () => {
       map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 13 });
+      map.addSource('listings-flat', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: false });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
       const kindColor: maplibregl.ExpressionSpecification = ['match', ['get', 'kind'], 'apartment', APARTMENT_COLOR, HOME_COLOR];
       // Utah border and faint outside mask: above the basemap, beneath all data layers.
@@ -237,7 +246,26 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         },
         paint: { 'text-color': INK, 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
       });
-      applyFocus(map, focusRef.current);
+      map.addLayer({
+        id: 'flat-circle', type: 'circle', source: 'listings-flat',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 4, 10, 6, 14, 10],
+          'circle-color': kindColor, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5,
+        },
+      });
+      map.addLayer({
+        id: 'flat-selected', type: 'circle', source: 'listings-flat', filter: ['==', ['get', 'id'], ''],
+        paint: { 'circle-radius': 14, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': INK, 'circle-stroke-width': 3 },
+      });
+      map.addLayer({
+        id: 'flat-price', type: 'symbol', source: 'listings-flat', minzoom: 11, filter: ['!=', ['get', 'price'], ''],
+        layout: {
+          'text-field': ['get', 'price'], 'text-font': ['Noto Sans Bold'], 'text-size': 12,
+          'text-offset': [0, 1], 'text-anchor': 'top', 'text-optional': true,
+        },
+        paint: { 'text-color': INK, 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+      });
+      applyFocus(map, focusRef.current, groupedRef.current);
       setReady(true);
     });
 
@@ -252,7 +280,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     map.on('mousemove', e => {
       const f = onSponsored(e) ? undefined : hit(e.point);
       map.getCanvas().style.cursor = f ? 'pointer' : '';
-      if (f && f.layer.id === 'listings-circle') {
+      if (f && (f.layer.id === 'listings-circle' || f.layer.id === 'flat-circle')) {
         const l = listingsRef.current.find(x => x.id === f.properties.id);
         const price = f.properties.price as string;
         setTip({ x: e.point.x, y: e.point.y, text: [price, l?.address || l?.name].filter(Boolean).join(' · ') });
@@ -300,13 +328,15 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     if (ready) (mapRef.current?.getSource('towns') as maplibregl.GeoJSONSource | undefined)?.setData(townData);
   }, [ready, townData]);
   useEffect(() => {
-    if (ready) (mapRef.current?.getSource('listings') as maplibregl.GeoJSONSource | undefined)?.setData(listingData);
-  }, [ready, listingData]);
+    // Only the active source gets data, so the hidden one never re-clusters or re-indexes.
+    if (ready) (mapRef.current?.getSource(grouped ? 'listings' : 'listings-flat') as maplibregl.GeoJSONSource | undefined)?.setData(listingData);
+    if (ready) (mapRef.current?.getSource(grouped ? 'listings-flat' : 'listings') as maplibregl.GeoJSONSource | undefined)?.setData(EMPTY);
+  }, [ready, listingData, grouped]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
-    map.setFilter('listings-selected', ['==', ['get', 'id'], selectedListingId ?? '']);
+    for (const id of ['listings-selected', 'flat-selected']) map.setFilter(id, ['==', ['get', 'id'], selectedListingId ?? '']);
     const l = selectedListingId ? listingsRef.current.find(x => x.id === selectedListingId) : undefined;
     if (l) {
       viewBeforeListing.current ??= { center: map.getCenter(), zoom: map.getZoom() };
@@ -321,8 +351,8 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
 
   useEffect(() => {
     const map = mapRef.current;
-    if (ready && map) applyFocus(map, focus);
-  }, [ready, focus]);
+    if (ready && map) applyFocus(map, focus, grouped);
+  }, [ready, focus, grouped]);
 
   // Hover highlight via feature-state: no layer or source rebuild.
   useEffect(() => {
@@ -359,6 +389,19 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       <ul className="sr-only" aria-label="Towns on the map">
         {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
       </ul>
+      {focus === 'listings' && (
+        <label className="absolute right-2 top-2 z-[1000] flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border border-rock-100 bg-sand/95 px-2.5 text-xs font-semibold text-ink shadow-sm">
+          <input
+            type="checkbox" role="switch" checked={grouped}
+            onChange={e => {
+              const on = e.target.checked;
+              setGrouped(on);
+              try { localStorage.setItem(GROUP_KEY, on ? 'on' : 'off'); } catch { /* storage unavailable */ }
+            }}
+          />
+          Group pins
+        </label>
+      )}
       <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
       {ready && mapRef.current && <SafeSectionBoundary><SponsoredMapPins map={mapRef.current} cities={cities} selectedTown={selectedTown} /></SafeSectionBoundary>}
       {tip && (
