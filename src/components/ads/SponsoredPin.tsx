@@ -3,6 +3,7 @@ import React, { memo, useEffect, useRef } from 'react';
 import { Marker, Popup } from 'react-leaflet';
 import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
+import { Badge, Button } from '../ui';
 
 interface SponsoredPinProps {
   campaign: CampaignRecord;
@@ -13,20 +14,13 @@ const pinCache = new Map<string, L.DivIcon>();
 function getSponsoredIcon(kind: 'pin' | 'featured' | 'job'): L.DivIcon {
   let icon = pinCache.get(kind);
   if (!icon) {
-    const isJob = kind === 'job';
-    const bg = isJob ? 'bg-amber-600' : 'bg-purple-700';
-    const label = isJob ? '💼' : '⭐';
-
+    const label = kind === 'job' ? 'Job' : 'Ad';
     icon = L.divIcon({
       className: 'sponsored-pin-container',
       iconSize: [32, 32],
       iconAnchor: [16, 16],
       popupAnchor: [0, -16],
-      html: `
-        <div class="flex size-8 items-center justify-center rounded-full border-2 border-amber-300 ${bg} shadow-lg text-xs cursor-pointer transition-transform duration-150 hover:scale-125">
-          <span>${label}</span>
-        </div>
-      `,
+      html: `<div class="flex size-8 cursor-pointer items-center justify-center rounded-pill border-2 border-surface-raised bg-primary text-caption font-semibold text-on-primary shadow-overlay transition-transform duration-150 hover:scale-125">${label}</div>`,
     });
     pinCache.set(kind, icon);
   }
@@ -66,35 +60,27 @@ export const SponsoredPin = memo(function SponsoredPin({ campaign }: SponsoredPi
   return (
     <Marker position={position} icon={icon} zIndexOffset={1500}>
       <Popup className="sponsored-pin-popup" maxWidth={300} minWidth={240}>
-        <div className="p-2 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 font-semibold text-purple-900">
-              Sponsored {campaign.isSample && '(sample)'}
-            </span>
-            {campaign.kind === 'job' && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                Job Opening
-              </span>
-            )}
+        <div className="space-y-2 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="sponsored" />
+            {campaign.isSample && <Badge tone="sample" />}
+            {campaign.kind === 'job' && <Badge>Job opening</Badge>}
           </div>
-
           <div>
-            <h4 className="font-display text-sm font-bold text-ink">{campaign.title}</h4>
-            <p className="mt-1 text-xs text-rock-600">{campaign.body}</p>
+            <h4 className="break-words font-display text-body font-bold text-text">{campaign.title}</h4>
+            <p className="mt-1 break-words text-small text-text-muted">{campaign.body}</p>
           </div>
-
           {href && (
-            <div className="pt-2 border-t border-rock-100">
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => recordClick(campaign._id)}
-                className="inline-flex w-full items-center justify-center rounded-full bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-800"
-              >
-                Visit website ↗
-              </a>
-            </div>
+            <Button
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => recordClick(campaign._id)}
+              size="sm"
+              fullWidth
+            >
+              Visit website
+            </Button>
           )}
         </div>
       </Popup>
