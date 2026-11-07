@@ -4,6 +4,7 @@ type Location = { address?: string | null; zip?: string | null; lat: number | nu
 type Point = readonly number[];
 const rings = boundary.geometry.coordinates as number[][][];
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+const stateCodes = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY AS GU MP PR VI'.split(' '));
 
 /** Full official TIGER geometry, including Utah's northeast step; points on the edge count as Utah. */
 export function insideUtah(lng: number, lat: number): boolean {
@@ -26,7 +27,12 @@ export function insideUtah(lng: number, lat: number): boolean {
 /** Missing location fields alone are not evidence that a row is outside Utah. */
 export function nonUtahReasons(row: Location): string[] {
   const reasons: string[] = [];
-  const state = row.address?.trim().match(/(?:,\s*|\s)([A-Z]{2})\s+\d{5}(?:-\d{4})?\s*$/i)?.[1]?.toUpperCase();
+  const address = row.address?.trim();
+  const explicit = address?.match(/,\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?\s*$/i);
+  const tail = explicit ?? address?.match(/\s([A-Z]{2})\s+\d{5}(?:-\d{4})?\s*$/i);
+  const candidate = tail?.[1]?.toUpperCase();
+  // ST/DR are street suffixes; an unseparated NE can be a direction, not Nebraska.
+  const state = candidate && stateCodes.has(candidate) && (candidate !== 'NE' || explicit) ? candidate : null;
   if (state && state !== 'UT') reasons.push(`address_state:${state}`);
   const zip = row.zip?.trim();
   if (zip && !zip.startsWith('84')) reasons.push(`zip:${zip}`);

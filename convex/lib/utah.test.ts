@@ -19,4 +19,7 @@ it('only reports affirmative non-Utah evidence, preserving missing and null-town
   expect(nonUtahReasons({ address: '123 Main St, Evanston, WY 82930', zip: '82930', lat: 41.27, lng: -110.96 }))
     .toEqual(['address_state:WY', 'zip:82930', 'coordinates_outside_utah']);
   expect(nonUtahReasons({ address: '123 Main St, Salt Lake City, UT 84101', zip: '84101', lat: 40.76, lng: -111.89 })).toEqual([]);
+  expect(nonUtahReasons({ address: '123 MAIN ST 84101', zip: '84101', lat: 40.76, lng: -111.89 })).toEqual([]);
+  expect(nonUtahReasons({ address: '123 Main Rd NE 84101', zip: '84101', lat: 40.76, lng: -111.89 })).toEqual([]);
+  expect(nonUtahReasons({ address: '123 Main St, Evanston, WY', zip: null, lat: null, lng: null })).toEqual(['address_state:WY']);
 });
