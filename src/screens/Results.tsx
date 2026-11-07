@@ -14,7 +14,7 @@ import { useCities, useMetrics, useRank } from '../data/hooks';
 import { toMetricWeights } from '../prefs';
 import type { Prefs } from '../types';
 
-type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void };
+type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null };
 
 const NONE: never[] = [];
 const WIDE = '(min-width: 1024px)';
@@ -31,17 +31,15 @@ function useWide() {
   return wide;
 }
 
-export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Props) {
+export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, townFilter }: Props) {
   const cities = useCities();
   const metrics = useMetrics();
   const weights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
   const ranked = useRank(weights, prefs.filters);
   const wide = useWide();
 
-  const [view, setView] = useState<View>('homes');
   const [sort, setSort] = useState<Sort>('fit');
   const [rentMax, setRentMax] = useState<number | undefined>();
-  const [townFilter, setTownFilter] = useState<string | null>(null);
   const [pane, setPane] = useState<'list' | 'map'>('list');
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
@@ -88,11 +86,14 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   }, []);
 
   const changeView = (v: View) => {
-    setView(v);
     setSelectedListing(null);
-    if (v !== 'areas') setTownFilter(null);
+    window.location.hash = v === 'homes' ? '/results' : `/results?view=${v}`;
   };
-  const seeHomes = (id: string) => { setTownFilter(id); setView('homes'); setSelectedListing(null); setPane('list'); };
+  const seeHomes = (id: string) => {
+    setSelectedListing(null);
+    setPane('list');
+    window.location.hash = `/results?town=${encodeURIComponent(id)}`;
+  };
 
   const showMap = wide || pane === 'map';
   const filtered = prefs.filters.maxHomeValue !== undefined || prefs.filters.maxCommuteMinutes !== undefined;
@@ -129,8 +130,8 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   );
 
   return (
-    <main className="flex h-dvh flex-col">
-      <header className="z-30 shrink-0 border-b border-rock-100 bg-sand py-2.5 pl-4 pr-28">
+    <main className="flex min-h-0 flex-1 flex-col">
+      <header className="z-30 shrink-0 border-b border-rock-100 bg-sand px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="sr-only">Where you would fit in Utah</h1>
           <Segmented value={view} onChange={changeView} />
@@ -139,6 +140,9 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
           <button type="button" onClick={onRestart} className={`ml-auto hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
             Change my answers
           </button>
+          <a href="#/advertise" className={`hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
+            Advertise
+          </a>
           <div role="group" aria-label="List or map" className="ml-auto inline-flex rounded-lg bg-rock-100 p-1 lg:hidden">
             {(['list', 'map'] as const).map(p => (
               <button
@@ -161,7 +165,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
             <ListErrorBoundary key={view}>
               <HomesForYou
                 kind={kind} weights={weights} filters={prefs.filters} maxPrice={budget} sort={sort}
-                towns={towns} townFilter={townFilter} onClearTown={() => setTownFilter(null)}
+                towns={towns} townFilter={townFilter} onClearTown={() => changeView('homes')}
                 onBrowseAreas={() => changeView('areas')} onRaiseBudget={() => setBudget(undefined)}
                 selectedId={selectedListing?.id} onSelect={selectListing} onHoverCity={setHovered}
                 onOpenTown={onOpenTown} onListings={setListings}

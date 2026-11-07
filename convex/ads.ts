@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { redoClient } from "./lib/payments";
@@ -22,19 +22,19 @@ export const UTAH_BOUNDS = {
 export function validateHttpsUrl(rawUrl: string): string {
   const trimmed = (rawUrl || "").trim();
   if (!trimmed) {
-    throw new Error("Destination URL is required");
+    throw new ConvexError("Destination URL is required");
   }
   if (trimmed.length > 500) {
-    throw new Error("Destination URL exceeds maximum length of 500 characters");
+    throw new ConvexError("Destination URL exceeds maximum length of 500 characters");
   }
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new Error("Invalid destination URL format");
+    throw new ConvexError("Invalid destination URL format");
   }
   if (parsed.protocol !== "https:") {
-    throw new Error("Destination URL must use HTTPS protocol (https://)");
+    throw new ConvexError("Destination URL must use HTTPS protocol (https://)");
   }
   return parsed.toString();
 }
@@ -108,13 +108,13 @@ export const createCampaign = mutation({
     // 1. Title validation
     const title = args.title.trim();
     if (title.length < 3 || title.length > 80) {
-      throw new Error("Campaign title must be between 3 and 80 characters");
+      throw new ConvexError("Campaign title must be between 3 and 80 characters");
     }
 
     // 2. Body validation
     const body = args.body.trim();
     if (body.length < 5 || body.length > 300) {
-      throw new Error("Campaign description must be between 5 and 300 characters");
+      throw new ConvexError("Campaign description must be between 5 and 300 characters");
     }
 
     // 3. Strict HTTPS URL validation (prevents stored XSS attacks)
@@ -123,7 +123,7 @@ export const createCampaign = mutation({
     // 4. Duration bounds
     const durationDays = Math.round(args.durationDays);
     if (durationDays < 1 || durationDays > 90) {
-      throw new Error("Campaign duration must be between 1 and 90 days");
+      throw new ConvexError("Campaign duration must be between 1 and 90 days");
     }
 
     // 5. Geographic validation for map pins
@@ -137,7 +137,7 @@ export const createCampaign = mutation({
           args.lng < UTAH_BOUNDS.minLng ||
           args.lng > UTAH_BOUNDS.maxLng
         ) {
-          throw new Error(
+          throw new ConvexError(
             `Location coordinates must be within Utah bounds (${UTAH_BOUNDS.minLat}° to ${UTAH_BOUNDS.maxLat}° N, ${UTAH_BOUNDS.minLng}° to ${UTAH_BOUNDS.maxLng}° W)`
           );
         }

@@ -7,6 +7,9 @@ import { useUpdateProfile, useUserProfile } from '../data/socialHooks';
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Skeleton } from '../components/ui';
 
 const CONFIRM_WORD = 'DELETE';
+// Same limits convex/profiles.ts enforces.
+const MAX_NAME = 40;
+const MAX_BUDGET = 50_000_000;
 
 interface AccountProps {
   onBack: () => void;
@@ -21,7 +24,8 @@ type Errors = Partial<Record<keyof Form, string>>;
 function validate(f: Form): Errors {
   const errors: Errors = {};
   if (!f.displayName.trim()) errors.displayName = 'Enter a name so we can greet you.';
-  if (f.budget !== '' && !(Number(f.budget) >= 0)) errors.budget = 'Enter a budget of $0 or more.';
+  else if (f.displayName.trim().length > MAX_NAME) errors.displayName = `Keep your name to ${MAX_NAME} characters.`;
+  if (f.budget !== '' && !(Number(f.budget) >= 0 && Number(f.budget) <= MAX_BUDGET)) errors.budget = `Enter a budget from $0 to $${MAX_BUDGET.toLocaleString()}.`;
   const h = Number(f.household);
   if (f.household !== '' && !(Number.isInteger(h) && h >= 1 && h <= 12)) errors.household = 'Household size is a whole number from 1 to 12.';
   return errors;

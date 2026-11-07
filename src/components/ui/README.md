@@ -20,6 +20,6 @@ Tokens: `bg-surface`, `bg-surface-raised`, `bg-surface-sunken`, `border-border`,
 | PageHeader | The page's `h1`, once per screen. | `<PageHeader title="Saved homes" actions={<Button>Share</Button>} />` |
 | AppHeader | Site header, once per screen. | `<AppHeader route="results" />` |
 
-AppHeader renders AccountMenu itself. App.tsx still renders the floating AccountMenu on other routes, so when a screen adopts AppHeader, exclude that route in App.tsx. Two mounted menus would open two sign-in modals. Move AppHeader into App.tsx and delete the floating variant once every screen has it.
+App.tsx renders the one AppHeader, and AppHeader renders AccountMenu. Do not mount a second AccountMenu: two would open two sign-in modals.
 
 `AppHeader` takes vertical space, so a full-height screen uses `flex-1 min-h-0` inside a `h-dvh` column, not `h-dvh` on its own `main`. It sits above Leaflet through `z-header`.

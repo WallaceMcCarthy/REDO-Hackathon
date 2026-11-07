@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ConvexError } from 'convex/values';
 import { useCreateCampaign, useMyCampaigns } from '../../data/adsHooks';
 import type { City } from '../../types';
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Select, Skeleton, Textarea } from '../ui';
@@ -63,8 +64,8 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         setBody('');
         setUrl('');
       }
-    } catch (err: any) {
-      setCheckoutNotice(`Error creating campaign: ${err.message || 'Please sign in first.'}`);
+    } catch (err) {
+      setCheckoutNotice(err instanceof ConvexError ? String(err.data) : 'Could not create the campaign. Check that you are signed in and try again.');
     } finally {
       setSubmitting(false);
     }

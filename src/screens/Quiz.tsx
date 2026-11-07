@@ -43,7 +43,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
         <div>
           <h1 className="font-display text-display break-words text-text">Find a home in Utah that fits how you live</h1>
           <p className="mt-4 max-w-xl text-body text-text-muted">
-            Set a budget and tell us what matters. We rank 42 Utah towns on it and explain every score with its source.
+            Set a budget and tell us what matters. We rank homes across 42 Utah towns on it and explain every town's score with its source.
           </p>
           <Button href="#/results" variant="secondary" className="mt-stack">Browse areas instead</Button>
         </div>

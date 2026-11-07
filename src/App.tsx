@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { defaultPrefs } from './prefs';
 import { openSignIn } from './components/auth/AccountMenu';
 import Account from './screens/Account';
+import AdvertiserDashboard from './components/ads/AdvertiserDashboard';
+import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
 import Results from './screens/Results';
 import Roommates from './screens/Roommates';
@@ -25,11 +27,16 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
+  const cities = useCities();
   const town = route.match(/^town\/(.+)$/)?.[1];
+  const [path, query] = route.split('?');
+  const params = new URLSearchParams(query);
+  const homesTown = params.get('town');
+  const view = params.get('view');
   const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
 
   return (
-    <>
+    <div className={path === 'results' ? 'flex h-dvh flex-col' : undefined}>
       {route !== 'ui' && <AppHeader route={route} />}
       {route === 'ui' ? (
         <UiKit />
@@ -43,11 +50,16 @@ export default function App() {
         <Roommates onSignIn={openSignIn} />
       ) : route === 'saved' ? (
         <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
-      ) : route === 'results' ? (
-        <Results prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')} />
+      ) : route === 'advertise' ? (
+        <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
+      ) : path === 'results' ? (
+        <Results
+          prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')}
+          view={!homesTown && (view === 'apartments' || view === 'areas') ? view : 'homes'} townFilter={homesTown}
+        />
       ) : (
         <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go('results')} />
       )}
-    </>
+    </div>
   );
 }

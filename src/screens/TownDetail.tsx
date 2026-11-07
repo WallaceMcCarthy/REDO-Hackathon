@@ -58,7 +58,7 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
         <PageHeader
           title={town.name}
           description={`${town.county} County, population ${town.population.toLocaleString('en-US')}`}
-          actions={<Button href="#/results" size="lg" fullWidth className="sm:w-auto">See homes in {town.name}</Button>}
+          actions={<Button href={`#/results?town=${encodeURIComponent(town.id)}`} size="lg" fullWidth className="sm:w-auto">See homes in {town.name}</Button>}
         />
         <p className="max-w-prose break-words font-display text-body text-text sm:text-title">{town.blurb}</p>
         <div className="flex flex-col gap-4 border-t border-border pt-stack sm:flex-row sm:items-start sm:gap-8">

@@ -10,8 +10,8 @@ const OPEN_SIGN_IN = 'utah-fit:open-sign-in';
 /** Lets any screen open the sign-in modal without threading state through App. */
 export const openSignIn = () => window.dispatchEvent(new Event(OPEN_SIGN_IN));
 
-/** Account control: "Sign in" when signed out, name + sign out when signed in. `inline` is for AppHeader; without it the menu floats top right on screens that have no AppHeader yet. */
-export default function AccountMenu({ inline = false }: { inline?: boolean }) {
+/** Account control for AppHeader: "Sign in" when signed out, name + sign out when signed in. */
+export default function AccountMenu() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { signOut } = useAuthActions();
   const me = useQuery(api.profiles.getMe, isAuthenticated ? {} : 'skip');
@@ -24,10 +24,7 @@ export default function AccountMenu({ inline = false }: { inline?: boolean }) {
   }, []);
 
   return (
-    <div className={inline ? 'flex items-center gap-2' : 'fixed right-3 top-3 z-40 flex items-center gap-2'}>
-      {!inline && (
-        <Button href="#/roommates" variant="secondary" size="sm">Roommates</Button>
-      )}
+    <div className="flex items-center gap-2">
       {isLoading ? null : isAuthenticated ? (
         <div className="flex items-center gap-1 rounded-pill border border-border bg-surface pl-4 text-small text-text">
           <a href="#/account" className="max-w-32 truncate font-semibold text-text no-underline hover:underline">{me?.displayName ?? 'Account'}</a>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ConvexError } from 'convex/values';
 import { MAX_BODY, validateBody } from '../../../convex/lib/feed';
 import { Button, Card, Field, Textarea } from '../ui';
 
@@ -17,7 +18,7 @@ export default function Composer({ cityName, onSubmit }: { cityName: string; onS
       await onSubmit(parsed.body);
       setText('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(err instanceof ConvexError ? String(err.data) : 'Something went wrong. Try again.');
     } finally {
       setBusy(false);
     }

@@ -5,7 +5,7 @@ import { CATEGORIES, type CategoryWeights } from '../types';
 export default function CategorySliders({ value, onChange }: { value: CategoryWeights; onChange: (next: CategoryWeights) => void }) {
   const metrics = useMetrics();
   // A category with no metrics yet would be a slider that changes nothing.
-  const shown = CATEGORIES.filter(category => !metrics || metrics.some(m => m.category === category));
+  const shown = CATEGORIES.filter(category => metrics?.some(m => m.category === category));
   return (
     <div className="space-y-4">
       {shown.map(category => (
