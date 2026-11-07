@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useConvexAuth } from 'convex/react';
-import { useMySaved } from '../data/socialHooks';
+import { useListingCommentCounts, useMySaved } from '../data/socialHooks';
 import type { ListingKind } from '../../convex/lib/listings';
 import { openSignIn } from '../components/auth/AccountMenu';
-import SavedButton from '../components/social/SavedButton';
-import { formatListingFinancials } from '../components/listings/types';
-import type { Listing } from '../components/listings/types';
-import { Badge, Button, Card, Chip, EmptyState, PageHeader, Skeleton } from '../components/ui';
+import ListingCard from '../components/listings/ListingCard';
+import { Button, Chip, EmptyState, PageHeader, Skeleton } from '../components/ui';
 
 interface SavedPlacesProps {
   onBack: () => void;
@@ -19,50 +17,11 @@ const FILTERS = [
   { id: 'home', label: 'Homes' },
 ] as const;
 
-function SavedCard({ listing, onOpenTown }: { listing: Listing; onOpenTown?: (cityId: string) => void }) {
-  const fin = formatListingFinancials(listing);
-  const name = listing.name || listing.address || 'Residential Property';
-  const facts =
-    listing.kind === 'apartment'
-      ? [listing.units != null && `${listing.units} units`, listing.yearBuilt != null && `Built ${listing.yearBuilt}`]
-      : [listing.beds != null && `${listing.beds} beds`, listing.sqft != null && `${listing.sqft.toLocaleString()} sq ft`, listing.yearBuilt != null && `Built ${listing.yearBuilt}`];
-  return (
-    <Card as="li" raised className="flex min-w-0 flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Badge>{listing.propertyType || (listing.kind === 'apartment' ? 'Apartment' : 'Single Family')}</Badge>
-          <h2 className="mt-2 font-display text-title text-text [overflow-wrap:anywhere]">{name}</h2>
-          {listing.name && listing.address && <p className="text-small text-text-muted [overflow-wrap:anywhere]">{listing.address}</p>}
-        </div>
-        <SavedButton listingId={listing.id} initialSaved />
-      </div>
-      <div className="rounded-control bg-surface-sunken p-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <span className="font-display text-heading text-text">{fin.amountFormatted}</span>
-          <Badge>{fin.benchmarkBadge}</Badge>
-        </div>
-        <p className="mt-1 text-caption text-text-muted">{fin.label}</p>
-      </div>
-      <p className="text-small text-text-muted">{facts.filter(Boolean).join(' · ')}</p>
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 border-t border-border pt-3 text-caption text-text-muted">
-        <span title={fin.disclaimer} className="min-w-0 truncate">{listing.source}</span>
-        {listing.sourceUrl && (
-          <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-primary-hover underline underline-offset-2">
-            Source ↗
-          </a>
-        )}
-      </div>
-      {listing.cityId && onOpenTown && (
-        <Button variant="secondary" size="sm" onClick={() => onOpenTown(listing.cityId)}>See this town</Button>
-      )}
-    </Card>
-  );
-}
-
 export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
   const [filter, setFilter] = useState<'all' | ListingKind>('all');
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const savedItems = useMySaved();
+  const counts = useListingCommentCounts((savedItems || []).map((i) => i.listingId));
 
   const all = (savedItems || []).filter((item) => item.listing);
   const count = (id: string) => all.filter((item) => id === 'all' || item.listing!.kind === id).length;
@@ -115,7 +74,11 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
               />
             ) : (
               <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((item) => <SavedCard key={item.listingId} listing={item.listing!} onOpenTown={onOpenTown} />)}
+                {filtered.map((item) => (
+                  <li key={item.listingId}>
+                    <ListingCard item={item.listing!} commentCount={counts[item.listingId]} onSelect={(l) => l.cityId && onOpenTown?.(l.cityId)} />
+                  </li>
+                ))}
               </ul>
             )}
           </div>

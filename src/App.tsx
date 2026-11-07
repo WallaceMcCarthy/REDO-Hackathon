@@ -5,6 +5,7 @@ import Account from './screens/Account';
 import AdvertiserDashboard from './components/ads/AdvertiserDashboard';
 import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
+import Messages from './screens/Messages';
 import Results from './screens/Results';
 import Roommates from './screens/Roommates';
 import SavedPlaces from './screens/SavedPlaces';
@@ -50,6 +51,8 @@ export default function App() {
         <Roommates onSignIn={openSignIn} />
       ) : route === 'saved' ? (
         <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
+      ) : path === 'messages' || path.startsWith('messages/') ? (
+        <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
       ) : route === 'advertise' ? (
         <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
       ) : path === 'results' ? (

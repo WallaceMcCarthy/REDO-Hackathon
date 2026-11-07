@@ -5,6 +5,7 @@ import { useListingSearch } from '../../data/listingsHooks';
 import type { Sort } from '../homes/FilterBar';
 import { BTN_PRIMARY, FOCUS, money } from '../homes/ui';
 import ListingCard from './ListingCard';
+import { useListingCommentCounts } from '../../data/socialHooks';
 
 type TownInfo = { name: string; score: number; rank: number };
 
@@ -42,6 +43,7 @@ export default function HomesForYou(p: Props) {
   useEffect(() => () => onListings(undefined), [onListings]);
   const { onRecs } = p;
   useEffect(() => { onRecs?.(loading ? undefined : items); }, [items, loading, onRecs]);
+  const counts = useListingCommentCounts(items.map(r => r.listing.id));
   useEffect(() => () => onRecs?.(undefined), [onRecs]);
 
   const noun = kind === 'home' ? 'homes' : 'apartments';
@@ -77,7 +79,7 @@ export default function HomesForYou(p: Props) {
   const card = (r: Recommendation) => (
     <li key={r.listing.id}>
       <ListingCard
-        item={r} cityName={towns.get(r.cityId)?.name} isSelected={p.selectedId === r.listing.id}
+        item={r} cityName={towns.get(r.cityId)?.name} commentCount={counts[r.listing.id]} isSelected={p.selectedId === r.listing.id}
         onSelect={p.onSelect} onHover={on => p.onHoverCity(on ? r.cityId : null)} onOpenTown={p.onOpenTown}
       />
     </li>

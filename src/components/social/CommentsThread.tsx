@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { useAddComment, useComments, useDeleteComment, useReportComment } from '../../data/socialHooks';
 import { Badge, Button, Card, EmptyState, Field, Skeleton, Textarea } from '../ui';
+import { openSignIn } from '../auth/AccountMenu';
 import type { CommentItem, CommentTargetType } from './types';
 
 interface CommentsThreadProps {
@@ -9,6 +10,12 @@ interface CommentsThreadProps {
   targetId: string;
   title?: string;
   className?: string;
+  /** Placeholder text for the new-comment box. */
+  placeholder?: string;
+  /** Helper line shown above the box. */
+  helper?: string;
+  /** When provided, others' comments get a Message button. Never receives emails. */
+  onMessageUser?: (userId: string, listingId: string) => void;
 }
 
 function SingleComment({
@@ -17,12 +24,14 @@ function SingleComment({
   targetId,
   isReply = false,
   onReplySuccess,
+  onMessageUser,
 }: {
   comment: CommentItem;
   targetType: CommentTargetType;
   targetId: string;
   isReply?: boolean;
   onReplySuccess?: () => void;
+  onMessageUser?: (userId: string, listingId: string) => void;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -77,6 +86,9 @@ function SingleComment({
         </div>
         <div className="flex items-center gap-1">
           {comment.canDelete && <Button variant="ghost" size="sm" onClick={handleDelete}>Delete</Button>}
+          {isAuthenticated && onMessageUser && !comment.canDelete && comment.userId && (
+            <Button variant="ghost" size="sm" onClick={() => onMessageUser(comment.userId, targetId)}>Message</Button>
+          )}
           {isAuthenticated && <Button variant="ghost" size="sm" onClick={handleReport} disabled={reported}>{reported ? 'Reported' : 'Report'}</Button>}
           {!isReply && isAuthenticated && (
             <Button variant="ghost" size="sm" onClick={() => setReplyOpen(!replyOpen)}>{replyOpen ? 'Cancel' : 'Reply'}</Button>
@@ -109,7 +121,7 @@ function SingleComment({
       {comment.replies && comment.replies.length > 0 && (
         <div className="space-y-1">
           {comment.replies.map((reply) => (
-            <SingleComment key={reply._id} comment={reply} targetType={targetType} targetId={targetId} isReply />
+            <SingleComment key={reply._id} comment={reply} targetType={targetType} targetId={targetId} isReply onMessageUser={onMessageUser} />
           ))}
         </div>
       )}
@@ -122,6 +134,9 @@ export default function CommentsThread({
   targetId,
   title = 'Community discussion',
   className = '',
+  placeholder = 'Share local insights, questions, or notes...',
+  helper,
+  onMessageUser,
 }: CommentsThreadProps) {
   const [newBody, setNewBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -145,6 +160,7 @@ export default function CommentsThread({
     } catch (err: any) {
       if (err?.message?.includes('Sign in') || err?.message?.includes('auth')) {
         setAuthError('Please sign in to post comments.');
+        openSignIn();
       } else {
         setAuthError('Could not post comment. Please try again.');
       }
@@ -166,13 +182,15 @@ export default function CommentsThread({
         )}
       </div>
 
+      {helper && <p className="mt-3 text-small text-text-muted">{helper}</p>}
+
       <form onSubmit={handlePost} className="mt-3 space-y-2">
         <Field label="Add a comment" className="[&>label]:sr-only" error={authError}>
           <Textarea
             value={newBody}
             onChange={(e) => setNewBody(e.target.value)}
             maxLength={2000}
-            placeholder="Share local insights, questions, or notes..."
+            placeholder={placeholder}
             rows={3}
           />
         </Field>
@@ -192,7 +210,7 @@ export default function CommentsThread({
         ) : comments.length === 0 ? (
           <EmptyState className="my-3" title="No comments yet" description="Start the conversation." />
         ) : (
-          comments.map((c) => <SingleComment key={c._id} comment={c} targetType={targetType} targetId={targetId} />)
+          comments.map((c) => <SingleComment key={c._id} comment={c} targetType={targetType} targetId={targetId} onMessageUser={onMessageUser} />)
         )}
       </div>
     </Card>
