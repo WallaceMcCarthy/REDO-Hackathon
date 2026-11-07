@@ -97,6 +97,9 @@ export default function HomesForYou(p: Props) {
           </button>
         )}
       </div>
+      {items.some(item => !item.listing.market) && <p className="mb-4 text-xs text-dusk">
+        Some records are estimates for areas with limited live coverage. An estimated value or area rent benchmark does not mean a property is available.
+      </p>}
       {grouped ? (
         <div className="space-y-6">
           {cityIds.map(id => {

@@ -19,6 +19,37 @@ async function setup() {
 const ids = (result: { page: { listing: { id: string } }[] }) => result.page.map(r => r.listing.id);
 
 describe("indexed live listing search", () => {
+  it("keeps counts identical across sorts while diversifying the first eight active towns", async () => {
+    const t = await setup();
+    const extra = Array.from({ length: 7 }, (_, i) => ({ id: `extra-${i}`, lat: 41 + i * 0.3 }));
+    await t.run(async ctx => {
+      for (const city of extra) await ctx.db.insert("cities", { ...city, name: city.id, county: "Test", lng: -111, population: 100, blurb: "Fixture" });
+    });
+    const places = [{ id: "alpine", lat: 40 }, { id: "desert", lat: 37 }, ...extra];
+    await t.mutation(insert, { rows: places.flatMap(city => Array.from({ length: 12 }, (_, i) => row(`${city.id}-${i}`, { lat: city.lat }))) });
+    const fit = await t.query(search, { ...base, limit: 8 });
+    const price = await t.query(search, { ...base, sort: "price_asc", limit: 8 });
+    expect(fit.total).toBe(108);
+    expect(price.total).toBe(fit.total);
+    expect(new Set(fit.page.map((r: { cityId: string }) => r.cityId)).size).toBe(8);
+    const all = await t.query(search, { ...base, limit: 300 });
+    expect(new Set(ids(all)).size).toBe(108);
+    expect(new Set(all.page.map((r: { cityId: string }) => r.cityId)).size).toBe(9);
+  });
+
+  it("does not introduce estimates when a tighter budget crosses ten live matches", async () => {
+    const t = await setup();
+    await t.mutation(insert, { rows: Array.from({ length: 12 }, (_, i) => row(`live-${i}`, { price: 200 + i })) });
+    await t.run(async ctx => {
+      for (let i = 0; i < 40; i++) await ctx.db.insert("listings", { id: `legacy-${i}`, cityId: "alpine", kind: "home", name: null, address: "Fixture", lat: 40, lng: -111, value: 100, rent: null, beds: null, sqft: null, yearBuilt: null, units: null, propertyType: "Residential", source: "Assessor", sourceUrl: "https://example.test", year: 2025 });
+    });
+    const any = await t.query(search, { ...base, limit: 100 });
+    const capped = await t.query(search, { ...base, maxValue: 205, limit: 100 });
+    expect(any.total).toBe(12);
+    expect(capped.total).toBe(6);
+    expect(capped.page.every((r: { listing: { market?: string } }) => !!r.listing.market)).toBe(true);
+  });
+
   it("prefers live inventory at ten matches and fills sparse towns with honest legacy records", async () => {
     const t = await setup();
     await t.mutation(insert, { rows: [...Array.from({ length: 12 }, (_, i) => row(`a-${i}`, { price: 300000 + i })), row("b-1", { lat: 37, price: 200000 }), row("land", { propertyType: "Land", price: 1 })] });
