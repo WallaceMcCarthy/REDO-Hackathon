@@ -267,6 +267,12 @@ export const fulfillRedoPayment = internalMutation({
       rawEventId: args.rawEventId,
     });
 
+    if (!campaign.advertiserUserId) {
+      // The advertiser deleted their account mid-checkout: keep the money on record, never go live.
+      await ctx.db.patch(args.campaignId, { redoPaymentId: args.redoPaymentId });
+      return { status: "recorded_without_activation" };
+    }
+
     await ctx.db.patch(args.campaignId, {
       status: "active",
       redoPaymentId: args.redoPaymentId,

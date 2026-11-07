@@ -32,7 +32,7 @@ export default function AccountMenu({ inline = false }: { inline?: boolean }) {
       )}
       {isLoading ? null : isAuthenticated ? (
         <div className="flex items-center gap-1 rounded-pill border border-border bg-surface pl-4 text-small text-text">
-          <span className="max-w-32 truncate font-semibold">{me?.displayName ?? 'Account'}</span>
+          <a href="#/account" className="max-w-32 truncate font-semibold text-text no-underline hover:underline">{me?.displayName ?? 'Account'}</a>
           <Button variant="ghost" size="sm" onClick={() => void signOut()}>Sign out</Button>
         </div>
       ) : (

@@ -160,6 +160,20 @@ export async function deleteReportsFor(ctx: MutationCtx, targetType: "comment" |
   for (const report of reports) await ctx.db.delete(report._id);
 }
 
+/**
+ * Touches at most `limit` rows and returns how many it touched; repeat until the comment is gone.
+ * Reports need no limit: a comment stops accepting them once hidden, at three.
+ */
+export async function deleteCommentBatch(ctx: MutationCtx, comment: Doc<"comments">, limit: number): Promise<number> {
+  // Preserve other authors' replies after the deleted parent's actual removal.
+  const children = await ctx.db.query("comments").withIndex("by_parent", (q) => q.eq("parentId", comment._id)).take(limit);
+  for (const child of children) await ctx.db.patch(child._id, { parentId: null });
+  if (children.length === limit) return limit;
+  await deleteReportsFor(ctx, "comment", comment._id);
+  await ctx.db.delete(comment._id);
+  return children.length + 1;
+}
+
 export const deleteComment = mutation({
   args: { commentId: v.id("comments") },
   handler: async (ctx, args) => {
@@ -167,11 +181,7 @@ export const deleteComment = mutation({
     const comment = await ctx.db.get(args.commentId);
     if (!comment) return { deleted: false };
     checkOwner(userId, comment.userId);
-    // Preserve other authors' replies after the deleted parent's actual removal.
-    const children = await ctx.db.query("comments").withIndex("by_parent", (q) => q.eq("parentId", comment._id)).collect();
-    for (const child of children) await ctx.db.patch(child._id, { parentId: null });
-    await deleteReportsFor(ctx, "comment", comment._id);
-    await ctx.db.delete(comment._id);
+    while (await ctx.db.get(comment._id)) await deleteCommentBatch(ctx, comment, 1000);
     return { deleted: true };
   },
 });
@@ -193,10 +203,11 @@ export const reportComment = mutation({
 });
 
 /** Feed deletion cascade. This is a TS helper, not a client-callable mutation. */
-export async function deleteCommentsFor(ctx: MutationCtx, targetType: CommentTarget, targetId: string): Promise<void> {
-  const rows = await ctx.db.query("comments").withIndex("by_target", (q) => q.eq("targetType", targetType).eq("targetId", targetId)).collect();
+export async function deleteCommentsFor(ctx: MutationCtx, targetType: CommentTarget, targetId: string, limit: number): Promise<number> {
+  const rows = await ctx.db.query("comments").withIndex("by_target", (q) => q.eq("targetType", targetType).eq("targetId", targetId)).take(limit);
   for (const row of rows) {
     await deleteReportsFor(ctx, "comment", row._id);
     await ctx.db.delete(row._id);
   }
+  return rows.length;
 }
