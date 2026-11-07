@@ -23,12 +23,6 @@ export interface CampaignRecord {
   expectedCurrency?: string;
 }
 
-export function useIsSandboxPaymentAllowed(): boolean {
-  const queryFn = (api as any).ads?.isSandboxPaymentAllowed;
-  const result = useQuery(queryFn, queryFn ? {} : 'skip');
-  return Boolean(result);
-}
-
 export function useActivePins(cityId?: string): CampaignRecord[] | undefined {
   const queryFn = (api as any).ads?.getActivePins;
   const result = useQuery(queryFn, queryFn ? { cityId } : 'skip');
@@ -65,19 +59,6 @@ export function useCreateCampaign() {
     }) => {
       if (!mutationFn) return null;
       return await mutate(params);
-    },
-    [mutate, mutationFn],
-  );
-}
-
-export function useSimulateSandboxPayment() {
-  const mutationFn = (api as any).ads?.simulateSandboxPayment;
-  const mutate = useMutation(mutationFn ?? (() => Promise.resolve({ success: false, status: 'active' })));
-
-  return useCallback(
-    async (campaignId: string, sessionId?: string) => {
-      if (!mutationFn) return null;
-      return await mutate({ campaignId: campaignId as any, sessionId });
     },
     [mutate, mutationFn],
   );

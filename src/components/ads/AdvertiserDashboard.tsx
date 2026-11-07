@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCreateCampaign, useIsSandboxPaymentAllowed, useMyCampaigns } from '../../data/adsHooks';
+import { useCreateCampaign, useMyCampaigns } from '../../data/adsHooks';
 import type { City } from '../../types';
 
 interface AdvertiserDashboardProps {
@@ -10,7 +10,6 @@ interface AdvertiserDashboardProps {
 export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashboardProps) {
   const campaigns = useMyCampaigns();
   const createCampaign = useCreateCampaign();
-  const isSandboxAllowed = useIsSandboxPaymentAllowed();
 
   const [kind, setKind] = useState<'pin' | 'featured' | 'job'>('pin');
   const [title, setTitle] = useState('');
@@ -144,18 +143,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                           {c.status.replace('_', ' ')}
                         </span>
                         {c.status === 'pending_payment' && (
-                          isSandboxAllowed ? (
-                            <a
-                              href={`/#ads-sandbox-checkout?campaignId=${c._id}&amount=${c.expectedAmount || 3500}&title=${encodeURIComponent(c.title)}`}
-                              className="cursor-pointer rounded-full bg-amber-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-700"
-                            >
-                              Simulate Payment →
-                            </a>
-                          ) : (
-                            <span className="text-[10px] text-dusk italic">
-                              Awaiting REDO confirmation
-                            </span>
-                          )
+                          <span className="text-[10px] text-dusk italic">
+                            Awaiting REDO webhook confirmation
+                          </span>
                         )}
                       </div>
                     </div>
@@ -317,14 +307,14 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
               </div>
             )}
 
-            {pendingCheckoutUrl && isSandboxAllowed && (
+            {pendingCheckoutUrl && (
               <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-300 space-y-2">
-                <div className="font-semibold">Simulated Checkout Available:</div>
+                <div className="font-semibold">Checkout Session Initialized:</div>
                 <a
                   href={pendingCheckoutUrl}
                   className="inline-block cursor-pointer rounded-full bg-purple-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-purple-800"
                 >
-                  Proceed to Sandbox Checkout →
+                  View Sandbox Checkout Info →
                 </a>
               </div>
             )}

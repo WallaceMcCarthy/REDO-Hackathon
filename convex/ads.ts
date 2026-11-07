@@ -39,13 +39,6 @@ export function validateHttpsUrl(rawUrl: string): string {
   return parsed.toString();
 }
 
-export const isSandboxPaymentAllowed = query({
-  args: {},
-  handler: async () => {
-    return process?.env?.ALLOW_SANDBOX_PAYMENTS === "true";
-  },
-});
-
 export const getActivePins = query({
   args: {
     cityId: v.optional(v.string()),
@@ -232,52 +225,9 @@ export const recordClick = mutation({
 });
 
 /**
- * Sandbox simulation endpoint for testing payments prior to live REDO credentials.
- * Fails closed unless ALLOW_SANDBOX_PAYMENTS is explicitly "true" in environment.
+ * Internal mutation called strictly via /redo-webhook upon verified HMAC signature.
+ * CONTRACT.md Phase 3 ground rule: only a verified REDO webhook activates a paid feature.
  */
-export const simulateSandboxPayment = mutation({
-  args: {
-    campaignId: v.id("campaigns"),
-    sessionId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    if (process?.env?.ALLOW_SANDBOX_PAYMENTS !== "true") {
-      throw new Error(
-        "Sandbox payment simulation is disabled on this deployment (ALLOW_SANDBOX_PAYMENTS must be 'true'). Official REDO payment webhook required."
-      );
-    }
-
-    const userId = await requireUserId(ctx);
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) throw new Error("Campaign not found");
-    if (campaign.advertiserUserId !== userId) {
-      throw new Error("Only the campaign owner can simulate payment");
-    }
-
-    const rawEventId = `sim_evt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const redoPaymentId = `sim_pay_${Date.now()}`;
-    const amount = campaign.expectedAmount || 3500;
-    const currency = campaign.expectedCurrency || "USD";
-
-    await ctx.db.insert("payments", {
-      campaignId: args.campaignId,
-      redoPaymentId,
-      amount,
-      currency,
-      status: "succeeded (sandbox simulation)",
-      rawEventId,
-    });
-
-    await ctx.db.patch(args.campaignId, {
-      status: "active",
-      redoPaymentId,
-      isSample: true, // Sandbox simulation strictly marks the campaign as sample content
-    });
-
-    return { success: true, status: "active", campaignId: args.campaignId };
-  },
-});
-
 export const fulfillRedoPayment = internalMutation({
   args: {
     campaignId: v.id("campaigns"),
