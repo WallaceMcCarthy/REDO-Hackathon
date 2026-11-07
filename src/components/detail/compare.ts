@@ -19,6 +19,15 @@ export type Comparison = {
   pct?: number;
 };
 
+/** Past double the median a percent stops meaning much, so say how many times as high it is. */
+export function gapWords(pct: number): string {
+  const size = Math.abs(pct);
+  if (size < 1) return `under 1% ${pct > 0 ? 'higher' : 'lower'}`;
+  if (pct < 100) return `${Math.round(size)}% ${pct > 0 ? 'higher' : 'lower'}`;
+  const times = 1 + pct / 100;
+  return `about ${times < 10 ? times.toFixed(1) : Math.round(times)} times as high`;
+}
+
 export function compare(metric: Metric, townId: string): Comparison {
   const all = Object.values(metric.values).filter(Number.isFinite);
   const m = median(all);

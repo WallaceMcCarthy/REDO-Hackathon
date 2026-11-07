@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { defaultPrefs } from './prefs';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { loadPrefs, savePrefs } from './prefs';
 import { openSignIn } from './components/auth/AccountMenu';
 import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
@@ -42,13 +42,21 @@ function NotFound() {
 
 export default function App() {
   const [route, setRoute] = useState(readHash);
-  const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
+  const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
+  const lastResults = useRef(route.startsWith('results') ? route : 'results');
 
   useEffect(() => {
-    const onChange = () => { setRoute(readHash()); window.scrollTo(0, 0); };
+    const onChange = () => {
+      const next = readHash();
+      if (next.startsWith('results')) lastResults.current = next;
+      setRoute(next);
+      window.scrollTo(0, 0);
+    };
     window.addEventListener('hashchange', onChange);
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
+
+  useEffect(() => savePrefs(prefs), [prefs]);
 
   // Most visitors go on to results, so fetch the map after the landing page has painted.
   useEffect(() => {
@@ -56,6 +64,7 @@ export default function App() {
     return () => clearTimeout(warm);
   }, []);
 
+  const backToResults = () => go(lastResults.current);
   const cities = useCities();
   const town = route.match(/^town\/(.+)$/)?.[1];
   const [path, query] = route.split('?');
@@ -73,17 +82,17 @@ export default function App() {
         {route === 'ui' ? (
           <UiKit />
         ) : town ? (
-          <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
+          <TownDetail id={town} prefs={prefs} onBack={backToResults} />
         ) : route === 'account' ? (
-          <Account onBack={() => go('results')} onSignIn={openSignIn} />
+          <Account onBack={backToResults} onSignIn={openSignIn} />
         ) : route === 'saved' ? (
-          <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
+          <SavedPlaces onBack={backToResults} onOpenTown={id => go(`town/${id}`)} />
         ) : isMessages ? (
           <SafeSectionBoundary key={route} fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button href="#/messages">Back to messages</Button>} />}>
-            <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
+            <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={backToResults} />
           </SafeSectionBoundary>
         ) : route === 'advertise' || path === 'ads' ? (
-          <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
+          <AdvertiserDashboard cities={cities ?? []} onBack={backToResults} />
         ) : path === 'results' ? (
           <Results
             prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')}

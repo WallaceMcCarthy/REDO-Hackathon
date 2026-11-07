@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { rankTowns } from '../convex/lib/scoring';
-import { defaultPrefs, toMetricWeights } from './prefs';
+import { defaultPrefs, parsePrefs, toMetricWeights } from './prefs';
 import type { City, Metric } from './types';
 
 const dir = 'data/metrics';
@@ -42,5 +42,23 @@ describe('toMetricWeights', () => {
   it('keeps the same top five towns as before the affordability metrics', () => {
     const top = (list: Metric[]) => rankTowns(cities, list, toMetricWeights(equal, list)).slice(0, 5).map(t => t.cityId).sort();
     expect(top(metrics)).toEqual(top(before));
+  });
+});
+
+describe('parsePrefs', () => {
+  const stored = { ...defaultPrefs(), budget: { maxRent: 1500 } };
+
+  it('restores valid saved prefs', () => {
+    expect(parsePrefs(JSON.stringify(stored))).toEqual(stored);
+  });
+
+  it.each([
+    ['nothing saved', null],
+    ['broken JSON', '{oops'],
+    ['wrong shape', '{"categories":[]}'],
+    ['a weight out of range', JSON.stringify({ ...stored, categories: { ...stored.categories, cost: 9 } })],
+    ['a missing category', JSON.stringify({ ...stored, categories: { cost: 2 } })],
+  ])('falls back to defaults for %s', (_, raw) => {
+    expect(parsePrefs(raw)).toEqual(defaultPrefs());
   });
 });

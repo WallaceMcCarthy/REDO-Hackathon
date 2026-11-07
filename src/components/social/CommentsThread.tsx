@@ -154,6 +154,7 @@ export default function CommentsThread({
   const [submitting, setSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const comments = useComments(targetType, targetId);
   const addComment = useAddComment();
   const total = comments?.reduce((sum, c) => sum + 1 + (c.replies?.length ?? 0), 0) ?? 0;
@@ -197,23 +198,30 @@ export default function CommentsThread({
 
       {helper && <p className="mt-3 text-small text-text-muted">{helper}</p>}
 
-      <form onSubmit={handlePost} className="mt-3 space-y-2">
-        <Field label="Add a comment" className="[&>label]:sr-only" error={authError}>
-          <Textarea
-            value={newBody}
-            onChange={(e) => setNewBody(e.target.value)}
-            maxLength={2000}
-            placeholder={placeholder}
-            rows={3}
-          />
-        </Field>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-caption text-text-muted">{newBody.length}/2000 characters</span>
-          <Button type="submit" size="sm" loading={submitting} disabled={!newBody.trim()}>
-            {submitting ? 'Posting' : 'Post comment'}
-          </Button>
+      {isAuthenticated ? (
+        <form onSubmit={handlePost} className="mt-3 space-y-2">
+          <Field label="Add a comment" className="[&>label]:sr-only" error={authError}>
+            <Textarea
+              value={newBody}
+              onChange={(e) => setNewBody(e.target.value)}
+              maxLength={2000}
+              placeholder={placeholder}
+              rows={3}
+            />
+          </Field>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-caption text-text-muted">{newBody.length}/2000 characters</span>
+            <Button type="submit" size="sm" loading={submitting} disabled={!newBody.trim()}>
+              {submitting ? 'Posting' : 'Post comment'}
+            </Button>
+          </div>
+        </form>
+      ) : !authLoading && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-small text-text-muted">Sign in to join the conversation.</p>
+          <Button variant="secondary" size="sm" onClick={() => openSignIn()}>Sign in to comment</Button>
         </div>
-      </form>
+      )}
 
       <div className="mt-4 divide-y divide-border">
         {isLoading ? (
