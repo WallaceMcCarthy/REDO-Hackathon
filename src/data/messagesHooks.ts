@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 export interface InboxListing {
@@ -20,6 +20,7 @@ export interface InboxItem {
   lastMessage: string;
   lastMessageAt: number;
   unreadCount: number;
+  isBlockedByMe?: boolean;
 }
 
 export interface MessageItem {
@@ -29,6 +30,7 @@ export interface MessageItem {
   createdAt: number;
   isMine: boolean;
   isSample?: boolean;
+  hasReported?: boolean;
 }
 
 export interface ThreadResult {
@@ -37,30 +39,46 @@ export interface ThreadResult {
   continueCursor?: string | null;
 }
 
-// Safely access api.messages with canonical names from Edward (msg 281) & backward aliases
+// Safely access api.messages with canonical names from Edward (msg 281, 291) & backward aliases
 const messagesApi = (api as any).messages;
 
 export function useInbox(): InboxItem[] | undefined {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const queryFn = messagesApi?.myConversations ?? messagesApi?.inbox;
-  if (!queryFn) return [];
+  const shouldQuery = Boolean(isAuthenticated && !isLoading && queryFn);
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useQuery(queryFn);
+  const res = useQuery(queryFn ?? 'skip', shouldQuery ? {} : 'skip');
+  if (!shouldQuery || !res) return undefined;
+  return res as InboxItem[];
 }
 
 export function useUnreadCount(): number {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const queryFn = messagesApi?.unreadTotal ?? messagesApi?.unreadCount;
-  if (!queryFn) return 0;
+  const shouldQuery = Boolean(isAuthenticated && !isLoading && queryFn);
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const count = useQuery(queryFn);
-  return typeof count === 'number' ? count : 0;
+  const count = useQuery(queryFn ?? 'skip', shouldQuery ? {} : 'skip');
+  if (!shouldQuery || typeof count !== 'number') return 0;
+  return count;
 }
 
 export function useThread(conversationId: string | null): ThreadResult | undefined {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const queryFn = messagesApi?.messages ?? messagesApi?.thread;
-  if (!conversationId || !queryFn) return undefined;
+  const shouldQuery = Boolean(isAuthenticated && !isLoading && conversationId && queryFn);
+  // Unconditionally call useQuery to preserve stable hook order
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const res = useQuery(queryFn, { conversationId, paginationOpts: { numItems: 50 } });
-  if (!res) return undefined;
+  const res = useQuery(
+    queryFn ?? 'skip',
+    shouldQuery
+      ? {
+          conversationId: conversationId as any,
+          paginationOpts: { numItems: 50, cursor: null },
+        }
+      : 'skip',
+  );
+
+  if (!shouldQuery || !res) return undefined;
   // Thread arrives newest-first from backend; reverse for chronological UI display
   return {
     ...res,
@@ -72,6 +90,9 @@ export function useMessagesActions() {
   const startConvoMutation = messagesApi?.startConversation ? useMutation(messagesApi.startConversation) : null;
   const sendMutation = (messagesApi?.sendMessage ?? messagesApi?.send) ? useMutation(messagesApi.sendMessage ?? messagesApi.send) : null;
   const markReadMutation = messagesApi?.markRead ? useMutation(messagesApi.markRead) : null;
+  const reportMutation = messagesApi?.reportMessage ? useMutation(messagesApi.reportMessage) : null;
+  const blockMutation = messagesApi?.block ? useMutation(messagesApi.block) : null;
+  const unblockMutation = messagesApi?.unblock ? useMutation(messagesApi.unblock) : null;
 
   return {
     startConversation: async (otherUserId: string, listingId?: string): Promise<string> => {
@@ -95,6 +116,20 @@ export function useMessagesActions() {
       } catch (err) {
         console.warn('markRead error:', err);
       }
+    },
+    reportMessage: async (messageId: string): Promise<{ reported: boolean; alreadyReported: boolean }> => {
+      if (!reportMutation) {
+        return { reported: false, alreadyReported: false };
+      }
+      return await reportMutation({ messageId });
+    },
+    blockUser: async (userId: string): Promise<void> => {
+      if (!blockMutation) return;
+      await blockMutation({ userId });
+    },
+    unblockUser: async (userId: string): Promise<void> => {
+      if (!unblockMutation) return;
+      await unblockMutation({ userId });
     },
   };
 }
