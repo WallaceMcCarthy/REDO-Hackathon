@@ -9,7 +9,8 @@ import baselineMedians from "../data/listing-town-medians.json";
 type Position = { n: number; price?: number; id?: string; year?: number };
 type Cursor = { v: 1; key: string; turn: number; positions: Record<string, Position> };
 type Entry = { listing: Listing; after: Position };
-type Queue = { cityId: string; rank: number; score: number; name: string; count: number; position: Position; buffer: Entry[]; fallback: Listing[] | null; newest: { rcId: string; price: number; yearBuilt: number }[] };
+type Queue = { cityId: string; rank: number | null; score: number | null; name: string; count: number; position: Position; buffer: Entry[]; fallback: Listing[] | null; newest: { rcId: string; price: number; yearBuilt: number }[]; exactOrder?: { rcId: string; price: number; yearBuilt: number }[] };
+declare const process: { env: Record<string, string | undefined> };
 export type MarketSearchOptions = ListingSearchOptions & { cursor?: string | null };
 const priceOf = (row: Listing) => (row.kind === "home" ? row.value : row.rent) ?? Infinity;
 const byPrice = (a: Listing, b: Listing) => priceOf(a) - priceOf(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -29,7 +30,9 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
     ctx.db.query("cities").take(100), ctx.db.query("metrics").take(100),
     ctx.db.query("marketListingStats").withIndex("by_market", q => q.eq("market", market)).take(100),
   ]);
-  const key = JSON.stringify({ market, cap, sort, cityIds: opts.cityIds ? [...opts.cityIds].sort() : null,
+  const statewide = process.env.UTAH_STATEWIDE_ENABLED === 'true' && opts.cityIds === undefined
+    && opts.filters?.maxHomeValue === undefined && opts.filters?.maxCommuteMinutes === undefined;
+  const key = JSON.stringify({ market, cap, sort, statewide, cityIds: opts.cityIds ? [...opts.cityIds].sort() : null,
     filters: opts.filters ?? {}, weights: Object.fromEntries(Object.entries(opts.weights).sort(([a], [b]) => a.localeCompare(b))) });
   let cursor: Cursor = { v: 1, key, turn: 0, positions: {} };
   if (opts.cursor) {
@@ -90,13 +93,22 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
   }
   const queues: Queue[] = [];
   queues.push(...(await Promise.all(ranked.map(makeQueue))).filter((queue): queue is Queue => queue !== null));
+  if (statewide) {
+    const stat = stats.find(s => s.cityId === null);
+    const order = (stat?.yearOrder ?? []).filter(e => cap === undefined || e.price <= cap);
+    if (sort !== 'newest') order.sort((a, b) => a.price - b.price || (a.rcId < b.rcId ? -1 : a.rcId > b.rcId ? 1 : 0));
+    const position = cursor.positions[''] ?? { n: 0 };
+    if (!Number.isSafeInteger(position.n) || position.n < 0 || position.n > order.length) throw new Error('Invalid statewide cursor');
+    if (order.length) queues.push({ cityId: '', rank: null, score: null, name: 'Other Utah locations', count: order.length,
+      position, buffer: [], fallback: null, newest: [], exactOrder: order });
+  }
   async function head(queue: Queue): Promise<Entry | undefined> {
     if (queue.position.n >= queue.count) return undefined;
     if (queue.fallback) return { listing: queue.fallback[queue.position.n], after: { n: queue.position.n + 1 } };
     if (!queue.buffer.length) {
-      if (sort === "newest") {
-        const start = queue.position.year ?? 0;
-        for (const [i, entry] of queue.newest.slice(start, start + 3).entries()) {
+      if (sort === "newest" || queue.exactOrder) {
+        const start = queue.exactOrder ? queue.position.n : queue.position.year ?? 0;
+        for (const [i, entry] of (queue.exactOrder ?? queue.newest).slice(start, start + 3).entries()) {
           const row = await ctx.db.query("marketListings").withIndex("by_market_rcId", q => q.eq("market", market).eq("rcId", entry.rcId)).unique();
           account(row ? 1 : 0);
           const listing = row ? marketToListing(row) : null;
@@ -117,7 +129,9 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
   while (page.length < limit) {
     let chosen: Queue | undefined, entry: Entry | undefined;
     if (sort === "fit") {
-      const active = queues.map((queue, index) => ({ queue, index })).filter(({ queue }) => queue.position.n < queue.count).slice(0, 8);
+      const remaining = queues.map((queue, index) => ({ queue, index })).filter(({ queue }) => queue.position.n < queue.count);
+      const rankedActive = remaining.filter(({ queue }) => queue.score !== null);
+      const active = (rankedActive.length ? rankedActive : remaining).slice(0, 8);
       const next = active.find(({ index }) => index >= turn) ?? active[0];
       if (next) { chosen = next.queue; entry = await head(chosen); turn = (next.index + 1) % Math.max(1, queues.length); }
     } else {
@@ -128,7 +142,8 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
     chosen.position = entry.after; if (!chosen.fallback) chosen.buffer.shift();
     if (skip) { skip--; continue; }
     page.push({ listing: entry.listing, cityId: chosen.cityId, townScore: chosen.score, townRank: chosen.rank,
-      reason: `${entry.listing.market ? "Near" : "In"} ${chosen.name}, your #${chosen.rank} area match (${Math.round(chosen.score)}/100)` });
+      reason: chosen.score === null ? 'No area score. This Utah location is outside our ranked town coverage.'
+        : `${entry.listing.market ? "Near" : "In"} ${chosen.name}, your #${chosen.rank} area match (${Math.round(chosen.score)}/100)` });
   }
   const total = queues.reduce((sum, queue) => sum + queue.count, 0);
   const seen = queues.reduce((sum, queue) => sum + queue.position.n, 0);

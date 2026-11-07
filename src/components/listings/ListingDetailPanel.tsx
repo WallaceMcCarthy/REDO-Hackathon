@@ -35,7 +35,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
   const live = !!listing.market;
   const { preview } = useZillowPreview(listing.id, listing.kind === 'home');
   const zUrl = zillowUrl(listing.address, cityName, listing.kind);
-  const fit = rec ? Math.max(0, Math.min(100, Math.round(rec.townScore))) : undefined;
+  const fit = rec?.townScore != null ? Math.max(0, Math.min(100, Math.round(rec.townScore))) : undefined;
   const financials = formatListingFinancials(listing);
   const amount = live ? financials.amountFormatted : apt ? (listing.rent != null ? rentFmt(listing.rent) : 'N/A') : (listing.value != null ? money(listing.value) : 'N/A');
   const label = live ? financials.label : apt ? 'Area rent benchmark' : 'Estimated value';

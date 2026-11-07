@@ -52,8 +52,8 @@ it('previews non-Utah evidence without changing rows, preserves rural Utah and u
   const remaining = await t.run(async ctx => ({ rows: await ctx.db.query('marketListings').collect(), stats: await ctx.db.query('marketListingStats').collect() }));
   expect(remaining.rows.map(r => r.rcId).sort()).toEqual(['missing-location', 'rural-utah', 'utah']);
   expect(remaining.rows.find(r => r.rcId === 'rural-utah')?.cityId).toBeNull();
-  expect(remaining.stats.reduce((n, r) => n + r.prices.length, 0)).toBe(3);
-  expect(remaining.stats.flatMap(r => r.yearOrder ?? []).map(r => r.rcId).sort()).toEqual(['missing-location', 'rural-utah', 'utah']);
+  expect(remaining.stats.reduce((n, r) => n + r.prices.length, 0)).toBe(2);
+  expect(remaining.stats.flatMap(r => r.yearOrder ?? []).map(r => r.rcId).sort()).toEqual(['rural-utah', 'utah']);
   expect(await t.mutation(purge, { dryRun: false })).toMatchObject({ matched: 0, deleted: 0 });
 });
 

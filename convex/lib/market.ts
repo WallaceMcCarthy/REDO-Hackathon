@@ -41,11 +41,13 @@ export function pricesWithinBudget(sortedPrices: readonly number[], cap?: number
   return low;
 }
 import type { Listing } from "./listings";
+import { nonUtahReasons } from './utah';
 
 export function marketToListing(row: MarketInput & { cityId: string | null; importedAt: number }): Listing | null {
-  if (!row.cityId || row.lat === null || row.lng === null) return null;
+  if (row.lat === null || row.lng === null || (!row.cityId && nonUtahReasons(row).length)) return null;
   const rental = row.market === "for_rent";
-  return { id: `market:${row.market}:${row.rcId}`, cityId: row.cityId, kind: rental ? "apartment" : "home",
+  // Empty cityId explicitly represents no scored town, never a fabricated town association.
+  return { id: `market:${row.market}:${row.rcId}`, cityId: row.cityId ?? '', kind: rental ? "apartment" : "home",
     name: null, address: row.address, lat: row.lat, lng: row.lng, value: rental ? null : row.price, rent: rental ? row.price : null,
     beds: row.beds, baths: row.baths, sqft: row.sqft, yearBuilt: row.yearBuilt, units: null, propertyType: row.propertyType,
     source: "RentCast active listing snapshot", sourceUrl: "https://www.rentcast.io/", sourceId: row.rcId,

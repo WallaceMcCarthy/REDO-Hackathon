@@ -6,8 +6,9 @@ import { nonUtahReasons } from "./lib/utah";
 
 type OrderEntry = { rcId: string; price: number; yearBuilt: number };
 type Delta = { cityId: string | null; market: Market; add: OrderEntry[]; remove: string[] };
-function addDelta(changes: Map<string, Delta>, row: { cityId: string | null; market: Market; residential: boolean; price: number | null; rcId: string; sortYearBuilt: number }, remove: boolean) {
+function addDelta(changes: Map<string, Delta>, row: { cityId: string | null; market: Market; residential: boolean; price: number | null; rcId: string; sortYearBuilt: number; lat: number | null; lng: number | null; address: string | null; zip: string | null }, remove: boolean) {
   if (!row.residential || row.price === null) return;
+  if (!remove && (row.lat === null || row.lng === null || nonUtahReasons(row).length)) return;
   const key = JSON.stringify([row.cityId, row.market]);
   const delta = changes.get(key) ?? { cityId: row.cityId, market: row.market, add: [], remove: [] };
   if (remove) delta.remove.push(row.rcId);
@@ -77,14 +78,22 @@ export const purgeNonUtahPage = internalMutation({
     const affected = page.page.map(row => ({ row, reasons: nonUtahReasons(row) })).filter(x => x.reasons.length > 0);
     const changes = new Map<string, Delta>();
     if (!dryRun) {
-      for (const { row } of affected) {
-        addDelta(changes, row, true);
-        await ctx.db.delete(row._id);
+      const rejected = new Set(affected.map(({ row }) => row._id));
+      for (const row of page.page) {
+        if (rejected.has(row._id)) {
+          addDelta(changes, row, true);
+          await ctx.db.delete(row._id);
+        } else if (row.lat === null || row.lng === null) {
+          // Keep unknown-location records, but do not count them as displayable map inventory.
+          addDelta(changes, row, true);
+        }
       }
-      // Recompute exact counts/price arrays/newest order for every affected city+market atomically.
+      // Rebuild only affected keys; avoid repeatedly rewriting every town's compact index.
       await updateStats(ctx, changes);
     }
     return { dryRun, checked: page.page.length, matched: affected.length, deleted: dryRun ? 0 : affected.length,
+      unlocatedPricedResidential: page.page.filter(r => r.residential && r.price !== null && (r.lat === null || r.lng === null)).length,
+      eligibleOutsideTown: page.page.filter(r => r.cityId === null && r.residential && r.price !== null && r.lat !== null && r.lng !== null && nonUtahReasons(r).length === 0).length,
       isDone: page.isDone, continueCursor: page.isDone ? null : page.continueCursor,
       examples: affected.slice(0, 5).map(({ row, reasons }) => ({ rcId: row.rcId, market: row.market,
         address: row.address, zip: row.zip, lat: row.lat, lng: row.lng, cityId: row.cityId, reasons })) };

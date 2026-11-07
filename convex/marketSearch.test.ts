@@ -1,6 +1,6 @@
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import type { MarketInput } from "./lib/market";
 
@@ -11,21 +11,77 @@ const row = (id: string, fields: Partial<MarketInput> = {}): MarketInput => ({ r
 async function setup() {
   const t = convexTest(schema, modules);
   await t.run(async ctx => {
-    for (const [id, lat] of [["alpine", 40], ["desert", 37]] as const) await ctx.db.insert("cities", { id, name: id, county: "Test", lat, lng: -111, population: 100, blurb: "Fixture" });
+    for (const [id, lat] of [["alpine", 40], ["desert", 37.2]] as const) await ctx.db.insert("cities", { id, name: id, county: "Test", lat, lng: -111, population: 100, blurb: "Fixture" });
     await ctx.db.insert("metrics", { id: "trails", label: "Trails", category: "outdoors", unit: "count", higherIsBetter: true, description: "Fixture", source: "Fixture", sourceUrl: "https://example.test", year: 2026, values: { alpine: 10, desert: 1 } });
   });
   return t;
 }
 const ids = (result: { page: { listing: { id: string } }[] }) => result.page.map(r => r.listing.id);
+afterEach(() => vi.unstubAllEnvs());
 
 describe("indexed live listing search", () => {
+  it('includes retained rural Utah without inventing scores, appending it after scored fit matches', async () => {
+    const t = await setup();
+    await t.mutation(insert, { rows: [
+      ...Array.from({ length: 12 }, (_, i) => row(`ranked-${i}`)),
+      row('rural-cheap', { city: 'Richfield', zip: '84701', lat: 38.77, lng: -112.08, price: 100000, yearBuilt: 2026 }),
+      row('rural-other', { city: 'Richfield', zip: '84701', lat: 38.77, lng: -112.08, price: 400000 }),
+      row('unknown-location', { lat: null, lng: null, price: 50000 }),
+      row('outside-utah', { zip: '82930', lat: 41.27, lng: -110.96, price: 1000 }),
+    ] });
+    expect((await t.query(search, { ...base, limit: 100 })).total).toBe(12);
+    vi.stubEnv('UTAH_STATEWIDE_ENABLED', 'true');
+    const fit = await t.query(search, { ...base, limit: 100 });
+    expect(fit.total).toBe(14);
+    expect(fit.page.slice(0, 12).every((r: { townScore: number | null }) => r.townScore !== null)).toBe(true);
+    expect(fit.page.slice(12).every((r: { townScore: number | null; townRank: number | null; cityId: string }) => r.townScore === null && r.townRank === null && r.cityId === '')).toBe(true);
+    expect(fit.page[12].reason).toContain('No area score');
+    for (const sort of ['price_asc', 'newest']) {
+      const result = await t.query(search, { ...base, sort, limit: 100 });
+      expect(result.total).toBe(14);
+      expect(result.page[0].listing.id).toBe('market:for_sale:rural-cheap');
+    }
+    expect((await t.query(search, { ...base, maxValue: 350000, limit: 100 })).total).toBe(13);
+    expect((await t.query(search, { ...base, cityIds: ['alpine'], limit: 100 })).total).toBe(12);
+    expect((await t.query(search, { ...base, filters: { maxCommuteMinutes: 60 }, limit: 100 })).page.some((r: { cityId: string }) => r.cityId === '')).toBe(false);
+  });
+
+  it('paginates rural price ties without duplicates and rejects cursors after scope changes', async () => {
+    const t = await setup();
+    vi.stubEnv('UTAH_STATEWIDE_ENABLED', 'true');
+    await t.mutation(insert, { rows: Array.from({ length: 15 }, (_, i) => row(`rural-${String(i).padStart(2, '0')}`, { lat: 38.77, lng: -112.08, zip: '84701' })) });
+    for (const sort of ['fit', 'price_asc', 'newest']) {
+      const first = await t.query(search, { ...base, sort, limit: 7 });
+      const second = await t.query(search, { ...base, sort, limit: 7, cursor: first.nextCursor });
+      const third = await t.query(search, { ...base, sort, limit: 7, cursor: second.nextCursor });
+      expect(new Set([...ids(first), ...ids(second), ...ids(third)]).size).toBe(15);
+      expect(third.hasMore).toBe(false);
+      expect(first.total).toBe(15);
+      await expect(t.query(search, { ...base, sort, cursor: first.nextCursor, cityIds: ['alpine'] })).rejects.toThrow('Search changed');
+    }
+  });
+
+  it('resolves rural Utah listings for saves, comments and private conversation context', async () => {
+    const t = await setup();
+    await t.mutation(insert, { rows: [row('rural-rental', { market: 'for_rent', price: 1200, city: 'Richfield', zip: '84701', lat: 38.77, lng: -112.08 })] });
+    const users = await t.run(async ctx => [await ctx.db.insert('users', {}), await ctx.db.insert('users', {})]);
+    const user = t.withIdentity({ subject: `${users[0]}|fixture` });
+    const listingId = 'market:for_rent:rural-rental';
+    expect(await user.mutation(makeFunctionReference<'mutation'>('social:toggleSaved'), { listingId })).toEqual({ saved: true });
+    const saved = await user.query(makeFunctionReference<'query'>('social:mySaved'), {});
+    expect(saved.page[0].listing).toMatchObject({ cityId: '', marketCity: 'Richfield', rent: 1200 });
+    await user.mutation(makeFunctionReference<'mutation'>('social:addComment'), { targetType: 'listing', targetId: listingId, body: 'Question about this rural listing' });
+    await user.mutation(makeFunctionReference<'mutation'>('messages:startConversation'), { otherUserId: users[1], listingId });
+    const inbox = await user.query(makeFunctionReference<'query'>('messages:myConversations'), {});
+    expect(inbox[0].listing.id).toBe(listingId);
+  });
   it("keeps counts identical across sorts while diversifying the first eight active towns", async () => {
     const t = await setup();
-    const extra = Array.from({ length: 7 }, (_, i) => ({ id: `extra-${i}`, lat: 41 + i * 0.3 }));
+    const extra = Array.from({ length: 7 }, (_, i) => ({ id: `extra-${i}`, lat: 38 + i * 0.25 }));
     await t.run(async ctx => {
       for (const city of extra) await ctx.db.insert("cities", { ...city, name: city.id, county: "Test", lng: -111, population: 100, blurb: "Fixture" });
     });
-    const places = [{ id: "alpine", lat: 40 }, { id: "desert", lat: 37 }, ...extra];
+    const places = [{ id: "alpine", lat: 40 }, { id: "desert", lat: 37.2 }, ...extra];
     await t.mutation(insert, { rows: places.flatMap(city => Array.from({ length: 12 }, (_, i) => row(`${city.id}-${i}`, { lat: city.lat }))) });
     const fit = await t.query(search, { ...base, limit: 8 });
     const price = await t.query(search, { ...base, sort: "price_asc", limit: 8 });
@@ -52,11 +108,11 @@ describe("indexed live listing search", () => {
 
   it("prefers live inventory at ten matches and fills sparse towns with honest legacy records", async () => {
     const t = await setup();
-    await t.mutation(insert, { rows: [...Array.from({ length: 12 }, (_, i) => row(`a-${i}`, { price: 300000 + i })), row("b-1", { lat: 37, price: 200000 }), row("land", { propertyType: "Land", price: 1 })] });
+    await t.mutation(insert, { rows: [...Array.from({ length: 12 }, (_, i) => row(`a-${i}`, { price: 300000 + i })), row("b-1", { lat: 37.2, price: 200000 }), row("land", { propertyType: "Land", price: 1 })] });
     await t.run(async ctx => {
       const legacy = { kind: "home" as const, name: null, address: "Legacy", lat: 40, lng: -111, value: 100000, rent: null, beds: null, sqft: null, yearBuilt: null, units: null, propertyType: "Residential", source: "Assessor", sourceUrl: "https://example.test", year: 2025 };
       await ctx.db.insert("listings", { ...legacy, id: "alpine-legacy", cityId: "alpine" });
-      await ctx.db.insert("listings", { ...legacy, id: "desert-legacy", cityId: "desert", lat: 37 });
+      await ctx.db.insert("listings", { ...legacy, id: "desert-legacy", cityId: "desert", lat: 37.2 });
     });
     const result = await t.query(search, base);
     expect(result.total).toBe(14);
@@ -70,7 +126,7 @@ describe("indexed live listing search", () => {
 
   it("uses cursor pages across equal prices without duplicates or resetting round robin", async () => {
     const t = await setup();
-    await t.mutation(insert, { rows: [...Array.from({ length: 25 }, (_, i) => row(`a-${String(i).padStart(2, "0")}`)), ...Array.from({ length: 25 }, (_, i) => row(`b-${String(i).padStart(2, "0")}`, { lat: 37 }))] });
+    await t.mutation(insert, { rows: [...Array.from({ length: 25 }, (_, i) => row(`a-${String(i).padStart(2, "0")}`)), ...Array.from({ length: 25 }, (_, i) => row(`b-${String(i).padStart(2, "0")}`, { lat: 37.2 }))] });
     const first = await t.query(search, { ...base, limit: 7 });
     const second = await t.query(search, { ...base, limit: 7, cursor: first.nextCursor });
     const combined = [...ids(first), ...ids(second)];
@@ -85,7 +141,7 @@ describe("indexed live listing search", () => {
 
   it("globally sorts budgeted prices and new construction across towns, retaining actual rental beds", async () => {
     const t = await setup();
-    const rows = [...Array.from({ length: 10 }, (_, i) => row(`a-${i}`, { price: 100 + i, yearBuilt: 2000 + i })), ...Array.from({ length: 10 }, (_, i) => row(`b-${i}`, { lat: 37, price: 200 + i, yearBuilt: 2010 + i })), row("over-budget-new", { price: 1000, yearBuilt: 2026 }), row("rental", { market: "for_rent", price: 1500, beds: 4 })];
+    const rows = [...Array.from({ length: 10 }, (_, i) => row(`a-${i}`, { price: 100 + i, yearBuilt: 2000 + i })), ...Array.from({ length: 10 }, (_, i) => row(`b-${i}`, { lat: 37.2, price: 200 + i, yearBuilt: 2010 + i })), row("over-budget-new", { price: 1000, yearBuilt: 2026 }), row("rental", { market: "for_rent", price: 1500, beds: 4 })];
     await t.mutation(insert, { rows });
     const cheap = await t.query(search, { ...base, sort: "price_asc", maxValue: 205, limit: 100 });
     expect(cheap.total).toBe(16);

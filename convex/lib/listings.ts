@@ -50,8 +50,8 @@ export function withListingMetadata<T extends Listing>(listing: T) {
 export type Recommendation = {
   listing: Listing;
   cityId: string;
-  townScore: number;
-  townRank: number;
+  townScore: number | null;
+  townRank: number | null;
   reason: string;
 };
 

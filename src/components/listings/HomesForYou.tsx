@@ -59,6 +59,7 @@ export default function HomesForYou(p: Props) {
   useEffect(() => () => onRecs?.(undefined), [onRecs]);
 
   const noun = kind === 'home' ? 'homes' : 'apartments';
+  const scoredAreas = cityIds.filter(Boolean).length;
   if (loading) {
     return (
       <div role="status" aria-live="polite" className="space-y-3">
@@ -90,7 +91,7 @@ export default function HomesForYou(p: Props) {
     <li key={r.listing.id}>
       <ListingCard
         item={r} cityName={towns.get(r.cityId)?.name} commentCount={counts[r.listing.id]} isSelected={p.selectedId === r.listing.id}
-        onSelect={p.onSelect} onHover={on => p.onHoverCity(on ? r.cityId : null)} onOpenTown={p.onOpenTown}
+        onSelect={p.onSelect} onHover={on => p.onHoverCity(on && r.cityId ? r.cityId : null)} onOpenTown={p.onOpenTown}
       />
     </li>
   );
@@ -99,7 +100,7 @@ export default function HomesForYou(p: Props) {
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-dusk" aria-live="polite">
         <span>
-          Showing {items.length} {noun} in {cityIds.length} {cityIds.length === 1 ? 'area' : 'areas'} · {total} matches
+          Showing {items.length} {noun} {scoredAreas ? `in ${scoredAreas} ${scoredAreas === 1 ? 'area' : 'areas'}${cityIds.includes('') ? ' and other Utah locations' : ''}` : 'across Utah'} · {total} matches
         </span>
         {townFilter && (
           <button type="button" onClick={p.onClearTown} className={`rounded-full bg-alpine-50 px-3 py-1 text-xs font-semibold text-alpine-700 hover:bg-alpine-100 ${FOCUS}`}>
@@ -116,10 +117,10 @@ export default function HomesForYou(p: Props) {
             const group = items.filter(r => r.cityId === id);
             const t = towns.get(id);
             return (
-              <section key={id} aria-label={`${noun} in ${t?.name ?? id}`}>
+              <section key={id} aria-label={`${noun} in ${t?.name ?? (id || 'Other Utah locations')}`}>
                 <div className="mb-2 flex items-baseline justify-between">
-                  <h2 className="text-sm font-semibold text-ink">{t?.name ?? id} <span className="font-normal text-dusk">({group.length})</span></h2>
-                  <button type="button" onClick={() => p.onOpenTown(id)} className="text-xs font-semibold text-alpine-700 underline underline-offset-2">About {t?.name}</button>
+                  <h2 className="text-sm font-semibold text-ink">{t?.name ?? (id || 'Other Utah locations')} <span className="font-normal text-dusk">({group.length})</span></h2>
+                  {id && <button type="button" onClick={() => p.onOpenTown(id)} className="text-xs font-semibold text-alpine-700 underline underline-offset-2">About {t?.name}</button>}
                 </div>
                 <ul className="space-y-3">{group.map(card)}</ul>
               </section>
