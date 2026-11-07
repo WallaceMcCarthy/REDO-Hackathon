@@ -10,7 +10,7 @@ import type { Prefs } from '../types';
 
 type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void };
 
-const money = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n)}`);
+const money = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : `$${Math.round(n / 1000)}k`);
 const minutes = (n: number) => `${n} min`;
 
 type CapKey = 'maxHomeValue' | 'maxCommuteMinutes';
