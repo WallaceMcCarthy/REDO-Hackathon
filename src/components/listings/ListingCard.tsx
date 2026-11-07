@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Listing, Recommendation } from '../../../convex/lib/listings';
 import { formatListingFinancials } from './types';
+import SavedButton from '../social/SavedButton';
 
 interface ListingCardProps {
   item: Listing | Recommendation;
@@ -69,11 +70,14 @@ export default function ListingCard({
               </span>
             )}
           </div>
-          {townRank != null && (
-            <span className="inline-flex items-center rounded-full bg-alpine-100 px-2 py-0.5 font-medium text-alpine-800">
-              #{townRank} town match {townScore != null && `(${Math.round(townScore)}%)`}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {townRank != null && (
+              <span className="inline-flex items-center rounded-full bg-alpine-100 px-2 py-0.5 font-medium text-alpine-800">
+                #{townRank} match {townScore != null && `(${Math.round(townScore)}%)`}
+              </span>
+            )}
+            <SavedButton listingId={listing.id} />
+          </div>
         </div>
 
         {/* Title & Address */}
