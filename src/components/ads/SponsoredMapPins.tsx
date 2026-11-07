@@ -99,7 +99,12 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
         }
       }
       const mapWidth = map.getContainer().clientWidth;
-      setShown(inView.map(pin => ({ pin, flip: map.project([pin.lng, pin.lat]).x + AD_WIDTH - CIRCLE_CENTER > mapWidth })));
+      const next = inView.map(pin => ({ pin, flip: map.project([pin.lng, pin.lat]).x + AD_WIDTH - CIRCLE_CENTER > mapWidth }));
+      // Convex can return a fresh campaign array after an impression update. Do not publish an
+      // equivalent marker layout: that render would retrigger this effect and form an update loop.
+      setShown(previous => previous.length === next.length && previous.every((item, index) =>
+        item.pin._id === next[index].pin._id && item.flip === next[index].flip
+      ) ? previous : next);
     };
     sync();
     map.on('moveend', sync);
