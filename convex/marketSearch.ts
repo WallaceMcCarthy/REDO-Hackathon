@@ -2,7 +2,7 @@ import type { QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { rankTowns } from "./lib/scoring";
 import { withListingMetadata, type Listing, type Recommendation } from "./lib/listings";
-import { searchListings, type ListingSearchOptions } from "./lib/listingSearch";
+import { listingTownMedians, type ListingSearchOptions } from "./lib/listingSearch";
 import { marketToListing, pricesWithinBudget } from "./lib/market";
 import baselineMedians from "../data/listing-town-medians.json";
 
@@ -18,7 +18,7 @@ const byNewest = (a: Listing, b: Listing) => (b.yearBuilt ?? -1) - (a.yearBuilt 
 /** Bounded index reads. No marketListings collect/offset scans, including deep pages. */
 export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOptions) {
   const limit = opts.limit ?? 60;
-  let offset = opts.cursor ? 0 : opts.offset ?? 0;
+  const offset = opts.cursor ? 0 : opts.offset ?? 0;
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 300) throw new Error("limit must be an integer between1 and300");
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 3000) throw new Error("Use nextCursor for pages beyond offset3000");
   for (const value of [opts.maxValue, opts.maxRent]) if (value !== undefined && (!Number.isFinite(value) || value < 0)) throw new Error("Budget must be a nonnegative finite number");
@@ -29,18 +29,6 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
     ctx.db.query("cities").take(100), ctx.db.query("metrics").take(100),
     ctx.db.query("marketListingStats").withIndex("by_market", q => q.eq("market", market)).take(100),
   ]);
-  // Existing clients remain usable before the first live snapshot has been loaded.
-  if (!stats.some(row => row.prices.length)) {
-    if (opts.cursor) {
-      const parsed = JSON.parse(opts.cursor);
-      if (!Number.isSafeInteger(parsed.legacyOffset) || parsed.legacyOffset < 0) throw new Error("Search changed; restart from the first page");
-      offset = parsed.legacyOffset;
-    }
-    const legacy = await ctx.db.query("listings").take(4096);
-    const result = searchListings({ cities, metrics, listings: legacy }, { ...opts, offset, limit });
-    const nextCursor = result.hasMore ? JSON.stringify({ legacyOffset: result.nextOffset }) : null;
-    return { ...result, nextCursor };
-  }
   const key = JSON.stringify({ market, cap, sort, cityIds: opts.cityIds ? [...opts.cityIds].sort() : null,
     filters: opts.filters ?? {}, weights: Object.fromEntries(Object.entries(opts.weights).sort(([a], [b]) => a.localeCompare(b))) });
   let cursor: Cursor = { v: 1, key, turn: 0, positions: {} };
@@ -79,7 +67,7 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
     const stat = statById.get(town.cityId);
     const liveCount = pricesWithinBudget(stat?.prices ?? [], cap);
     let fallback: Listing[] | null = null;
-    if (liveCount < 10) {
+    if ((stat?.prices.length ?? 0) < 10) {
       const legacy = cap === 0 ? [] : opts.kind === "home"
         ? await ctx.db.query("listings").withIndex("by_city_kind_value", q => {
           const base = q.eq("cityId", town.cityId).eq("kind", "home").gte("value", 1); return cap === undefined ? base : base.lte("value", cap);
@@ -101,9 +89,7 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
       count, position, fallback, buffer: [], newest: (stat?.yearOrder ?? []).filter(entry => cap === undefined || entry.price <= cap) };
   }
   const queues: Queue[] = [];
-  if (sort === "fit") {
-    for (const town of ranked) { const queue = await makeQueue(town); if (queue) queues.push(queue); if (queues.length === 8) break; }
-  } else queues.push(...(await Promise.all(ranked.map(makeQueue))).filter((queue): queue is Queue => queue !== null));
+  queues.push(...(await Promise.all(ranked.map(makeQueue))).filter((queue): queue is Queue => queue !== null));
   async function head(queue: Queue): Promise<Entry | undefined> {
     if (queue.position.n >= queue.count) return undefined;
     if (queue.fallback) return { listing: queue.fallback[queue.position.n], after: { n: queue.position.n + 1 } };
@@ -131,10 +117,9 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
   while (page.length < limit) {
     let chosen: Queue | undefined, entry: Entry | undefined;
     if (sort === "fit") {
-      for (let i = 0; i < queues.length; i++) {
-        const queue = queues[turn]; turn = (turn + 1) % queues.length;
-        const candidate = await head(queue); if (candidate) { chosen = queue; entry = candidate; break; }
-      }
+      const active = queues.map((queue, index) => ({ queue, index })).filter(({ queue }) => queue.position.n < queue.count).slice(0, 8);
+      const next = active.find(({ index }) => index >= turn) ?? active[0];
+      if (next) { chosen = next.queue; entry = await head(chosen); turn = (next.index + 1) % Math.max(1, queues.length); }
     } else {
       const heads = await Promise.all(queues.map(async queue => ({ queue, entry: await head(queue) })));
       for (const candidate of heads) if (candidate.entry && (!entry || (sort === "newest" ? byNewest(candidate.entry.listing, entry.listing) : byPrice(candidate.entry.listing, entry.listing)) < 0)) { chosen = candidate.queue; entry = candidate.entry; }
@@ -143,13 +128,23 @@ export async function indexedListingSearch(ctx: QueryCtx, opts: MarketSearchOpti
     chosen.position = entry.after; if (!chosen.fallback) chosen.buffer.shift();
     if (skip) { skip--; continue; }
     page.push({ listing: entry.listing, cityId: chosen.cityId, townScore: chosen.score, townRank: chosen.rank,
-      reason: `#${chosen.rank} match for your priorities ${entry.listing.market ? "near" : "in"} ${chosen.name} (score ${Math.round(chosen.score)})` });
+      reason: `${entry.listing.market ? "Near" : "In"} ${chosen.name}, your #${chosen.rank} area match (${Math.round(chosen.score)}/100)` });
   }
   const total = queues.reduce((sum, queue) => sum + queue.count, 0);
   const seen = queues.reduce((sum, queue) => sum + queue.position.n, 0);
   const hasMore = seen < total;
   const nextCursor = hasMore ? JSON.stringify({ v: 1, key, turn, positions: Object.fromEntries(queues.map(queue => [queue.cityId, queue.position])) } satisfies Cursor) : null;
-  return { page, total, hasMore, nextOffset: hasMore ? seen : null, nextCursor, townMedians: baselineMedians };
+  const known = new Map(baselineMedians.map(row => [row.cityId, row]));
+  const townMedians = await Promise.all(cities.map(async city => {
+    const baseline = known.get(city.id);
+    if (baseline) return baseline;
+    const [homes, apartments] = await Promise.all([
+      ctx.db.query("listings").withIndex("by_city_kind_value", q => q.eq("cityId", city.id).eq("kind", "home")).take(80),
+      ctx.db.query("listings").withIndex("by_city_kind_rent", q => q.eq("cityId", city.id).eq("kind", "apartment")).take(80),
+    ]);
+    return listingTownMedians([city], [...homes, ...apartments])[0];
+  }));
+  return { page, total, hasMore, nextOffset: hasMore ? seen : null, nextCursor, townMedians };
 }
 
 /** Shared lookup for bookmarks/comments, with a public-data-only result. */
