@@ -18,7 +18,7 @@ The app has no router library. Every screen is a hash route, so `https://cmascop
 | `#/saved` | Saved homes and apartments. | Yes |
 | `#/account` | Profile. | Yes |
 | `#/roommates` | Roommate profile and matches. No link in the app leads here yet. | Yes |
-| `#/advertise` | Self-serve ad campaigns. Ads publish straight away, up to 5 live per account, unless Stripe is configured. | Yes |
+| `#/advertise` | Self-serve ads: location, image, message and link, then payment. Ads publish straight away, up to 5 live per account, unless Stripe is configured. With Stripe on, a free 1 day ad skips checkout, up to 3 per account per 24 hours. | Yes |
 
 A listing is a real public record. A home's "Est. value" is the county assessor's value, never an asking price. An apartment's rent is the HUD fair market rent for its ZIP code. On the map, a layer picker draws any one of the 21 metrics as a heat map.
 

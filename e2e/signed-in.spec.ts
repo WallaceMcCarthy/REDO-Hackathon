@@ -357,8 +357,8 @@ test('advertiser form shows validation text, never a raw Convex error', async ({
   await signUp(page, `ad-${RUN}@example.test`);
   await page.goto('/#/advertise');
   await expect(page.getByText('No campaigns yet')).toBeVisible();
-  await page.getByLabel('Business category').selectOption('other');
-  await page.getByLabel('Business name').fill('Test campaign');
+  await page.getByLabel('Or choose a town').selectOption({ index: 1 });
+  await page.getByLabel('Image URL').fill('https://example.test/a.png');
   await page.getByLabel('Message').fill('A short pitch');
   await page.getByLabel('Link').fill('http://example.test');
   await page.locator('main form').getByRole('button', { name: /publish|pay/i }).click();

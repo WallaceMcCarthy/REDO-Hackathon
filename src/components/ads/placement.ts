@@ -10,12 +10,6 @@ export function pickFeatured(featured: CampaignRecord[], townIds: string[], max:
     .slice(0, max);
 }
 
-/** The town closest to a point. Plain degrees are close enough to tell Utah towns apart. */
-export function nearestTown<T extends { lat: number; lng: number }>(towns: T[], lat: number, lng: number): T | undefined {
-  const distance = (t: T) => (t.lat - lat) ** 2 + (t.lng - lng) ** 2;
-  return towns.reduce<T | undefined>((best, t) => (!best || distance(t) < distance(best) ? t : best), undefined);
-}
-
 /** Keeps items whose boxes do not overlap an earlier kept item, so the set depends on zoom but not on panning. */
 export function declutter<T>(items: T[], at: (item: T) => { x: number; y: number }, width: number, height: number): T[] {
   const kept: { item: T; x: number; y: number }[] = [];
