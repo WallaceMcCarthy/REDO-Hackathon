@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMySaved } from '../data/socialHooks';
+import { useListingCommentCounts, useMySaved } from '../data/socialHooks';
 import type { ListingKind } from '../../convex/lib/listings';
 import ListingCard from '../components/listings/ListingCard';
 
@@ -13,6 +13,7 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
   const savedItems = useMySaved();
 
   const isLoading = savedItems === undefined;
+  const counts = useListingCommentCounts((savedItems || []).map((i) => i.listingId));
   const filtered = (savedItems || []).filter((item) => {
     if (!item.listing) return false;
     if (filter !== 'all' && item.listing.kind !== filter) return false;
@@ -87,6 +88,7 @@ export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
               <div key={item.listingId} className="relative">
                 <ListingCard
                   item={item.listing!}
+                  commentCount={counts[item.listingId]}
                   onSelect={(l) => l.cityId && onOpenTown?.(l.cityId)}
                 />
               </div>

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Listing, Recommendation } from './types';
-import AerialPhoto from './AerialPhoto';
-import { zillowUrl } from './ListingCard';
+import { zillowUrl } from '../../../convex/lib/zillow';
+import ZillowPhoto from './ZillowPhoto';
+import { useZillowPreview } from './useZillowPreview';
+import CommentsThread from '../social/CommentsThread';
 import SavedButton from '../social/SavedButton';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
@@ -17,6 +19,8 @@ interface Props {
   onNext?: () => void;
   onClose: () => void;
   onOpenTown?: (cityId: string) => void;
+  /** Opens a DM with a commenter; the Message button is hidden when omitted. */
+  onMessageUser?: (userId: string, listingId: string) => void;
 }
 
 const Arrow = ({ d }: { d: string }) => (
@@ -24,8 +28,10 @@ const Arrow = ({ d }: { d: string }) => (
 );
 const ICON_BTN = `inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/95 text-ink shadow ring-1 ring-black/10 hover:bg-white disabled:cursor-default disabled:opacity-40 ${FOCUS}`;
 
-export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown }: Props) {
+export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown, onMessageUser }: Props) {
   const apt = listing.kind === 'apartment';
+  const { preview } = useZillowPreview(listing.id, listing.kind === 'home');
+  const zUrl = zillowUrl(listing.address, cityName, listing.kind);
   const fit = rec ? Math.max(0, Math.min(100, Math.round(rec.townScore))) : undefined;
   const amount = apt ? (listing.rent != null ? rentFmt(listing.rent) : 'N/A') : (listing.value != null ? money(listing.value) : 'N/A');
   const label = apt ? 'HUD 2-bed fair market rent' : 'Est. value';
@@ -71,7 +77,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
     >
       {variant === 'sheet' && <div className="sticky top-0 z-10 flex justify-center bg-white pb-1 pt-2"><span className="h-1 w-10 rounded-full bg-rock-300" /></div>}
       <div className="relative">
-        <AerialPhoto listing={listing} rounded={variant === 'floating' ? 'rounded-t-xl' : ''} />
+        <ZillowPhoto listing={listing} preview={preview} fallbackUrl={zUrl} rounded={variant === 'floating' ? 'rounded-t-xl' : ''} />
         <div className="absolute right-2 top-2 flex gap-1.5">
           <button type="button" onClick={onClose} aria-label="Close details" className={ICON_BTN}><Arrow d="M6 6l12 12M18 6 6 18" /></button>
         </div>
@@ -120,7 +126,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
         {rec?.reason && <p className="mt-2 text-sm text-ink"><span className="font-semibold text-alpine-700">Why this place: </span>{rec.reason}</p>}
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-rock-100 pt-3">
-          <a href={zillowUrl(listing.address, cityName, listing.kind)} target="_blank" rel="noopener noreferrer" className={LINK}>View on Zillow</a>
+          <a href={preview?.pageUrl ?? zUrl} target="_blank" rel="noopener noreferrer" className={LINK}>View on Zillow</a>
           {onOpenTown && cityName && (
             <button type="button" onClick={() => onOpenTown(listing.cityId)} className={LINK}>About {cityName}</button>
           )}
@@ -128,6 +134,16 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
             <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-dusk underline-offset-2 hover:underline">Data source</a>
           )}
         </div>
+
+        <CommentsThread
+          targetType="listing"
+          targetId={listing.id}
+          title="Comments"
+          helper="Looking for roommates? Say what you're after. Others interested in this place can reply or message you."
+          placeholder="Looking for roommates? Say what you're after..."
+          onMessageUser={onMessageUser}
+          className="mt-4"
+        />
       </div>
     </aside>
   );

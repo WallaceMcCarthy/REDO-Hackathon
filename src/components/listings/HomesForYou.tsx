@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import type { Filters, Weights } from '../../types';
 import type { Listing, ListingKind, Recommendation } from '../../../convex/lib/listings';
-import { useRecommendedListings, useTownListings } from '../../data/listingsHooks';
+import { useListingSearch } from '../../data/listingsHooks';
 import type { Sort } from '../homes/FilterBar';
 import { BTN_PRIMARY, FOCUS, money } from '../homes/ui';
 import ListingCard from './ListingCard';
+import { useListingCommentCounts } from '../../data/socialHooks';
 
 type TownInfo = { name: string; score: number; rank: number };
 
@@ -27,35 +28,13 @@ interface Props {
   onRecs?: (r: Recommendation[] | undefined) => void;
 }
 
-const priceOf = (l: Listing) => (l.kind === 'home' ? l.value : l.rent);
-
 export default function HomesForYou(p: Props) {
   const { kind, maxPrice, sort, towns, townFilter } = p;
-  const recs = useRecommendedListings({ weights: p.weights, filters: p.filters, kind, limit: 60 });
-  const inTown = useTownListings({
-    cityId: townFilter ?? '__none__', kind,
+  const { items, total, loading, fetching, hasMore, loadMore } = useListingSearch({
+    weights: p.weights, filters: { maxCommuteMinutes: p.filters.maxCommuteMinutes }, kind, sort,
     maxValue: kind === 'home' ? maxPrice : undefined, maxRent: kind === 'apartment' ? maxPrice : undefined,
+    cityIds: townFilter ? [townFilter] : undefined,
   });
-
-  const loading = townFilter ? inTown === undefined : recs === undefined;
-  const items = useMemo<Recommendation[]>(() => {
-    let list: Recommendation[];
-    if (townFilter) {
-      const t = towns.get(townFilter);
-      list = (inTown ?? []).map(listing => ({
-        listing, cityId: listing.cityId, townScore: t?.score ?? 0, townRank: t?.rank ?? 0,
-        reason: t ? `${t.name} is your #${t.rank} area match.` : '',
-      }));
-    } else list = recs ?? [];
-    list = list.filter(r => {
-      const v = priceOf(r.listing);
-      return maxPrice === undefined || (v != null && v <= maxPrice);
-    });
-    const byPrice = (a: Recommendation, b: Recommendation) => (priceOf(a.listing) ?? Infinity) - (priceOf(b.listing) ?? Infinity);
-    if (sort === 'price') return [...list].sort(byPrice);
-    if (sort === 'newest') return [...list].sort((a, b) => (b.listing.yearBuilt ?? 0) - (a.listing.yearBuilt ?? 0));
-    return townFilter ? [...list].sort(byPrice) : list;
-  }, [recs, inTown, townFilter, towns, maxPrice, sort]);
 
   const { onListings } = p;
   useEffect(() => {
@@ -64,6 +43,7 @@ export default function HomesForYou(p: Props) {
   useEffect(() => () => onListings(undefined), [onListings]);
   const { onRecs } = p;
   useEffect(() => { onRecs?.(loading ? undefined : items); }, [items, loading, onRecs]);
+  const counts = useListingCommentCounts(items.map(r => r.listing.id));
   useEffect(() => () => onRecs?.(undefined), [onRecs]);
 
   const noun = kind === 'home' ? 'homes' : 'apartments';
@@ -99,7 +79,7 @@ export default function HomesForYou(p: Props) {
   const card = (r: Recommendation) => (
     <li key={r.listing.id}>
       <ListingCard
-        item={r} cityName={towns.get(r.cityId)?.name} isSelected={p.selectedId === r.listing.id}
+        item={r} cityName={towns.get(r.cityId)?.name} commentCount={counts[r.listing.id]} isSelected={p.selectedId === r.listing.id}
         onSelect={p.onSelect} onHover={on => p.onHoverCity(on ? r.cityId : null)} onOpenTown={p.onOpenTown}
       />
     </li>
@@ -109,7 +89,7 @@ export default function HomesForYou(p: Props) {
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-dusk" aria-live="polite">
         <span>
-          Showing {items.length} {noun} in {cityIds.length} {cityIds.length === 1 ? 'area' : 'areas'}
+          Showing {items.length} {noun} in {cityIds.length} {cityIds.length === 1 ? 'area' : 'areas'} · {total} matches
         </span>
         {townFilter && (
           <button type="button" onClick={p.onClearTown} className={`rounded-full bg-alpine-50 px-3 py-1 text-xs font-semibold text-alpine-700 hover:bg-alpine-100 ${FOCUS}`}>
@@ -136,6 +116,9 @@ export default function HomesForYou(p: Props) {
       ) : (
         <ul className="space-y-3">{items.map(card)}</ul>
       )}
+      {hasMore && <button type="button" onClick={loadMore} disabled={fetching} className={`${BTN_PRIMARY} mt-5 w-full disabled:opacity-50`}>
+        {fetching ? 'Loading more…' : 'Load more'}
+      </button>}
       <p className="mt-6 text-xs text-dusk">
         Public records: values are county assessor estimates; rents are HUD fair market rents for 2-bedroom units. Not asking prices or active sales.
       </p>

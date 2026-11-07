@@ -120,6 +120,20 @@ export const comments = query({
   },
 });
 
+/** Visible comment counts (roots and replies) for many listings in one call. Capped per target. */
+export const commentCounts = query({
+  args: { targetType: commentTarget, targetIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const ids = [...new Set(args.targetIds)].slice(0, 100);
+    const counts: Record<string, number> = {};
+    await Promise.all(ids.map(async (targetId) => {
+      const rows = await ctx.db.query("comments").withIndex("by_target", (q) => q.eq("targetType", args.targetType).eq("targetId", targetId)).filter((q) => q.eq(q.field("hidden"), false)).take(100);
+      if (rows.length > 0) counts[targetId] = rows.length;
+    }));
+    return counts;
+  },
+});
+
 /** Replies can be paginated independently when a root has more than fifty. */
 export const replies = query({
   args: { parentId: v.id("comments"), paginationOpts: paginationOptsValidator },
@@ -148,14 +162,14 @@ export const addComment = mutation({
 });
 
 /** Shared by the feed: only call after authenticating the reporting user. */
-export async function recordContentReport(ctx: MutationCtx, targetType: "comment" | "post", targetId: string, userId: Id<"users">): Promise<boolean> {
+export async function recordContentReport(ctx: MutationCtx, targetType: "comment" | "post" | "message", targetId: string, userId: Id<"users">): Promise<boolean> {
   const existing = await ctx.db.query("contentReports").withIndex("by_target_user", (q) => q.eq("targetType", targetType).eq("targetId", targetId).eq("userId", userId)).first();
   if (existing) return false;
   await ctx.db.insert("contentReports", { targetType, targetId, userId });
   return true;
 }
 
-export async function deleteReportsFor(ctx: MutationCtx, targetType: "comment" | "post", targetId: string): Promise<void> {
+export async function deleteReportsFor(ctx: MutationCtx, targetType: "comment" | "post" | "message", targetId: string): Promise<void> {
   const reports = await ctx.db.query("contentReports").withIndex("by_target", (q) => q.eq("targetType", targetType).eq("targetId", targetId)).collect();
   for (const report of reports) await ctx.db.delete(report._id);
 }

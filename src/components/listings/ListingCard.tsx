@@ -1,18 +1,11 @@
 import type { Listing, Recommendation } from '../../../convex/lib/listings';
-import AerialPhoto from './AerialPhoto';
+import { zillowUrl } from '../../../convex/lib/zillow';
+import ZillowPhoto from './ZillowPhoto';
+import { useZillowPreview } from './useZillowPreview';
 import SavedButton from '../social/SavedButton';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
 
-/** Zillow address search (opens the property page or nearest match). Falls back to the town's Zillow page. */
-export function zillowUrl(address: string | null, cityName: string | undefined, kind: string): string {
-  const town = cityName ?? '';
-  if (address && address.trim()) {
-    const full = /\bUT\b/.test(address) ? address : `${address}, ${town}, UT`;
-    return `https://www.zillow.com/homes/${encodeURIComponent(full.replace(/\s+/g, ' ').trim()).replace(/%20/g, '-')}_rb/`;
-  }
-  const slug = town.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  return kind === 'apartment' ? `https://www.zillow.com/${slug}-ut/apartments/` : `https://www.zillow.com/${slug}-ut/`;
-}
+export { zillowUrl };
 
 interface ListingCardProps {
   item: Listing | Recommendation;
@@ -21,16 +14,20 @@ interface ListingCardProps {
   onHover?: (hovered: boolean) => void;
   onOpenTown?: (cityId: string) => void;
   cityName?: string;
+  /** Visible comments on this listing; shows a bubble when > 0. */
+  commentCount?: number;
   className?: string;
 }
 
 const isRec = (item: Listing | Recommendation): item is Recommendation => 'listing' in item;
 
-export default function ListingCard({ item, isSelected, onSelect, onHover, onOpenTown, cityName, className = '' }: ListingCardProps) {
+export default function ListingCard({ item, isSelected, onSelect, onHover, onOpenTown, cityName, commentCount, className = '' }: ListingCardProps) {
   const listing: Listing = isRec(item) ? item.listing : item;
   const reason = isRec(item) ? item.reason : undefined;
   const fit = isRec(item) ? Math.max(0, Math.min(100, Math.round(item.townScore))) : undefined;
   const apt = listing.kind === 'apartment';
+  const { preview, ref } = useZillowPreview<HTMLElement>(listing.id, listing.kind === 'home');
+  const zUrl = zillowUrl(listing.address, cityName, listing.kind);
 
   const amount = apt
     ? (listing.rent != null ? rentFmt(listing.rent) : 'N/A')
@@ -46,6 +43,7 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
 
   return (
     <article
+      ref={ref}
       data-listing-id={listing.id}
       aria-label={address}
       onClick={() => onSelect?.(listing)}
@@ -64,7 +62,7 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
         isSelected ? 'border-alpine-500 ring-2 ring-alpine-500/20' : 'border-rock-100 hover:border-rock-300'
       } ${onSelect ? 'cursor-pointer' : ''} ${className}`}
     >
-      <AerialPhoto listing={listing} rounded="" />
+      <ZillowPhoto listing={listing} preview={preview} fallbackUrl={zUrl} rounded="" />
       <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -86,7 +84,15 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
             )}
           </p>
         </div>
-        <SavedButton listingId={listing.id} />
+        <div className="flex items-center gap-1.5">
+          {commentCount ? (
+            <span className="inline-flex items-center gap-1 text-xs tabular-nums text-dusk" aria-label={`${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`} title={`${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}>
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>
+              {commentCount}
+            </span>
+          ) : null}
+          <SavedButton listingId={listing.id} />
+        </div>
       </div>
 
       <h3 className="mt-3 truncate text-sm font-semibold text-ink" title={address}>{address}</h3>
@@ -107,7 +113,7 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
 
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-rock-100 pt-3">
         <div className="flex items-baseline gap-3">
-          <a href={zillowUrl(listing.address, cityName, listing.kind)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={LINK}>
+          <a href={preview?.pageUrl ?? zUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={LINK}>
             View on Zillow
           </a>
           {listing.sourceUrl && (
