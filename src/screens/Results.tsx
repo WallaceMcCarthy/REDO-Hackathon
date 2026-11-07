@@ -47,7 +47,6 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   const { startConversation } = useMessagesActions();
 
   const [sort, setSort] = useState<Sort>('fit');
-  const [rentMax, setRentMax] = useState<number | undefined>();
   const [pane, setPane] = useState<'list' | 'map'>('list');
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
@@ -83,10 +82,13 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   );
 
   const kind = view === 'apartments' ? 'apartment' : 'home';
-  const budget = view === 'apartments' ? rentMax : prefs.filters.maxHomeValue;
+  const budget = view === 'apartments' ? prefs.budget.maxRent : prefs.budget.maxValue;
   const setBudget = (n?: number) => {
-    if (view === 'apartments') setRentMax(n);
-    else setPrefs({ ...prefs, filters: { ...prefs.filters, maxHomeValue: n } });
+    if (view === 'apartments') {
+      setPrefs({ ...prefs, budget: { ...prefs.budget, maxRent: n } });
+    } else {
+      setPrefs({ ...prefs, budget: { ...prefs.budget, maxValue: n } });
+    }
   };
 
   const rows = useMemo<Row[] | undefined>(() => {

@@ -71,7 +71,7 @@ export default function App() {
           view={!homesTown && (view === 'apartments' || view === 'areas') ? view : 'homes'} townFilter={homesTown}
         />
       ) : (
-        <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go('results')} />
+        <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go(prefs.budget.maxRent !== undefined ? 'results?view=apartments' : 'results')} />
       )}
       <BuildStamp />
     </div>

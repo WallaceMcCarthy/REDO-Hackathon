@@ -94,6 +94,33 @@ test('budget submits with Enter', async ({ page }) => {
   await expect(page).toHaveURL(/#\/results$/);
 });
 
+test('quiz budget reaches Results filters and updates with FilterBar', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Max price').fill('500000');
+  await page.getByLabel('Max price').press('Enter');
+  await expect(page).toHaveURL(/#\/results$/);
+
+  const priceSelect = page.getByRole('combobox', { name: 'Max price' });
+  await expect(priceSelect).toHaveValue('500000');
+
+  await priceSelect.selectOption('650000');
+  await expect(priceSelect).toHaveValue('650000');
+
+  await priceSelect.selectOption('');
+  await expect(priceSelect).toHaveValue('');
+});
+
+test('quiz rent budget navigates to apartments view and sets Max rent filter', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('radio', { name: 'Rent' }).click();
+  await page.getByLabel('Max rent per month').fill('2000');
+  await page.getByLabel('Max rent per month').press('Enter');
+  await expect(page).toHaveURL(/#\/results\?view=apartments$/);
+
+  const rentSelect = page.getByRole('combobox', { name: 'Max rent' });
+  await expect(rentSelect).toHaveValue('2000');
+});
+
 test('every slider has a tick at each snap, end labels and a 44px target', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('slider').first()).toBeVisible();
