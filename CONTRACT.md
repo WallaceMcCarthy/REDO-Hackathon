@@ -1,0 +1,76 @@
+# Utah Fit: shared contract
+
+A web app that ranks Utah towns for someone moving to Utah. People weight what they care about, such as air, outdoors, transit, culture, cost and safety. The app returns ranked towns, explains each score, and shows the towns on a map.
+
+**Goal: a polished live demo, fast.** Anything not on the demo path gets cut.
+
+## Stack
+
+- Vite, React and TypeScript, with Tailwind and react-leaflet for the map.
+- Convex for the database and the TypeScript backend.
+- Data scripts in TypeScript, run with `npx tsx`.
+
+## Layout (each area has one owner, so no file conflicts)
+
+```
+convex/schema.ts, convex/*.ts   backend: tables, seed mutation, queries       (backend)
+convex/lib/scoring.ts           pure scoring function, no Convex imports       (search)
+data/cities.json                canonical town list, ids below                 (data: core)
+data/metrics/<metric>.json      one file per metric                            (data: owner of that metric)
+scripts/data/<metric>.ts        script that produced that metric file          (data)
+scripts/seed.ts                 loads data/ into Convex                        (backend)
+src/                            React app                                      (frontend)
+```
+
+## Town ids (fixed: everyone uses exactly these)
+
+salt-lake-city, west-valley-city, west-jordan, provo, orem, sandy, st-george, ogden, layton, south-jordan, lehi, millcreek, taylorsville, herriman, logan, murray, draper, bountiful, riverton, spanish-fork, roy, pleasant-grove, cedar-city, kaysville, cottonwood-heights, holladay, eagle-mountain, saratoga-springs, american-fork, park-city, heber-city, midway, moab, vernal, price, tooele, brigham-city, richfield, kanab, hurricane, washington, ephraim
+
+`data/cities.json`:
+```json
+[{ "id": "provo", "name": "Provo", "county": "Utah", "lat": 40.2338, "lng": -111.6585, "population": 115162, "blurb": "One sentence about the town." }]
+```
+
+## Metric file format: `data/metrics/<metric>.json`
+
+```json
+{
+  "id": "air_quality",
+  "label": "Air quality",
+  "category": "environment",
+  "unit": "µg/m³ PM2.5 (annual mean)",
+  "higherIsBetter": false,
+  "description": "What it measures, one sentence.",
+  "source": "EPA Air Quality System",
+  "sourceUrl": "https://...",
+  "year": 2025,
+  "values": { "provo": 7.1, "salt-lake-city": 8.4 }
+}
+```
+
+- `category` is one of `cost`, `safety`, `environment`, `outdoors`, `transit`, `culture`, `education`, `community`.
+- Raw values in real units. The scoring code normalizes them, so don't pre-normalize.
+- Every town should have a value. If a town has no measurement, use the nearest station or the county value, and say so in `description`.
+- All data must be public and cited with a real `sourceUrl`. Never invent numbers.
+
+## Scoring API: `convex/lib/scoring.ts`
+
+```ts
+export type Weights = Record<string /* metricId */, number /* 0..5 */>;
+export type Filters = { maxHomeValue?: number; maxCommuteMinutes?: number };
+export type TownScore = {
+  cityId: string;
+  score: number;                       // 0..100
+  breakdown: { metricId: string; raw: number; normalized: number /* 0..1 */; weight: number; contribution: number }[];
+  highlights: string[];                // e.g. "Top 3 for ski access"
+};
+export function rankTowns(cities, metrics, weights: Weights, filters: Filters): TownScore[];
+```
+
+The Convex query `api.search.rank({ weights, filters })` wraps `rankTowns`. Further queries are `api.cities.list`, `api.cities.get({ id })` and `api.metrics.list`.
+
+## Frontend screens
+
+1. **Landing / quiz.** Pick a few personas (skier, family, remote worker, foodie) or adjust a slider per category.
+2. **Results.** A map with ranked pins on one side and ranked cards with score bars on the other. Results update live as the sliders move.
+3. **Town detail.** Every metric compared with the Utah median, with source links.
