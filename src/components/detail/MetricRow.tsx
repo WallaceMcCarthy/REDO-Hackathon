@@ -41,15 +41,7 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
           </summary>
         </details>
         <p className="mt-2 text-xs text-dusk break-words [overflow-wrap:anywhere]">
-          <a
-            href={metric.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-block py-1 underline decoration-rock-300 underline-offset-2 hover:text-rock-600 focus-visible:outline-2 focus-visible:outline-alpine-500"
-          >
-            {metric.source}
-          </a>
-          , {metric.year}
+          {metric.year}
         </p>
       </div>
 

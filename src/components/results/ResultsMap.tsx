@@ -7,7 +7,7 @@ import type { FeatureCollection, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { City, Metric } from '../../types';
-import { BOUNDS, computeGrid, gridToDataUrl } from './heatmap';
+import { BOUNDS, UTAH, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
 import type { Listing } from '../listings/types';
 import type { Row } from './types';
@@ -17,6 +17,13 @@ declare global {
 }
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+const UTAH_RING: [number, number][] = [...UTAH, UTAH[0]].map(([lat, lng]) => [lng, lat]);
+const UTAH_LINE: GeoJSON.Feature<GeoJSON.LineString> = { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: UTAH_RING } };
+const UTAH_MASK: GeoJSON.Feature<GeoJSON.Polygon> = {
+  type: 'Feature', properties: {},
+  geometry: { type: 'Polygon', coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]], [...UTAH_RING].reverse()] },
+};
+
 const UTAH_BOUNDS: [[number, number], [number, number]] = [[-114, 37], [-109, 42]];
 // Homes first: listings are the primary layer, towns are small muted dots underneath.
 // Tailwind palette (tailwind.config.js).
@@ -122,6 +129,15 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 11 });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
       const kindColor: maplibregl.ExpressionSpecification = ['match', ['get', 'kind'], 'apartment', APARTMENT_COLOR, HOME_COLOR];
+      // Utah border and faint outside mask: above the basemap, beneath all data layers.
+      map.addSource('utah-border', { type: 'geojson', data: UTAH_LINE });
+      map.addSource('utah-mask', { type: 'geojson', data: UTAH_MASK });
+      map.addLayer({ id: 'utah-mask', type: 'fill', source: 'utah-mask', paint: { 'fill-color': '#1e293b', 'fill-opacity': 0.08 } });
+      map.addLayer({
+        id: 'utah-border', type: 'line', source: 'utah-border',
+        layout: { 'line-join': 'round' },
+        paint: { 'line-color': ['interpolate', ['linear'], ['zoom'], 5, '#334155', 10, '#1e293b'], 'line-opacity': 0.7, 'line-width': 2 },
+      });
       // Towns: small muted dots, beneath everything else.
       map.addLayer({
         id: 'towns-dots', type: 'circle', source: 'towns',

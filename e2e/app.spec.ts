@@ -178,7 +178,7 @@ test.describe('Utah Fit', () => {
     await expect(page.getByRole('button', { name: `${name} (clear)` })).toBeVisible();
   });
 
-  test('6. town detail shows metrics vs median with source links; back works', async ({ page }) => {
+  test('6. town detail shows metrics vs median back works', async ({ page }) => {
     await gotoAreas(page);
     const first = (await cardNames(page, 1))[0]!;
     await cards(page).first().getByRole('button', { name: /^About/ }).click();
@@ -186,9 +186,7 @@ test.describe('Utah Fit', () => {
     await expect(page.getByRole('heading', { level: 1, name: first })).toBeVisible();
     await expect(page.getByText(/Utah median/).first()).toBeVisible();
     await expect(page.getByText(/(Better|Worse) than the Utah median|Right at the Utah median/).first()).toBeVisible();
-    const hrefs = await page.locator('main li a[href]').evaluateAll(as => as.map(a => (a as HTMLAnchorElement).getAttribute('href')));
-    expect(hrefs.length).toBeGreaterThan(0);
-    for (const h of hrefs) expect(h, 'source link').toMatch(/^http/);
+    await expect(page.locator('main li a[href]')).toHaveCount(0);
     await page.getByRole('button', { name: 'Back to results' }).click();
     await expect(page).toHaveURL(/#\/results$/);
     await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });

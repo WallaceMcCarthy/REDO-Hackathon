@@ -130,9 +130,6 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
           {onOpenTown && cityName && (
             <button type="button" onClick={() => onOpenTown(listing.cityId)} className={LINK}>About {cityName}</button>
           )}
-          {listing.sourceUrl && (
-            <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-dusk underline-offset-2 hover:underline">Data source</a>
-          )}
         </div>
 
         <CommentsThread
