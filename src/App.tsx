@@ -34,7 +34,7 @@ function NotFound() {
   }, []);
   return (
     <main>
-      <EmptyState className="m-gutter" title="That page has moved" description="cmascope.com is now Utah Fit, a way to rank Utah towns by what matters to you." action={<Button href="/">Find your Utah town</Button>} />
+      <EmptyState className="m-gutter" title="That page has moved" description="cmascope.com is now Utah Fit, a way to rank Utah towns by what matters to you." action={<Button href="/">Find a home in Utah</Button>} />
     </main>
   );
 }
@@ -58,7 +58,7 @@ export default function App() {
   const isMessages = path === 'messages' || path.startsWith('messages/');
   const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
 
-  if (window.location.pathname !== '/') return <NotFound />;
+  if (!['/', '/index.html'].includes(window.location.pathname)) return <NotFound />;
 
   return (
     <div className={path === 'results' || isMessages ? 'flex h-dvh flex-col' : undefined}>

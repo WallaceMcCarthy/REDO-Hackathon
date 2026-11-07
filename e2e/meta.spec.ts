@@ -19,7 +19,7 @@ for (const path of ['/markets/state/UT', '/research', '/pricing', '/data']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { name: 'That page has moved' })).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex');
-    await page.getByRole('link', { name: 'Find your Utah town' }).click();
+    await page.getByRole('link', { name: 'Find a home in Utah' }).click();
     await expect(page.getByRole('heading', { level: 1, name: /Find a home in Utah/ })).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
   });
