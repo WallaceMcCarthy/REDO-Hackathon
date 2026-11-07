@@ -11,6 +11,8 @@ import SponsoredMapPins from '../ads/SponsoredMapPins';
 import SafeSectionBoundary from '../SafeSectionBoundary';
 import { BOUNDS, UTAH, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
+import PoiLayer, { type PoiKind } from './PoiLayer';
+import PoiToggle from './PoiToggle';
 import type { MapPin } from '../../data/mapPoints';
 import type { Row } from './types';
 
@@ -100,6 +102,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   const [layerId, setLayerId] = useState('');
   const [ready, setReady] = useState(false);
   const [grouped, setGrouped] = useState(readGrouped);
+  const [poiKinds, setPoiKinds] = useState<ReadonlySet<PoiKind>>(() => new Set<PoiKind>(['restaurant', 'trail', 'ski', 'school']));
   const groupedRef = useRef(grouped);
   groupedRef.current = grouped;
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -403,6 +406,15 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         </label>
       )}
       <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+      <PoiToggle
+        enabled={poiKinds}
+        onToggle={kind => setPoiKinds(previous => {
+          const next = new Set(previous);
+          if (next.has(kind)) next.delete(kind); else next.add(kind);
+          return next;
+        })}
+      />
+      {ready && mapRef.current && <SafeSectionBoundary><PoiLayer map={mapRef.current} enabled={poiKinds} /></SafeSectionBoundary>}
       {ready && mapRef.current && <SafeSectionBoundary><SponsoredMapPins map={mapRef.current} cities={cities} selectedTown={selectedTown} /></SafeSectionBoundary>}
       {tip && (
         <div

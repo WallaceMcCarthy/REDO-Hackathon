@@ -17,7 +17,10 @@ type Props = { map: maplibregl.Map | null; enabled: ReadonlySet<PoiKind> };
 /** Adds one shared GeoJSON source and four cheap symbol layers. The map owns rendering, so React does not create a DOM marker per POI. */
 export default function PoiLayer({ map, enabled }: Props) {
   useEffect(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    // ResultsMap mounts this only after MapLibre's `load` event. Avoid checking
+    // isStyleLoaded() again here: sibling effects can briefly make it false while
+    // they update sources, which would skip POIs permanently with no later render.
+    if (!map) return;
     let cancelled = false;
     let popup: maplibregl.Popup | null = null;
 
