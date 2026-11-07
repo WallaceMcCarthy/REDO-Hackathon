@@ -9,6 +9,7 @@ import { zillowPreviewTables } from "./zillowPreviewsSchema";
 import { messageTables } from "./messagesSchema";
 import { marketTables } from "./marketSchema";
 import { assessorTables } from "./assessorSchema";
+import { jevTables } from "./jevSchema";
 
 export default defineSchema({
   ...authTables,
@@ -20,6 +21,7 @@ export default defineSchema({
   ...messageTables,
   ...marketTables,
   ...assessorTables,
+  ...jevTables,
   profiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),
