@@ -22,7 +22,7 @@ export const PERSONAS: Persona[] = [
   { id: 'foodie', label: 'Foodie', tagline: 'Restaurants and nights out', categories: { culture: 5, transit: 3, community: 2 } },
 ];
 
-export const defaultPrefs = (): Prefs => ({ categories: flat(2), filters: {} });
+export const defaultPrefs = (): Prefs => ({ categories: flat(2), filters: {}, budget: {} });
 
 /** Personas stack: each category takes the highest value any picked persona gives it. */
 export function applyPersonas(ids: string[]): CategoryWeights {
