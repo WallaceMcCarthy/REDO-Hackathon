@@ -83,7 +83,7 @@ test('hero leads with the headline and an obvious primary action', async ({ page
   await expect(page.getByLabel('Max price')).toBeInViewport();
   await expect(page.getByRole('button', { name: /Skier/ })).toBeAttached();
   await page.getByRole('link', { name: 'Browse areas instead' }).click();
-  await expect(page).toHaveURL(/#\/results$/);
+  await expect(page).toHaveURL(/#\/results\?view=areas$/);
 });
 
 test('budget submits with Enter', async ({ page }) => {
@@ -149,14 +149,15 @@ test('a tap on the track snaps the slider', async ({ page }) => {
 });
 
 test('no slider shows while metrics load', async ({ page }) => {
-  await page.routeWebSocket(/convex/, () => {});
+  await page.routeWebSocket(/convex|\/api\/.*\/sync/, () => {});
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toBeVisible();
   await expect(page.getByRole('slider')).toHaveCount(0);
   await page.goto('/#/results');
-  await expect(page.getByText('Adjust what matters')).toBeAttached();
-  await expect(page.getByRole('slider', { name: /Cost of living/, includeHidden: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Priorities' }).click();
+  await expect(page.getByRole('dialog', { name: 'Priorities' }).locator('[aria-busy="true"]')).toBeVisible();
+  await expect(page.getByRole('slider', { name: /Community|Cost of living/, includeHidden: true })).toHaveCount(0);
 });
 
 test.describe('sign-in modal', () => {
