@@ -134,11 +134,6 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     return selectedListing && !allPins.some(p => p.id === selectedListing.id) ? [...allPins, selectedListing] : allPins;
   }, [allPins, selectedListing]);
 
-  const featuredTowns = useMemo(() => {
-    if (view === 'areas') return (rows ?? []).map(r => r.city.id);
-    return townFilter ? [townFilter] : [...new Set((listings ?? []).map(l => l.cityId))];
-  }, [view, rows, townFilter, listings]);
-
   const flip = useFlip(rows);
 
   const hoverFromPin = useCallback((id: string | null) => {
@@ -287,7 +282,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           aria-label={view === 'areas' ? 'Ranked towns' : 'Homes and apartments'}
           className={`min-h-0 overflow-y-auto p-4 lg:border-r lg:border-rock-100 ${pane === 'map' ? 'hidden lg:block' : ''}`}
         >
-          <SafeSectionBoundary><ResultsFeatured townIds={featuredTowns} max={wide ? 2 : 1} /></SafeSectionBoundary>
+          <SafeSectionBoundary><ResultsFeatured /></SafeSectionBoundary>
           {view === 'areas' ? areas : (
             <ListErrorBoundary key={view}>
               <HomesForYou
