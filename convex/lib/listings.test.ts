@@ -16,6 +16,7 @@ const listing = (over: Partial<Listing> & Pick<Listing, "id" | "cityId" | "kind"
   propertyType: null,
   source: "Fixture",
   sourceUrl: "https://example.com",
+  year: null,
   ...over,
 });
 

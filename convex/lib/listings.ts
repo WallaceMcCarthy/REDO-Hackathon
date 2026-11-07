@@ -20,6 +20,7 @@ export type Listing = {
   propertyType: string | null;
   source: string;
   sourceUrl: string;
+  year: number | null;
 };
 
 export type Recommendation = {

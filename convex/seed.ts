@@ -18,6 +18,7 @@ const listingValidator = v.object({
   propertyType: v.union(v.string(), v.null()),
   source: v.string(),
   sourceUrl: v.string(),
+  year: v.union(v.number(), v.null()),
 });
 
 export const replaceAll = internalMutation({

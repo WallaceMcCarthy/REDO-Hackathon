@@ -40,5 +40,6 @@ export default defineSchema({
     propertyType: v.union(v.string(), v.null()),
     source: v.string(),
     sourceUrl: v.string(),
+    year: v.union(v.number(), v.null()),
   }).index("by_cityId", ["cityId"]).index("by_kind", ["kind"]),
 });
