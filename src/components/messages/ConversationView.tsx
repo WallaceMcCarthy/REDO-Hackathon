@@ -102,7 +102,7 @@ export default function ConversationView({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-rock-600 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-rock-600 transition-colors duration-150 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
               aria-label="Back to conversations list"
             >
               ←
