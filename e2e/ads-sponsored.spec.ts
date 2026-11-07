@@ -248,6 +248,8 @@ test('a new ad is a labelled image circle on the results map, and a click opens 
   await gotoResults(visitor);
   await visitor.goto(`/#/results?town=${townId}`);
   await showMap(visitor);
+  // Ads only show once the map is zoomed in near a town.
+  await visitor.evaluate(() => (window as any).__utahMap?.zoomTo(10, { duration: 0 }));
 
   const ad = visitor.locator('.maplibregl-marker a').filter({ hasText: message });
   await expect(ad).toBeVisible();

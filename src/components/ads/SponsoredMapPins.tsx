@@ -18,6 +18,7 @@ const PIN_HEIGHT = 76;
 // Half the circle, so the circle rather than the message sits over the point.
 const CIRCLE_CENTER = 26;
 // Where the map starts naming towns, so it reads as looking at one.
+// Ads and town lookups wait for this zoom, so the statewide map stays about homes.
 const TOWN_ZOOM = 9;
 
 // The tag only has to label the ad. The whole pill is the tap target, so a small tag costs no reach.
@@ -81,7 +82,7 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
     const located = pins.filter(isShowable);
     const sync = () => {
       const bounds = map.getBounds();
-      const inView = declutter(located, p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
+      const inView = declutter(map.getZoom() >= TOWN_ZOOM ? located : [], p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
         // Near the top edge an ad would lose its Sponsored label, so it waits until the map moves.
         .filter(p => bounds.contains([p.lng, p.lat]) && map.project([p.lng, p.lat]).y >= PIN_HEIGHT);
       const ids = new Set(inView.map(p => p._id));
