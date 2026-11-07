@@ -140,7 +140,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
 
         {fit != null && (
           <div className="mt-3 flex items-center gap-2">
-            <span role="meter" aria-label="Fit score" aria-valuemin={0} aria-valuemax={100} aria-valuenow={fit} className="block h-2 flex-1 overflow-hidden rounded-full bg-rock-100">
+            <span role="meter" aria-label="Area fit score" aria-valuemin={0} aria-valuemax={100} aria-valuenow={fit} className="block h-2 flex-1 overflow-hidden rounded-full bg-rock-100">
               <span className="block h-full rounded-full bg-alpine-500" style={{ width: `${fit}%` }} />
             </span>
             <span className="w-16 text-right text-xs tabular-nums text-dusk">{fit} / 100</span>
