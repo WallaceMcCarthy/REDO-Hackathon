@@ -4,6 +4,8 @@ import { MapContainer, Marker, TileLayer, Tooltip } from 'react-leaflet';
 import type { Row } from './types';
 
 const UTAH_BOUNDS: L.LatLngBoundsExpression = [[37, -114], [42, -109]];
+// Most towns sit on the Wasatch Front, so numbering all 42 pins buries the top results. The rest are dots with a touch-sized target.
+const NUMBERED_PINS = 10;
 
 // Cached per rank so hover never replaces a marker's DOM; highlight is the `active` class on the icon root, styled via group-[.active].
 const icons = new Map<number, L.DivIcon>();
@@ -11,14 +13,17 @@ function pinIcon(rank: number) {
   let icon = icons.get(rank);
   if (!icon) {
     const top = rank <= 3;
-    const size = top ? 40 : 30;
+    const numbered = rank <= NUMBERED_PINS;
+    const size = top ? 40 : numbered ? 30 : 24;
     icon = L.divIcon({
       className: 'group',
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
-      html: `<div class="flex size-full items-center justify-center rounded-full border-2 border-sand font-bold shadow-md transition-transform duration-200 group-[.active]:scale-125 group-[.active]:border-ink ${
-        top ? 'bg-rock-500 text-base text-white' : 'bg-alpine-700 text-xs text-white'
-      }">${rank}</div>`,
+      html: numbered
+        ? `<div class="flex size-full items-center justify-center rounded-full border-2 border-sand font-bold shadow-md transition-transform duration-200 group-[.active]:scale-125 group-[.active]:border-ink ${
+          top ? 'bg-rock-500 text-base text-white' : 'bg-alpine-700 text-xs text-white'
+        }">${rank}</div>`
+        : '<div class="flex size-full items-center justify-center"><div class="size-3 rounded-full border border-sand bg-alpine-500 shadow transition-transform duration-200 group-[.active]:scale-150 group-[.active]:border-ink"></div></div>',
     });
     icons.set(rank, icon);
   }
@@ -40,7 +45,7 @@ export default function ResultsMap({ rows, hovered, onHover, onOpen }: Props) {
   });
 
   return (
-    <MapContainer bounds={UTAH_BOUNDS} boundsOptions={{ padding: [10, 10] }} minZoom={5} className="size-full bg-alpine-50" scrollWheelZoom>
+    <MapContainer bounds={UTAH_BOUNDS} boundsOptions={{ padding: [10, 10] }} minZoom={5} zoomSnap={0.25} className="size-full bg-alpine-50" scrollWheelZoom>
       <TileLayer
         className="saturate-50"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

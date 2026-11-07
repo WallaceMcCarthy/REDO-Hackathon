@@ -17,7 +17,14 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
   const ranked = useRank(toMetricWeights(prefs.categories, metrics ?? []), prefs.filters);
 
   if (!cities || !metrics || !ranked) {
-    return <main className="mx-auto max-w-4xl px-4 py-16 font-display text-xl text-dusk" aria-busy="true">Loading town details…</main>;
+    return (
+      <main className="mx-auto max-w-4xl space-y-4 px-4 py-16" role="status" aria-busy="true">
+        <p className="text-sm text-dusk">Loading town details</p>
+        <div className="h-12 w-1/2 animate-pulse rounded-xl bg-rock-100/70" />
+        <div className="h-5 w-3/4 animate-pulse rounded bg-rock-100/70" />
+        {[0, 1, 2].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-rock-100/70" />)}
+      </main>
+    );
   }
   const town = cities.find(c => c.id === id);
   if (!town) {
