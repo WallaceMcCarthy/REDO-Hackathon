@@ -148,6 +148,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     const map = new maplibregl.Map({
       container: el,
       style: STYLE_URL,
+      maxPitch: 75,
       bounds: UTAH_BOUNDS,
       fitBoundsOptions: { padding: 10 },
       minZoom: 5,
@@ -159,7 +160,8 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
 
     map.on('load', () => {
       map.addSource('dem', { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding: 'terrarium', tileSize: 256, maxzoom: 13 });
-      map.addLayer({ id: 'hillshade-3d', type: 'hillshade', source: 'dem', layout: { visibility: 'none' }, paint: { 'hillshade-exaggeration': 0.6 } });
+      map.addSource('satellite-3d', { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 19, attribution: 'Esri' });
+      map.addLayer({ id: 'satellite-3d', type: 'raster', source: 'satellite-3d', layout: { visibility: 'none' } }, map.getStyle().layers.find(l => l.type === 'symbol')?.id);
       map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 13 });
       map.addSource('listings-flat', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: false });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
@@ -336,9 +338,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || (!threeD && !map.getTerrain())) return;
-    map.setLayoutProperty('hillshade-3d', 'visibility', threeD ? 'visible' : 'none');
-    map.setTerrain(threeD ? { source: 'dem', exaggeration: 1.6 } : null);
-    map.easeTo(threeD ? { pitch: 60, duration: 800 } : { pitch: 0, bearing: 0, duration: 800 });
+    map.setLayoutProperty('satellite-3d', 'visibility', threeD ? 'visible' : 'none');
+    map.setTerrain(threeD ? { source: 'dem', exaggeration: 1.8 } : null);
+    // Terrain means little from statewide height, so start in the Wasatch.
+    const closeUp = map.getZoom() < 9 ? { center: [-111.68, 40.6] as [number, number], zoom: 11, bearing: 95 } : {};
+    map.easeTo(threeD ? { ...closeUp, pitch: 72, duration: 1200 } : { pitch: 0, bearing: 0, duration: 800 });
   }, [ready, threeD]);
 
   useEffect(() => {
