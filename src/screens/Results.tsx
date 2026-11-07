@@ -10,8 +10,14 @@ import type { Prefs } from '../types';
 
 type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void };
 
-const HOME_VALUE_METRIC = 'home_value';
 const money = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n)}`);
+const minutes = (n: number) => `${n} min`;
+
+type CapKey = 'maxHomeValue' | 'maxCommuteMinutes';
+const CAPS: { key: CapKey; metricId: string; label: string; step: number; format: (n: number) => string }[] = [
+  { key: 'maxHomeValue', metricId: 'home_value', label: 'Max home value', step: 5000, format: money },
+  { key: 'maxCommuteMinutes', metricId: 'commute_minutes', label: 'Max commute', step: 1, format: minutes },
+];
 const isWide = () => window.matchMedia('(min-width: 1280px)').matches;
 
 export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Props) {
@@ -32,20 +38,21 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
     }).map((r, i) => ({ ...r, rank: i + 1 }));
   }, [cities, metrics, ranked]);
 
-  const home = useMemo(() => {
-    const values = Object.values(metrics?.find(m => m.id === HOME_VALUE_METRIC)?.values ?? {});
-    if (!values.length) return undefined;
-    const step = Math.max(...values) > 1000 ? 5000 : 1;
-    return { step, min: 0, max: Math.ceil(Math.max(...values) / step) * step };
-  }, [metrics]);
+  // Each slider spans the real data, so its lowest stop still leaves at least one town.
+  const caps = useMemo(() => CAPS.flatMap(cap => {
+    const values = Object.values(metrics?.find(m => m.id === cap.metricId)?.values ?? {});
+    if (!values.length) return [];
+    const stop = (n: number) => Math.ceil(n / cap.step) * cap.step;
+    return [{ ...cap, min: stop(Math.min(...values)), max: stop(Math.max(...values)) }];
+  }), [metrics]);
 
   const hoverFromPin = (id: string | null) => {
     setHovered(id);
     if (id && isWide()) document.getElementById(`town-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   };
 
-  const maxHome = prefs.filters.maxHomeValue;
-  const clearFilter = () => setPrefs({ ...prefs, filters: { ...prefs.filters, maxHomeValue: undefined } });
+  const filtered = CAPS.some(cap => prefs.filters[cap.key] !== undefined);
+  const clearFilters = () => setPrefs({ ...prefs, filters: {} });
 
   return (
     <main className="xl:sticky xl:top-0 xl:grid xl:h-dvh xl:grid-cols-[18rem_minmax(0,28rem)_minmax(0,1fr)]">
@@ -63,23 +70,27 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
           <summary className="cursor-pointer rounded text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-alpine-500">Adjust what matters</summary>
           <div className="mt-4 space-y-6">
             <CategorySliders value={prefs.categories} onChange={categories => setPrefs({ ...prefs, categories })} />
-            {home && (
-              <label className="block">
-                <span className="flex justify-between text-sm text-ink">
-                  <span>Max home value</span>
-                  <span className="tabular-nums text-dusk">{maxHome === undefined ? 'Any' : money(maxHome)}</span>
-                </span>
-                <input
-                  type="range" min={home.min} max={home.max} step={home.step} value={maxHome ?? home.max}
-                  aria-valuetext={maxHome === undefined ? 'Any' : money(maxHome)}
-                  onChange={e => {
-                    const v = Number(e.target.value);
-                    setPrefs({ ...prefs, filters: { ...prefs.filters, maxHomeValue: v >= home.max ? undefined : v } });
-                  }}
-                  className="w-full accent-rock-500"
-                />
-              </label>
-            )}
+            {caps.map(cap => {
+              const value = prefs.filters[cap.key];
+              const shown = value === undefined ? 'Any' : cap.format(value);
+              return (
+                <label key={cap.key} className="block">
+                  <span className="flex justify-between text-sm text-ink">
+                    <span>{cap.label}</span>
+                    <span className="tabular-nums text-dusk">{shown}</span>
+                  </span>
+                  <input
+                    type="range" min={cap.min} max={cap.max} step={cap.step} value={value ?? cap.max}
+                    aria-valuetext={shown}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      setPrefs({ ...prefs, filters: { ...prefs.filters, [cap.key]: v >= cap.max ? undefined : v } });
+                    }}
+                    className="w-full accent-rock-500"
+                  />
+                </label>
+              );
+            })}
           </div>
         </details>
       </aside>
@@ -94,11 +105,11 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
           <div role="status" className="rounded-2xl border border-dashed border-rock-300 p-6">
             <h2 className="font-display text-2xl text-ink">No towns match</h2>
             <p className="mt-2 text-sm text-dusk">
-              {maxHome !== undefined ? `Nothing sits under a ${money(maxHome)} home value. Raise the limit to see towns again.` : 'No towns came back for these settings.'}
+              {filtered ? 'Nothing fits every limit at once. Loosen one to see towns again.' : 'No towns came back for these settings.'}
             </p>
-            {maxHome !== undefined && (
-              <button type="button" onClick={clearFilter} className="mt-4 rounded-full bg-rock-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rock-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500">
-                Remove home value limit
+            {filtered && (
+              <button type="button" onClick={clearFilters} className="mt-4 rounded-full bg-rock-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rock-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alpine-500">
+                Remove limits
               </button>
             )}
           </div>

@@ -35,7 +35,9 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
     <li className="grid gap-x-8 gap-y-3 py-5 sm:grid-cols-[1fr_minmax(0,22rem)]">
       <div>
         <h4 className="font-semibold text-ink">{metric.label}</h4>
-        <p className="mt-1 max-w-prose text-sm leading-relaxed text-dusk">{metric.description}</p>
+        <details className="group mt-1 max-w-prose text-sm leading-relaxed text-dusk">
+          <summary className="line-clamp-2 cursor-pointer list-none rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-alpine-500 group-open:line-clamp-none">{metric.description}</summary>
+        </details>
         <p className="mt-2 text-xs text-dusk">
           <a href={metric.sourceUrl} target="_blank" rel="noreferrer" className="underline decoration-rock-300 underline-offset-2 hover:text-rock-600 focus-visible:outline-2 focus-visible:outline-alpine-500">
             {metric.source}
