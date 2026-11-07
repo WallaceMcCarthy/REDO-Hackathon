@@ -169,7 +169,10 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
   useEffect(() => {
     if (!openListing) return;
     void selectPin({ id: openListing } as MapPin);
-    window.location.replace(townFilter ? `#/results?town=${encodeURIComponent(townFilter)}` : view === 'homes' ? '#/results' : `#/results?view=${view}`);
+    const keep = new URLSearchParams();
+    if (townFilter) keep.set('town', townFilter);
+    if (view !== 'homes') keep.set('view', view);
+    window.location.replace(`#/results${keep.size ? `?${keep}` : ''}`);
   }, [openListing, townFilter, view, selectPin]);
 
   const closePanel = useCallback(() => setSelectedListing(null), []);
