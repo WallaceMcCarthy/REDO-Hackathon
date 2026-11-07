@@ -24,6 +24,7 @@ interface Props {
   onHoverCity: (cityId: string | null) => void;
   onOpenTown: (cityId: string) => void;
   onListings: (l: Listing[] | undefined) => void;
+  onRecs?: (r: Recommendation[] | undefined) => void;
 }
 
 const priceOf = (l: Listing) => (l.kind === 'home' ? l.value : l.rent);
@@ -61,6 +62,9 @@ export default function HomesForYou(p: Props) {
     onListings(loading ? undefined : items.map(r => r.listing));
   }, [items, loading, onListings]);
   useEffect(() => () => onListings(undefined), [onListings]);
+  const { onRecs } = p;
+  useEffect(() => { onRecs?.(loading ? undefined : items); }, [items, loading, onRecs]);
+  useEffect(() => () => onRecs?.(undefined), [onRecs]);
 
   const noun = kind === 'home' ? 'homes' : 'apartments';
   if (loading) {

@@ -6,11 +6,9 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl);
 import type { FeatureCollection, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { City, Metric } from '../../types';
 import { BOUNDS, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
-import ListingCard from '../listings/ListingCard';
 import type { Listing } from '../listings/types';
 import type { Row } from './types';
 
@@ -70,7 +68,7 @@ const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings' }: Props) {
   const [layerId, setLayerId] = useState('');
   const [ready, setReady] = useState(false);
-  const [popup, setPopup] = useState<{ listing: Listing; el: HTMLElement } | null>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const layer = metrics.find(m => m.id === layerId);
 
   const container = useRef<HTMLDivElement>(null);
@@ -210,6 +208,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     map.on('mousemove', e => {
       const f = hit(e.point);
       map.getCanvas().style.cursor = f ? 'pointer' : '';
+      if (f && f.layer.id === 'listings-circle') {
+        const l = listingsRef.current.find(x => x.id === f.properties.id);
+        const price = f.properties.price as string;
+        setTip({ x: e.point.x, y: e.point.y, text: [price, l?.address || l?.name].filter(Boolean).join(' · ') });
+      } else setTip(null);
       const id = f && PIN_LAYERS.includes(f.layer.id) ? String(f.properties.id) : null;
       if (id === overId) return;
       overId = id;
@@ -218,6 +221,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       else tip.remove();
     });
     map.on('mouseout', () => {
+      setTip(null);
       if (overId !== null) { overId = null; handlers.current.onHover(null); }
       tip.remove();
     });
@@ -235,11 +239,6 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       const listing = listingsRef.current.find(l => l.id === f.properties.id);
       if (!listing) return;
       handlers.current.onSelectListing?.(listing);
-      const node = document.createElement('div');
-      const p = new maplibregl.Popup({ className: 'listing-marker-popup', maxWidth: '340px', offset: 12 })
-        .setLngLat([listing.lng, listing.lat]).setDOMContent(node).addTo(map);
-      setPopup({ listing, el: node });
-      p.on('close', () => setPopup(cur => (cur?.el === node ? null : cur)));
     });
 
     return () => {
@@ -247,7 +246,6 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       map.remove();
       mapRef.current = null;
       setReady(false);
-      setPopup(null);
       if (window.__utahMap === map) delete window.__utahMap;
     };
   }, []);
@@ -261,7 +259,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   }, [ready, listingData]);
 
   useEffect(() => {
-    if (ready) mapRef.current?.setFilter('listings-selected', ['==', ['get', 'id'], selectedListingId ?? '']);
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    map.setFilter('listings-selected', ['==', ['get', 'id'], selectedListingId ?? '']);
+    const l = selectedListingId ? listingsRef.current.find(x => x.id === selectedListingId) : undefined;
+    if (l) map.easeTo({ center: [l.lng, l.lat], zoom: Math.max(map.getZoom(), 14), duration: 800 });
   }, [ready, selectedListingId]);
 
   useEffect(() => {
@@ -305,9 +307,14 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
       </ul>
       <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
-      {popup && createPortal(
-        <div className="p-1"><ListingCard item={popup.listing} className="border-none p-2 shadow-none" /></div>,
-        popup.el,
+      {tip && (
+        <div
+          role="tooltip"
+          style={{ left: tip.x, top: tip.y - 16 }}
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs font-semibold text-white shadow-md"
+        >
+          {tip.text}
+        </div>
       )}
     </div>
   );
