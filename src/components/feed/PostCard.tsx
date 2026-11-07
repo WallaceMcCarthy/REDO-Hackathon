@@ -23,7 +23,7 @@ export function relativeTime(ts: number, now = Date.now()): string {
 }
 
 const action =
-  'cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-alpine-500';
+  'cursor-pointer rounded-full px-3.5 py-2 min-h-[44px] inline-flex items-center text-sm font-semibold focus-visible:outline-2 focus-visible:outline-alpine-500';
 
 interface Props {
   post: FeedPost;
@@ -46,7 +46,7 @@ export default function PostCard({ post, canAct, onLike, onReport, onDelete, com
       </header>
       {/* plain text only: React escapes it, whitespace is preserved by CSS */}
       <p className="mt-2 whitespace-pre-wrap break-words text-ink">{post.body}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-1">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           onClick={onLike}

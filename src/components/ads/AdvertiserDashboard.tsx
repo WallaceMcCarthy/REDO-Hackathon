@@ -68,7 +68,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       <button
         type="button"
         onClick={onBack}
-        className="mb-4 cursor-pointer rounded-full border border-rock-300 px-3.5 py-1 text-xs font-semibold text-rock-700 hover:bg-rock-100"
+        className="mb-4 inline-flex min-h-[44px] items-center cursor-pointer rounded-full border border-rock-300 px-4 py-2 text-sm font-semibold text-rock-700 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
       >
         ← Back to results
       </button>
@@ -203,7 +203,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                     key={k}
                     type="button"
                     onClick={() => setKind(k)}
-                    className={`rounded-lg py-1.5 capitalize transition-all ${
+                    className={`rounded-lg min-h-[40px] flex items-center justify-center capitalize transition-all ${
                       kind === k
                         ? 'bg-white font-semibold text-ink shadow-sm'
                         : 'text-rock-600 hover:text-ink'
@@ -231,7 +231,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                     ? 'Park City Luxury Mountain Living'
                     : "Eat at Freddy's Cafe"
                 }
-                className="mt-1 w-full rounded-xl border border-rock-200 px-3 py-1.5 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
+                className="mt-1 w-full min-h-[44px] rounded-xl border border-rock-200 px-3 py-2 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
               />
             </div>
 
@@ -245,7 +245,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Short pitch or offer to entice viewers..."
-                className="mt-1 w-full rounded-xl border border-rock-200 p-2 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
+                className="mt-1 w-full min-h-[44px] rounded-xl border border-rock-200 p-2.5 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
               />
             </div>
 
@@ -258,7 +258,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com/promo"
-                className="mt-1 w-full rounded-xl border border-rock-200 px-3 py-1.5 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
+                className="mt-1 w-full min-h-[44px] rounded-xl border border-rock-200 px-3 py-2 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:outline-none"
               />
             </div>
 
@@ -322,7 +322,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
             <button
               type="submit"
               disabled={submitting}
-              className="w-full cursor-pointer rounded-full bg-purple-700 py-2 text-xs font-bold text-white hover:bg-purple-800 disabled:opacity-50"
+              className="w-full inline-flex min-h-[48px] items-center justify-center cursor-pointer rounded-full bg-purple-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-purple-500 disabled:opacity-50"
             >
               {submitting ? 'Creating...' : `Pay $${totalCost} with REDO`}
             </button>
