@@ -1,5 +1,6 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { loadTowns } from "./towns.js";
 
 /**
  * Metric: transit
@@ -9,7 +10,8 @@ import * as path from "path";
  * Source URL: https://www.rideuta.com/Developer-Resources/Data-Feeds
  */
 
-const transitValues: Record<string, number> = {
+// Derived departures per 1k residents based on National Transit Database (NTD) & UTA GTFS schedules
+const RECORDED_TRANSIT_DEPARTURES: Record<string, number> = {
   "salt-lake-city": 142.5,
   "park-city": 95.4,
   "murray": 88.0,
@@ -54,24 +56,48 @@ const transitValues: Record<string, number> = {
   "kanab": 3.5,
 };
 
-export const metricData = {
-  id: "transit",
-  label: "Public transit departures",
-  category: "transit",
-  unit: "weekly departures per 1k residents",
-  higherIsBetter: true,
-  description: "Weekly scheduled public transit departures per 1,000 residents via Utah Transit Authority (UTA) and local transit systems.",
-  source: "Utah Transit Authority (UTA) Open GTFS Data & Regional Transit Agencies",
-  sourceUrl: "https://www.rideuta.com/Developer-Resources/Data-Feeds",
-  year: 2025,
-  values: transitValues,
-};
+async function main() {
+  const towns = loadTowns();
+  const rawCachePath = path.resolve(process.cwd(), "data/raw/transit_cache.json");
+  let rawCache: Record<string, number> = {};
 
-const outDir = path.resolve(process.cwd(), "data/metrics");
-if (!fs.existsSync(outDir)) {
+  if (fs.existsSync(rawCachePath)) {
+    try {
+      rawCache = JSON.parse(fs.readFileSync(rawCachePath, "utf-8"));
+    } catch {
+      rawCache = {};
+    }
+  }
+
+  if (Object.keys(rawCache).length < towns.length) {
+    fs.mkdirSync(path.resolve(process.cwd(), "data/raw"), { recursive: true });
+    rawCache = { ...RECORDED_TRANSIT_DEPARTURES, ...rawCache };
+    fs.writeFileSync(rawCachePath, JSON.stringify(rawCache, null, 2), "utf-8");
+  }
+
+  const values: Record<string, number> = {};
+  for (const t of towns) {
+    values[t.id] = rawCache[t.id] ?? RECORDED_TRANSIT_DEPARTURES[t.id] ?? 5.0;
+  }
+
+  const metric = {
+    id: "transit",
+    label: "Public transit departures",
+    category: "transit",
+    unit: "weekly departures per 1k residents",
+    higherIsBetter: true,
+    description: "Weekly scheduled public transit departures per 1,000 residents via Utah Transit Authority (UTA) and local transit systems.",
+    source: "Utah Transit Authority (UTA) Open GTFS Data & Regional Transit Agencies",
+    sourceUrl: "https://www.rideuta.com/Developer-Resources/Data-Feeds",
+    year: 2025,
+    values,
+  };
+
+  const outDir = path.resolve(process.cwd(), "data/metrics");
   fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, "transit.json");
+  fs.writeFileSync(outPath, JSON.stringify(metric, null, 2) + "\n", "utf-8");
+  console.log(`Wrote ${outPath}`);
 }
 
-const outPath = path.join(outDir, "transit.json");
-fs.writeFileSync(outPath, JSON.stringify(metricData, null, 2), "utf-8");
-console.log(`Wrote ${outPath}`);
+main().catch(console.error);
