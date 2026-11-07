@@ -457,7 +457,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         <div
           role="tooltip"
           style={{ left: tip.x, top: tip.y - 16 }}
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs font-semibold text-white shadow-md"
+          className="pointer-events-none absolute z-[1000] -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs font-semibold text-white shadow-md"
         >
           {tip.text}
         </div>

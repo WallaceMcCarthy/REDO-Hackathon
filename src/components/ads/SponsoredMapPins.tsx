@@ -39,7 +39,7 @@ export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip
       className={`group relative block size-8 rounded-pill ${FOCUS}`}
     >
       <span aria-hidden className={`flex size-8 origin-bottom items-center justify-center rounded-pill border-2 border-white text-[13px] font-bold leading-none text-white shadow-raised ${redo ? 'bg-black' : 'bg-rock-800'}`}>★</span>
-      <span className={`pointer-events-none invisible absolute z-10 w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
+      <span className={`pointer-events-none invisible absolute z-[2] w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
         <span className="flex flex-col gap-1 rounded-card bg-surface-raised p-3 text-left shadow-raised">
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-text-muted">
             <span>{pin.kind === 'job' ? 'Sponsored job' : 'Sponsored'}</span>

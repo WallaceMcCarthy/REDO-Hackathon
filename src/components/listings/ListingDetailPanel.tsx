@@ -83,7 +83,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
   } : {};
 
   const shell = variant === 'floating'
-    ? 'absolute left-14 top-3 z-20 max-h-[calc(100%-1.5rem)] w-[360px] rounded-xl'
+    ? 'absolute left-14 top-3 z-[1000] max-h-[calc(100%-1.5rem)] w-[360px] rounded-xl'
     : 'fixed inset-x-0 bottom-0 z-40 h-[60dvh] rounded-t-2xl';
 
   return (

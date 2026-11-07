@@ -17,3 +17,9 @@ body { background: theme('colors.surface'); color: theme('colors.text'); font-fa
 .fit-range::-moz-range-thumb { box-sizing: border-box; width: var(--thumb); height: var(--thumb); border: 3px solid theme('colors.primary'); border-radius: 9999px; background: theme('colors.surface-raised'); box-shadow: theme('boxShadow.raised'); }
 .fit-range:focus-visible::-webkit-slider-thumb { outline: 2px solid theme('colors.focus'); outline-offset: 2px; }
 .fit-range:focus-visible::-moz-range-thumb { outline: 2px solid theme('colors.focus'); outline-offset: 2px; }
+
+/* Stacking: markers low, marker hover cards a bit higher, popups above markers; React overlays/controls use z-[1000]. */
+.maplibregl-marker { z-index: 1; }
+.maplibregl-marker:hover, .maplibregl-marker:focus-within { z-index: 2; }
+.maplibregl-popup { z-index: 5; }
+.maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right { z-index: 10; }
