@@ -4,7 +4,7 @@
   "category": "environment",
   "unit": "gallons per capita per day (residential potable)",
   "higherIsBetter": false,
-  "description": "System-level residential potable gallons per capita per day (GPCD) for the town's retail culinary water system, 2022 data. Potable only: towns with separate pressurized-irrigation (secondary) water (e.g. Lehi, Saratoga Springs) look low. Approximate system matches where the town has no own system: west-valley-city->Granger-Hunter Improvement District; millcreek->Salt Lake City Water System; cottonwood-heights->Jordan Valley Water Conservancy District (Retail); holladay->Holliday Water Co..",
+  "description": "Residential drinking-water use in gallons per person per day for the town's water system, 2022 data. Potable water only, so towns that also use a separate irrigation system (such as Lehi and Saratoga Springs) look lower than they are. West Valley City, Millcreek, Cottonwood Heights, and Holladay use a nearby system's figure.",
   "source": "Utah Division of Water Resources, Municipal & Industrial Water Use 2022",
   "sourceUrl": "https://dwre-utahdnr.opendata.arcgis.com/pages/municipal-and-industrial",
   "year": 2022,

@@ -45,10 +45,8 @@ writeFileSync(
       unit: "years of median household income",
       higherIsBetter: false,
       description:
-        "Median home value divided by median household income: roughly how many years of the typical " +
-        "household's income it takes to buy the typical home here. Derived entirely from this repo's existing " +
-        `home_value.json and median_income.json (both ${medianIncome.year} Census ACS 5-year estimates), no new ` +
-        "data retrieved. Lower is more affordable.",
+        
+        "Median home value divided by median household income, roughly how many years of the typical household's income it takes to buy the typical home. Both come from the Census American Community Survey. Lower is more affordable.",
       source: "Derived from this repo's home_value and median_income metrics (Census ACS 5-year estimates)",
       sourceUrl: homeValue.sourceUrl,
       year: medianIncome.year,
@@ -69,11 +67,8 @@ writeFileSync(
       unit: "share of median household income spent on median rent (annualized)",
       higherIsBetter: false,
       description:
-        "Median gross rent annualized (×12) divided by median household income: the share of the typical " +
-        "household's income the typical rent here would consume. Derived entirely from this repo's existing " +
-        `median_rent.json and median_income.json (both ${medianIncome.year} Census ACS 5-year estimates), no new ` +
-        "data retrieved. Lower is more affordable. A common affordability guideline is that paying more than " +
-        "0.30 (30%) of income on rent is considered cost-burdened.",
+        
+        "The share of the typical household's income that the typical rent would take, from median annual rent divided by median household income (Census American Community Survey). Lower is more affordable. Spending more than 30% of income on rent is a common guideline for being cost-burdened.",
       source: "Derived from this repo's median_rent and median_income metrics (Census ACS 5-year estimates)",
       sourceUrl: medianRent.sourceUrl,
       year: medianIncome.year,

@@ -93,7 +93,7 @@ async function main() {
     category: "transit",
     unit: "minutes",
     higherIsBetter: false,
-    description: "2020–2024 ACS mean one-way travel time to work for workers age 16+ who do not work at home. Calculated from aggregate travel minutes (B08013) divided by commuting workers (B08303), rounded to one decimal. Place-level estimates; no county substitutions.",
+    description: "Average one-way travel time to work, in minutes, for people who commute (2020 to 2024 Census survey). It leaves out people who work from home.",
     source: "U.S. Census Bureau, 2020–2024 ACS 5-year estimates (B08013 / B08303)",
     sourceUrl: `${BASE}data/5YRData/`,
     year: 2024,

@@ -7,7 +7,6 @@ import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
 import Messages from './screens/Messages';
 import Results from './screens/Results';
-import Roommates from './screens/Roommates';
 import SavedPlaces from './screens/SavedPlaces';
 import { AppHeader, Button, EmptyState } from './components/ui';
 import SafeSectionBoundary from './components/SafeSectionBoundary';
@@ -61,8 +60,6 @@ export default function App() {
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
       ) : route === 'account' ? (
         <Account onBack={() => go('results')} onSignIn={openSignIn} />
-      ) : route === 'roommates' ? (
-        <Roommates onSignIn={openSignIn} />
       ) : route === 'saved' ? (
         <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
       ) : isMessages ? (

@@ -21,7 +21,7 @@ const main = async () => {
   }
   writeMetric("data/metrics/university_access.json", {
     id: "university_access", label: "Distance to a university", category: "education", unit: "km to nearest 4-year university/college", higherIsBetter: false,
-    description: `Straight-line km from town center to the nearest of ${pts.length} Utah public/private universities and colleges: ${pts.map(u => u.n).join("; ")}. Coordinates from Wikipedia.`,
+    description: `Straight-line distance in km from the town center to the nearest of ${pts.length} Utah colleges and universities, such as the University of Utah or BYU. It is not driving distance.`,
     source: "Institution list per NCES College Navigator; coordinates from Wikipedia", sourceUrl: "https://nces.ed.gov/collegenavigator/?s=UT&l=93&ct=2+3", year: 2025, values,
   });
 };

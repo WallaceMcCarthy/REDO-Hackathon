@@ -4,7 +4,7 @@
   "category": "education",
   "unit": "km to nearest 4-year university/college",
   "higherIsBetter": false,
-  "description": "Straight-line km from town center to the nearest of 10 Utah public/private universities and colleges: University of Utah; Utah State University; Brigham Young University; Weber State University; Southern Utah University; Utah Valley University; Utah Tech University; Westminster University; Snow College; Utah State University Eastern (Price). Coordinates from Wikipedia.",
+  "description": "Straight-line distance in km from the town center to the nearest of 10 Utah colleges and universities, such as the University of Utah or BYU. It is not driving distance.",
   "source": "Institution list per NCES College Navigator; coordinates from Wikipedia",
   "sourceUrl": "https://nces.ed.gov/collegenavigator/?s=UT&l=93&ct=2+3",
   "year": 2025,

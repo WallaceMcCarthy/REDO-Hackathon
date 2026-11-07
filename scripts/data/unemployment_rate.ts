@@ -38,7 +38,7 @@ if (process.argv[1]?.endsWith("unemployment_rate.ts")) {
     category: "community",
     unit: "% of labor force unemployed, county, 2024 annual average",
     higherIsBetter: false,
-    description: "Annual average unemployment rate for the town's county in 2024 (BLS Local Area Unemployment Statistics, not seasonally adjusted). BLS does not publish a series for most of these towns, so every town takes its county's rate.",
+    description: "Average unemployment rate in the town's county for 2024 (Bureau of Labor Statistics, not seasonally adjusted). The data is county-level, so every town in a county shows the same rate.",
     source: "U.S. Bureau of Labor Statistics, Local Area Unemployment Statistics (county series LAUCN49*)",
     sourceUrl: "https://www.bls.gov/lau/",
     year: 2024,

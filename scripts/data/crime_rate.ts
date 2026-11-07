@@ -1,6 +1,7 @@
 // Crime rate per 1,000 residents from Utah BCI "Crime in Utah" (NIBRS) per-agency tables.
 // Run: npx -y tsx scripts/data/crime_rate.ts
 import { writeFileSync } from "node:fs";
+import { townList, writeMethodology } from "./lib.ts";
 import { cached } from "./towns.ts";
 import { pdfPages, pdfLines } from "./pdftext.ts";
 
@@ -46,18 +47,19 @@ const AG: Record<string, string> = {
   "heber-city": "Heber City PD", midway: "Wasatch County Sheriff", moab: "Moab PD", vernal: "Vernal PD", price: "Price PD", tooele: "Tooele PD",
   "brigham-city": "Brigham City PD", richfield: "Richfield PD", kanab: "Kanab PD", hurricane: "Hurricane PD", washington: "Washington City PD", ephraim: "Ephraim PD",
 };
-const values: Record<string, number> = {}; const notes: string[] = [];
+const values: Record<string, number> = {}; const notes: string[] = []; const shared: string[] = []; const old23: string[] = [];
 for (const [id, a] of Object.entries(AG)) {
   let r = y24.get(a), yr = 2024;
   if (!r) { r = y23.get(a); yr = 2023; }
   if (!r) throw new Error("no data for " + id + " / " + a);
   values[id] = Math.round(((r.persons + r.property) / r.pop) * 1000 * 100) / 100;
-  if (yr === 2023) notes.push(`${id} uses 2023 report (no 2024 data submitted)`);
-  if (/Unified|County Sheriff/.test(a)) notes.push(`${id} uses ${a} (shared/county jurisdiction rate)`);
+  if (yr === 2023) { notes.push(`${id} uses 2023 report (no 2024 data submitted)`); old23.push(id); }
+  if (/Unified|County Sheriff/.test(a)) { notes.push(`${id} uses ${a} (shared/county jurisdiction rate)`); shared.push(id); }
 }
 console.log(values, notes);
 writeFileSync("data/metrics/crime_rate.json", JSON.stringify({
   id: "crime_rate", label: "Crime rate", category: "safety", unit: "NIBRS crimes against persons + property per 1,000 residents", higherIsBetter: false,
-  description: `Reported NIBRS offenses against persons and against property (excludes crimes against society, e.g. drug offenses) divided by the reporting agency's stable resident population, x1000, from the Utah BCI Crime in Utah 2024 report. 'Persons' includes simple assault, so this is broader than UCR violent+index property. Notes: ${notes.join("; ")}.`,
+  description: `Reported crimes against people and property per 1,000 residents, from Utah's 2024 state crime report. Crimes against people include simple assault, so the rate runs higher than a count of serious violent crime. ${townList(shared)} share a county or regional police agency's area-wide rate${old23.length ? `, and ${townList(old23)} ${old23.length === 1 ? "uses" : "use"} 2023 data` : ""}.`,
   source: "Utah BCI (DPS) Crime in Utah 2024 report, NIBRS Crimes Against Totals", sourceUrl: R24, year: 2024, values,
 }, null, 2));
+writeMethodology("crime_rate", `Reported NIBRS offenses against persons and against property (excludes crimes against society, e.g. drug offenses) divided by the reporting agency's stable resident population, x1000, from the Utah BCI Crime in Utah 2024 report. 'Persons' includes simple assault, so this is broader than UCR violent+index property. Notes: ${notes.join("; ")}.`);

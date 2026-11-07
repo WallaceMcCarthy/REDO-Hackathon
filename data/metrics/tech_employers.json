@@ -4,7 +4,7 @@
   "category": "community",
   "unit": "establishments within 25km",
   "higherIsBetter": true,
-  "description": "Estimated count of tech establishments located within a straight-line 25 km radius of the town centroid, based on U.S. Census Bureau 2023 ZIP Code Business Patterns (ZBP) for NAICS 51 (Information sector proxy, including software publishers) and NAICS 5415 (Computer Systems Design and Related Services). Mapped strictly using official 2023 Census ZCTA Gazetteer centroid coordinates (unmatched PO-box ZIPs omitted as coverage gaps).",
+  "description": "Estimated number of tech companies (software, publishing and computer services) within 25 km of the town center, from Census ZIP Code Business Patterns for 2023. Counts are approximate because each ZIP code is placed by its center point and PO-box ZIPs are left out.",
   "source": "U.S. Census Bureau, 2023 ZIP Code Business Patterns (ZBP) & 2023 ZCTA Gazetteer",
   "sourceUrl": "https://www.census.gov/programs-surveys/cbp/data/datasets.html",
   "year": 2023,

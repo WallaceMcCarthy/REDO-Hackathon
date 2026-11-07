@@ -1,6 +1,35 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { deleteConversationsForUser } from "./messages";
+import { normalizeEmail } from "./lib/email";
+
+/**
+ * Run once with the deploy that normalizes sign in, or accounts created with capitals cannot sign in.
+ * Safe to rerun. A clash means one person made two accounts: both stay and the raw ids are returned for a human.
+ */
+export const normalizeAccountEmails = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const accounts = await ctx.db.query("authAccounts").collect();
+    const passwords = accounts.filter((a) => a.provider === "password");
+    const taken = new Set(passwords.map((a) => a.providerAccountId));
+    const clashes: string[] = [];
+    let changed = 0;
+    for (const account of passwords) {
+      const email = normalizeEmail(account.providerAccountId);
+      if (email === account.providerAccountId) continue;
+      if (taken.has(email)) {
+        clashes.push(account.providerAccountId);
+        continue;
+      }
+      taken.add(email);
+      await ctx.db.patch(account._id, { providerAccountId: email });
+      await ctx.db.patch(account.userId, { email });
+      changed++;
+    }
+    return { changed, clashes };
+  },
+});
 
 export const deleteTestAccounts = internalMutation({
   args: {
