@@ -3,6 +3,7 @@ import MetricRow from '../components/detail/MetricRow';
 import TownListings from '../components/listings/TownListings';
 import { openSignIn } from '../components/auth/AccountMenu';
 import TownFeed from '../components/feed/TownFeed';
+import TownBusinessHighlights from '../components/ads/TownBusinessHighlights';
 import CommentsThread from '../components/social/CommentsThread';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
@@ -82,6 +83,10 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
 
       <SafeSectionBoundary fallback={<Unavailable>Homes for {town.name} aren’t available right now. Try again in a moment.</Unavailable>}>
         <TownListings cityId={id} cityName={town.name} />
+      </SafeSectionBoundary>
+
+      <SafeSectionBoundary fallback={<Unavailable>Local businesses aren’t available right now. Try again in a moment.</Unavailable>}>
+        <TownBusinessHighlights cityId={id} cityName={town.name} />
       </SafeSectionBoundary>
 
       <SafeSectionBoundary fallback={<Unavailable>The {town.name} feed couldn’t load right now. Try again in a moment.</Unavailable>}>
