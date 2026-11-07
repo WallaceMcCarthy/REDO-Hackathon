@@ -32,11 +32,11 @@ export default function MetricRow({ metric, townId }: { metric: Metric; townId: 
     : `${WORDS[c.verdict]}, ${Math.abs(c.pct) < 1 ? 'under 1%' : `${Math.round(Math.abs(c.pct))}%`} ${c.pct > 0 ? 'higher' : 'lower'}`;
 
   return (
-    <li className="grid gap-x-8 gap-y-3 py-5 sm:grid-cols-[1fr_minmax(0,22rem)]">
-      <div>
+    <li className="grid gap-x-8 gap-y-3 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="min-w-0">
         <h4 className="font-semibold text-ink">{metric.label}</h4>
         <details className="group mt-1 max-w-prose text-sm leading-relaxed text-dusk">
-          <summary className="line-clamp-2 cursor-pointer list-none rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-alpine-500 group-open:line-clamp-none">{metric.description}</summary>
+          <summary className="line-clamp-2 cursor-pointer [overflow-wrap:anywhere] list-none rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-alpine-500 group-open:line-clamp-none">{metric.description}</summary>
         </details>
         <p className="mt-2 text-xs text-dusk">
           <a href={metric.sourceUrl} target="_blank" rel="noreferrer" className="underline decoration-rock-300 underline-offset-2 hover:text-rock-600 focus-visible:outline-2 focus-visible:outline-alpine-500">
