@@ -8,6 +8,7 @@ import { useConfirmCheckout, useCreateCheckout, useDeleteCampaign, useMyCampaign
 import type { City } from '../../types';
 import AdImage from './AdImage';
 import AdLocationPicker, { type AdLocation } from './AdLocationPicker';
+import AdListingPicker, { listingSummary, type ListingChoice } from './AdListingPicker';
 import { campaignPlacement, titleRepeatsMessage } from './campaignPlacement';
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Skeleton, Textarea } from '../ui';
 
@@ -39,6 +40,8 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const returnedCanceled = hashParams.has('canceled');
 
+  const [subject, setSubject] = useState<'business' | 'listing'>('business');
+  const [listing, setListing] = useState<ListingChoice | null>(null);
   const [location, setLocation] = useState<AdLocation | null>(null);
   const [plan, setPlan] = useState<'paid' | 'free'>('paid');
   const [body, setBody] = useState('');
@@ -79,15 +82,20 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!location || submitting) return;
+    const forListing = subject === 'listing';
+    if (forListing && !listing) {
+      setCheckoutNotice('Choose a home or apartment from the list.');
+      return;
+    }
+    if ((!forListing && !location) || submitting) return;
     setSubmitting(true);
     setCheckoutNotice(null);
 
     try {
       const res = await createCheckout({
-        ...location,
+        ...(forListing ? { listingId: listing!.id } : location),
         body: body.trim(),
-        url: url.trim(),
+        url: forListing ? '' : url.trim(),
         imageUrl: imageUrl.trim(),
         free,
       });
@@ -99,6 +107,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       if (res) {
         setCheckoutNotice('Your ad is live. It is labelled Sponsored and listed under Your campaigns.');
         setLocation(null);
+        setListing(null);
         setBody('');
         setUrl('');
         setImageUrl('');
@@ -288,19 +297,29 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
           )}
 
           <form onSubmit={handleCreate} className="mt-stack space-y-stack">
-            <AdLocationPicker cities={cities} value={location} onChange={setLocation} />
+            <Segmented
+              label="What are you promoting?" value={subject} onChange={setSubject}
+              options={[{ value: 'business', label: 'My business' }, { value: 'listing', label: 'A home or apartment' }]}
+            />
 
-            <Field label="Image URL" hint="Shown in a circle on the map. Must start with https://">
-              <Input type="url" required maxLength={500} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
+            {subject === 'listing' ? <AdListingPicker value={listing} onChange={(l) => { setListing(l); setCheckoutNotice(null); }} /> : <AdLocationPicker cities={cities} value={location} onChange={setLocation} />}
+
+            <Field label={subject === 'listing' ? 'Image URL (optional)' : 'Image URL'} hint="Shown in a circle on the map. Must start with https://">
+              <Input type="url" required={subject === 'business'} maxLength={500} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
             </Field>
 
-            <Field label="Message">
-              <Textarea required minLength={5} maxLength={300} rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Short pitch or offer" />
+            <Field label={subject === 'listing' ? 'Message (optional)' : 'Message'} hint={subject === 'listing' ? 'Leave blank to show the address and price.' : undefined}>
+              <Textarea
+                required={subject === 'business'} minLength={5} maxLength={300} rows={3} value={body} onChange={(e) => setBody(e.target.value)}
+                placeholder={subject === 'business' ? 'Short pitch or offer' : listing ? listingSummary(listing) : 'Address and price'}
+              />
             </Field>
 
-            <Field label="Link" hint="Must start with https://">
-              <Input type="url" required maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/promo" />
-            </Field>
+            {subject === 'business' && (
+              <Field label="Link" hint="Must start with https://">
+                <Input type="url" required maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/promo" />
+              </Field>
+            )}
 
             {isStripe ? (
               <div className="space-y-2">
