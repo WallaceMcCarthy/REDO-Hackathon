@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "seed": "tsx scripts/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:prod": "tsx scripts/seed.ts --prod"
   },
   "dependencies": {
     "convex": "^1.49.0",
