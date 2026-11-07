@@ -50,16 +50,15 @@ export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip
   );
 }
 
-/** REDO's own marker: large and named, shown at every zoom so the statewide map carries it too. */
+/** REDO's own marker: small and named, shown at every zoom so the statewide map carries it too. */
 export function RedoMapPin() {
   return (
     <a
       href={REDO_IT.url} target="_blank" rel="noopener noreferrer" draggable={false}
       aria-label={`Sponsored job: ${REDO_IT.title} (opens in a new tab)`}
-      className={`flex min-h-11 flex-col items-center justify-center rounded-card border-2 border-white bg-rock-800 px-3 py-1 text-white shadow-raised ${FOCUS}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border border-white bg-rock-800 px-2 py-0.5 text-white shadow-raised ${FOCUS}`}
     >
-      <span className="font-display text-title font-semibold leading-none">{REDO_IT.title}</span>
-      <span className="mt-0.5 text-[10px] font-medium uppercase leading-none tracking-wide">Sponsored job</span>
+      <span className="text-[10px] font-semibold leading-none">{REDO_IT.title} · Sponsored</span>
     </a>
   );
 }
