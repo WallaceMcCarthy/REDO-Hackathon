@@ -23,7 +23,7 @@ export const socialTables = {
     .index("by_parent", ["parentId"])
     .index("by_user", ["userId"]),
   contentReports: defineTable({
-    targetType: v.union(v.literal("comment"), v.literal("post")),
+    targetType: v.union(v.literal("comment"), v.literal("post"), v.literal("message")),
     targetId: v.string(),
     userId: v.id("users"),
   })
