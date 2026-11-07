@@ -8,9 +8,15 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as cities from "../cities.js";
+import type * as http from "../http.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_listings from "../lib/listings.js";
 import type * as lib_scoring from "../lib/scoring.js";
+import type * as listings from "../listings.js";
 import type * as metrics from "../metrics.js";
+import type * as profiles from "../profiles.js";
 import type * as search from "../search.js";
 import type * as seed from "../seed.js";
 
@@ -21,9 +27,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   cities: typeof cities;
+  http: typeof http;
+  "lib/auth": typeof lib_auth;
+  "lib/listings": typeof lib_listings;
   "lib/scoring": typeof lib_scoring;
+  listings: typeof listings;
   metrics: typeof metrics;
+  profiles: typeof profiles;
   search: typeof search;
   seed: typeof seed;
 }>;

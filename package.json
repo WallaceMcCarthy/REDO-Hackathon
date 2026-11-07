@@ -13,6 +13,7 @@
     "test:e2e:prod": "E2E_BASE_URL=https://cmascope.com playwright test"
   },
   "dependencies": {
+    "@convex-dev/auth": "^0.0.96",
     "convex": "^1.49.0",
     "dotenv": "^18.0.9",
     "leaflet": "^1.9.4",
