@@ -7,6 +7,8 @@ import type { FeatureCollection, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { City, Metric } from '../../types';
+import SponsoredMapPins from '../ads/SponsoredMapPins';
+import SafeSectionBoundary from '../SafeSectionBoundary';
 import { BOUNDS, UTAH, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
 import type { Listing } from '../listings/types';
@@ -53,6 +55,8 @@ type Props = {
   listings?: Listing[]; onSelectListing?: (l: Listing) => void; selectedListingId?: string;
   /** Which pins are primary. 'listings' (default): homes with prices and clusters, towns as muted dots. 'towns': numbered town pins, listings hidden. */
   focus?: 'listings' | 'towns';
+  /** The town the list is narrowed to, so sponsored pins can follow it. */
+  selectedTown?: string | null;
 };
 
 /** Switch paint, filters and visibility between the two modes. The map and its sources are never recreated. */
@@ -72,7 +76,7 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
 
-export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings' }: Props) {
+export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
   const [layerId, setLayerId] = useState('');
   const [ready, setReady] = useState(false);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -221,8 +225,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     const hit = (p: maplibregl.Point) =>
       map.queryRenderedFeatures([[p.x - 8, p.y - 8], [p.x + 8, p.y + 8]], { layers: HIT_LAYERS })[0];
 
+    // A sponsored pin or its popup owns the pointer, not the listing or town underneath.
+    const onSponsored = (e: maplibregl.MapMouseEvent) => (e.originalEvent.target as Element).closest('.maplibregl-marker, .maplibregl-popup');
+
     map.on('mousemove', e => {
-      const f = hit(e.point);
+      const f = onSponsored(e) ? undefined : hit(e.point);
       map.getCanvas().style.cursor = f ? 'pointer' : '';
       if (f && f.layer.id === 'listings-circle') {
         const l = listingsRef.current.find(x => x.id === f.properties.id);
@@ -242,6 +249,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       tip.remove();
     });
     map.on('click', e => {
+      if (onSponsored(e)) return;
       const f = hit(e.point);
       if (!f) return;
       if (f.layer.id === 'listings-clusters') {
@@ -323,6 +331,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
       </ul>
       <LayerPicker metrics={metrics} selected={layer} onSelect={setLayerId} />
+      {ready && mapRef.current && <SafeSectionBoundary><SponsoredMapPins map={mapRef.current} cities={cities} selectedTown={selectedTown} /></SafeSectionBoundary>}
       {tip && (
         <div
           role="tooltip"

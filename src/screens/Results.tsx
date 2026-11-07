@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { useConvexAuth } from 'convex/react';
+import ResultsFeatured from '../components/ads/ResultsFeatured';
 import ResultsMap from '../components/results/ResultsMap';
 import TownCard from '../components/results/TownCard';
 import HomesForYou from '../components/listings/HomesForYou';
@@ -19,6 +20,7 @@ import type { Prefs } from '../types';
 import { openSignIn } from '../components/auth/AccountMenu';
 import { useMessagesActions } from '../data/messagesHooks';
 import ConversationView from '../components/messages/ConversationView';
+import { Button, EmptyState } from '../components/ui';
 
 type Props = { prefs: Prefs; setPrefs: (p: Prefs) => void; onOpenTown: (id: string) => void; onRestart: () => void; view: View; townFilter: string | null };
 
@@ -109,6 +111,11 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     if (selectedListing && l.length && !l.some(h => h.id === selectedListing.id)) l.push(selectedListing);
     return l.length ? l : undefined;
   }, [listings, selectedListing, view]);
+
+  const featuredTowns = useMemo(() => {
+    if (view === 'areas') return (rows ?? []).map(r => r.city.id);
+    return townFilter ? [townFilter] : [...new Set((listings ?? []).map(l => l.cityId))];
+  }, [view, rows, townFilter, listings]);
 
   const flip = useFlip(rows);
 
@@ -225,6 +232,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           aria-label={view === 'areas' ? 'Ranked towns' : 'Homes and apartments'}
           className={`min-h-0 overflow-y-auto p-4 lg:border-r lg:border-rock-100 ${pane === 'map' ? 'hidden lg:block' : ''}`}
         >
+          <SafeSectionBoundary><ResultsFeatured townIds={featuredTowns} max={wide ? 2 : 1} /></SafeSectionBoundary>
           {view === 'areas' ? areas : (
             <ListErrorBoundary key={view}>
               <HomesForYou
@@ -245,6 +253,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
               rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered}
               onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectListing}
               focus={view === 'areas' ? 'towns' : 'listings'} selectedListingId={selectedListing?.id}
+              selectedTown={view === 'areas' ? null : townFilter}
             />
             </SafeSectionBoundary>
           )}
@@ -265,10 +274,16 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           }}
         >
           <div className="relative flex h-[85vh] max-h-[680px] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-rock-100 bg-white shadow-2xl">
-            <ConversationView
-              conversationId={activeConversationId}
-              onBack={() => setActiveConversationId(null)}
-            />
+            {/* Keyed so a conversation that vanishes (the other person deleted their account) resets when another opens. */}
+            <SafeSectionBoundary
+              key={activeConversationId}
+              fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button onClick={() => setActiveConversationId(null)}>Close</Button>} />}
+            >
+              <ConversationView
+                conversationId={activeConversationId}
+                onBack={() => setActiveConversationId(null)}
+              />
+            </SafeSectionBoundary>
           </div>
         </div>
       )}
