@@ -3,9 +3,9 @@ import { Button } from '../ui';
 import ProfileCard from './ProfileCard';
 import { tagLabel, townNames, type Match } from './types';
 
-interface Props { match: Match; towns: Map<string, string>; onRequest: (profileId: string) => void; sent?: boolean }
+interface Props { match: Match; towns: Map<string, string>; onRequest: (profileId: string) => void }
 
-export default function MatchCard({ match, towns, onRequest, sent = false }: Props) {
+export default function MatchCard({ match, towns, onRequest }: Props) {
   return (
     <ProfileCard p={match} towns={towns}>
       <p className="text-small font-semibold text-primary-hover">{match.score}% match</p>
@@ -14,9 +14,7 @@ export default function MatchCard({ match, towns, onRequest, sent = false }: Pro
       </ul>
       {match.sharedCityIds.length > 0 && <p className="break-words text-small text-text-muted">Shared towns: {townNames(match.sharedCityIds, towns)}</p>}
       {match.sharedTags.length > 0 && <p className="text-small text-text-muted">Shared habits: {match.sharedTags.map(tagLabel).join(', ')}</p>}
-      <Button size="sm" disabled={sent} onClick={() => onRequest(match.profileId)}>
-        {sent ? 'Request sent' : 'Request to connect'}
-      </Button>
+      <Button size="sm" onClick={() => onRequest(match.profileId)}>Request to connect</Button>
     </ProfileCard>
   );
 }

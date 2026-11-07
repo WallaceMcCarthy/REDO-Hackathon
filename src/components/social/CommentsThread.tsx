@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { useAddComment, useComments, useDeleteComment, useReportComment } from '../../data/socialHooks';
 import type { CommentItem, CommentTargetType } from './types';
 
@@ -27,6 +28,7 @@ function SingleComment({
   const [reported, setReported] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { isAuthenticated } = useConvexAuth();
   const addComment = useAddComment();
   const deleteComment = useDeleteComment();
   const reportComment = useReportComment();
@@ -90,17 +92,19 @@ function SingleComment({
               Delete
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleReport}
-            disabled={reported}
-            className={`inline-flex min-h-[36px] items-center px-2 py-1 text-xs hover:text-rock-700 focus-visible:outline-alpine-500 ${
-              reported ? 'text-rock-300' : ''
-            }`}
-          >
-            {reported ? 'Reported' : 'Report'}
-          </button>
-          {!isReply && (
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={handleReport}
+              disabled={reported}
+              className={`inline-flex min-h-[36px] items-center px-2 py-1 text-xs hover:text-rock-700 focus-visible:outline-alpine-500 ${
+                reported ? 'text-rock-300' : ''
+              }`}
+            >
+              {reported ? 'Reported' : 'Report'}
+            </button>
+          )}
+          {!isReply && isAuthenticated && (
             <button
               type="button"
               onClick={() => setReplyOpen(!replyOpen)}
@@ -120,6 +124,7 @@ function SingleComment({
           <textarea
             required
             rows={2}
+            maxLength={2000}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             placeholder={`Reply to ${comment.displayName || 'this comment'}...`}

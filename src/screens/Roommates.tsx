@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useConvexAuth } from 'convex/react';
+import { ConvexError } from 'convex/values';
 import { useCities } from '../data/hooks';
 import {
   useMyRoommateProfile, useRoommateActions, useRoommateConnections, useRoommateMatches, useRoommateRequests,
@@ -46,12 +47,13 @@ function SignedIn() {
   const connections = useRoommateConnections();
   const act = useRoommateActions();
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
   const towns = useMemo(() => new Map((cities ?? []).map((c) => [c.id, c.name])), [cities]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setError(null);
-    try { await fn(); } catch (e) { setError(e instanceof Error ? e.message.replace(/^.*Uncaught Error:\s*/s, '').split('\n')[0] : 'Something went wrong.'); }
+    setNotice(null);
+    try { await fn(); } catch (e) { setError(e instanceof ConvexError ? String(e.data) : 'Something went wrong. Try again.'); }
   };
 
   if (mine === undefined || !cities) return <Loading />;
@@ -73,14 +75,15 @@ function SignedIn() {
           <ConnectionList connections={connections ?? []} towns={towns} />
           <section aria-labelledby="match-h" className="space-y-stack">
             <h2 id="match-h" className="font-display text-title text-text">Your matches</h2>
+            {notice && <p role="status" className="text-small font-semibold text-primary-hover">{notice}</p>}
             {!mine.active ? <p className="text-small text-text-muted">Your profile is paused. Resume it to see matches.</p>
               : matches === undefined ? <p className="text-small text-text-muted">Loading...</p>
               : matches.length === 0 ? <p className="text-small text-text-muted">No matches yet. Try more towns or a wider budget.</p>
               : (
                 <ul className="space-y-stack">
                   {matches.map((m) => (
-                    <MatchCard key={m.profileId} match={m} towns={towns} sent={sent.has(m.profileId)}
-                      onRequest={(id) => run(async () => { await act.sendRequest({ profileId: id as never }); setSent((s) => new Set(s).add(id)); })} />
+                    <MatchCard key={m.profileId} match={m} towns={towns}
+                      onRequest={(id) => run(async () => { await act.sendRequest({ profileId: id as never }); setNotice('Request sent. Their contact appears under Connected if they accept.'); })} />
                   ))}
                 </ul>
               )}

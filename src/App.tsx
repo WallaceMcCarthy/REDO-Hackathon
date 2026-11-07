@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { defaultPrefs } from './prefs';
 import { openSignIn } from './components/auth/AccountMenu';
+import Account from './screens/Account';
+import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
 import Results from './screens/Results';
 import Roommates from './screens/Roommates';
 import SavedPlaces from './screens/SavedPlaces';
-import { AppHeader } from './components/ui';
+import { AppHeader, Button } from './components/ui';
 import TownDetail from './screens/TownDetail';
 import AdsSandboxCheckout from './screens/AdsSandboxCheckout';
 import UiKit from './screens/UiKit';
@@ -24,6 +27,8 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const cities = useCities();
   const town = route.match(/^town\/(.+)$/)?.[1];
   const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
 
@@ -36,6 +41,15 @@ export default function App() {
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
       ) : isAdsCheckout ? (
         <AdsSandboxCheckout onDone={() => go('results')} />
+      ) : route === 'account' ? (
+        isLoading || !cities ? null : isAuthenticated ? (
+          <Account cities={cities} onBack={() => go('results')} />
+        ) : (
+          <main className="mx-auto max-w-2xl space-y-stack px-gutter py-section">
+            <p className="text-text-muted">Sign in to edit your profile.</p>
+            <Button onClick={openSignIn}>Sign in</Button>
+          </main>
+        )
       ) : route === 'roommates' ? (
         <Roommates onSignIn={openSignIn} />
       ) : route === 'saved' ? (
