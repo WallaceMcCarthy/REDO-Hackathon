@@ -1,0 +1,30 @@
+import { expect, test } from '@playwright/test';
+import { gotoResults, showList } from './helpers';
+
+test('listing pages append unique homes and reset for sort, kind and budget', async ({ page }, testInfo) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await gotoResults(page);
+  await showList(page);
+  const cards = page.locator('[data-listing-id]');
+  await expect(cards).toHaveCount(60);
+  const first = await cards.evaluateAll(elements => elements.map(el => el.getAttribute('data-listing-id')));
+  await page.getByRole('button', { name: 'Load more', exact: true }).click();
+  await expect(cards).toHaveCount(120);
+  const loaded = await cards.evaluateAll(elements => elements.map(el => el.getAttribute('data-listing-id')));
+  expect(new Set(loaded).size).toBe(120);
+  expect(first.every(id => loaded.includes(id))).toBe(true);
+  await page.getByLabel('Sort', { exact: true }).selectOption('price_asc');
+  await expect(cards).toHaveCount(60);
+  await page.getByRole('button', { name: 'Apartments', exact: true }).click();
+  await expect(page.getByText(/Showing 60 apartments/)).toBeVisible();
+  await page.getByLabel('Max rent', { exact: true }).selectOption('1500');
+  await expect(page.getByText(/Showing 60 apartments/)).toBeVisible();
+  await page.getByRole('button', { name: 'Load more', exact: true }).click();
+  await expect(cards).toHaveCount(120);
+  await page.getByLabel('Max rent', { exact: true }).selectOption('1200');
+  await expect(cards).toHaveCount(60);
+  expect(errors).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('listing-search.png'), fullPage: false });
+});
