@@ -1,99 +1,126 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { useMySaved } from '../data/socialHooks';
 import type { ListingKind } from '../../convex/lib/listings';
-import ListingCard from '../components/listings/ListingCard';
+import { openSignIn } from '../components/auth/AccountMenu';
+import SavedButton from '../components/social/SavedButton';
+import { formatListingFinancials } from '../components/listings/types';
+import type { Listing } from '../components/listings/types';
+import { Badge, Button, Card, Chip, EmptyState, PageHeader, Skeleton } from '../components/ui';
 
 interface SavedPlacesProps {
   onBack: () => void;
   onOpenTown?: (cityId: string) => void;
 }
 
-export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
-  const [filter, setFilter] = useState<'all' | ListingKind>('all');
-  const savedItems = useMySaved();
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'apartment', label: 'Apartments' },
+  { id: 'home', label: 'Homes' },
+] as const;
 
-  const isLoading = savedItems === undefined;
-  const filtered = (savedItems || []).filter((item) => {
-    if (!item.listing) return false;
-    if (filter !== 'all' && item.listing.kind !== filter) return false;
-    return true;
-  });
-
+function SavedCard({ listing, onOpenTown }: { listing: Listing; onOpenTown?: (cityId: string) => void }) {
+  const fin = formatListingFinancials(listing);
+  const name = listing.name || listing.address || 'Residential Property';
+  const facts =
+    listing.kind === 'apartment'
+      ? [listing.units != null && `${listing.units} units`, listing.yearBuilt != null && `Built ${listing.yearBuilt}`]
+      : [listing.beds != null && `${listing.beds} beds`, listing.sqft != null && `${listing.sqft.toLocaleString()} sq ft`, listing.yearBuilt != null && `Built ${listing.yearBuilt}`];
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
-      {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-rock-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mb-3 inline-flex min-h-[44px] items-center cursor-pointer rounded-full border border-rock-300 px-4 py-2 text-xs font-semibold text-rock-700 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
-          >
-            ← Back to results
-          </button>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">My saved places</h1>
-          <p className="mt-1 text-xs sm:text-sm text-dusk">
-            Your shortlisted Utah homes and apartment complexes.
-          </p>
+    <Card as="li" raised className="flex min-w-0 flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Badge>{listing.propertyType || (listing.kind === 'apartment' ? 'Apartment' : 'Single Family')}</Badge>
+          <h2 className="mt-2 font-display text-title text-text [overflow-wrap:anywhere]">{name}</h2>
+          {listing.name && listing.address && <p className="text-small text-text-muted [overflow-wrap:anywhere]">{listing.address}</p>}
         </div>
-
-        {/* Filter Pills */}
-        <div className="inline-flex self-start rounded-full bg-rock-100 p-1 text-xs font-semibold sm:self-auto">
-          {(['all', 'apartment', 'home'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setFilter(tab)}
-              className={`min-h-[44px] inline-flex items-center cursor-pointer rounded-full px-4 py-2 capitalize transition-all focus-visible:outline-2 focus-visible:outline-alpine-500 ${
-                filter === tab
-                  ? 'bg-white text-ink shadow-sm'
-                  : 'text-rock-600 hover:text-ink'
-              }`}
-            >
-              {tab === 'all' ? 'All' : tab === 'apartment' ? 'Apartments' : 'Homes'}
-            </button>
-          ))}
-        </div>
+        <SavedButton listingId={listing.id} initialSaved />
       </div>
-
-      {/* Content */}
-      <div className="mt-8">
-        {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-48 animate-pulse rounded-2xl bg-rock-100/60" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-rock-300 p-8 sm:p-12 text-center">
-            <span className="text-3xl">❤️</span>
-            <h2 className="mt-3 font-display text-xl font-semibold text-ink">
-              No saved {filter === 'all' ? 'places' : filter + 's'} yet
-            </h2>
-            <p className="mt-1 text-xs sm:text-sm text-dusk max-w-md mx-auto">
-              Heart listings from the "Homes for you" tab or inside any town page to keep track of them here.
-            </p>
-            <button
-              type="button"
-              onClick={onBack}
-              className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-rock-800 px-6 py-2.5 text-xs font-semibold text-white hover:bg-rock-900 focus-visible:outline-2 focus-visible:outline-alpine-500"
-            >
-              Browse Utah towns & listings
-            </button>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((item) => (
-              <div key={item.listingId} className="relative">
-                <ListingCard
-                  item={item.listing!}
-                  onSelect={(l) => l.cityId && onOpenTown?.(l.cityId)}
-                />
-              </div>
-            ))}
-          </div>
+      <div className="rounded-control bg-surface-sunken p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span className="font-display text-heading text-text">{fin.amountFormatted}</span>
+          <Badge>{fin.benchmarkBadge}</Badge>
+        </div>
+        <p className="mt-1 text-caption text-text-muted">{fin.label}</p>
+      </div>
+      <p className="text-small text-text-muted">{facts.filter(Boolean).join(' · ')}</p>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 border-t border-border pt-3 text-caption text-text-muted">
+        <span title={fin.disclaimer} className="min-w-0 truncate">{listing.source}</span>
+        {listing.sourceUrl && (
+          <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-primary-hover underline underline-offset-2">
+            Source ↗
+          </a>
         )}
       </div>
+      {listing.cityId && onOpenTown && (
+        <Button variant="secondary" size="sm" onClick={() => onOpenTown(listing.cityId)}>See this town</Button>
+      )}
+    </Card>
+  );
+}
+
+export default function SavedPlaces({ onBack, onOpenTown }: SavedPlacesProps) {
+  const [filter, setFilter] = useState<'all' | ListingKind>('all');
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const savedItems = useMySaved();
+
+  const all = (savedItems || []).filter((item) => item.listing);
+  const count = (id: string) => all.filter((item) => id === 'all' || item.listing!.kind === id).length;
+  const filtered = all.filter((item) => filter === 'all' || item.listing!.kind === filter);
+  const loading = authLoading || (isAuthenticated && savedItems === undefined);
+  const noun = filter === 'all' ? 'places' : filter === 'home' ? 'homes' : 'apartments';
+
+  return (
+    <main className="mx-auto max-w-5xl px-gutter pb-section pt-20 sm:pt-stack">
+      <Button variant="ghost" size="sm" onClick={onBack} className="-ml-4">← Back to results</Button>
+      <PageHeader title="My saved places" description="Your shortlisted Utah homes and apartment complexes." className="mt-2" />
+
+      {!authLoading && !isAuthenticated ? (
+        <EmptyState
+          className="mt-stack"
+          title="Sign in to see your saved places"
+          description="Tap the heart on any home or apartment to keep it. Sign in and your shortlist follows you from phone to laptop."
+          action={<Button onClick={openSignIn}>Sign in</Button>}
+        />
+      ) : (
+        <>
+          <div role="group" aria-label="Filter saved places" className="mt-stack flex flex-wrap gap-2">
+            {FILTERS.map((f) => (
+              <Chip key={f.id} pressed={filter === f.id} onClick={() => setFilter(f.id)}>
+                {f.label}{savedItems ? ` (${count(f.id)})` : ''}
+              </Chip>
+            ))}
+          </div>
+
+          <div className="mt-stack" aria-busy={loading || undefined}>
+            {loading ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2].map((i) => <Skeleton key={i} className="h-64" />)}
+              </div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                title={`No saved ${noun} yet`}
+                description={
+                  all.length > 0
+                    ? 'You have saved places in another filter. Show everything to see them.'
+                    : 'Tap the heart on a home in Homes for you, or on any town page, and it will wait for you here.'
+                }
+                action={
+                  all.length > 0 ? (
+                    <Button variant="secondary" onClick={() => setFilter('all')}>Show all saved places</Button>
+                  ) : (
+                    <Button href="#/results">Browse homes</Button>
+                  )
+                }
+              />
+            ) : (
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((item) => <SavedCard key={item.listingId} listing={item.listing!} onOpenTown={onOpenTown} />)}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }
