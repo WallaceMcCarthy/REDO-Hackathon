@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useConvexAuth } from 'convex/react';
+import { ConvexError } from 'convex/values';
 import { useCities } from '../data/hooks';
 import {
   useMyRoommateProfile, useRoommateActions, useRoommateConnections, useRoommateMatches, useRoommateRequests,
@@ -42,7 +43,7 @@ function SignedIn() {
   const run = async (fn: () => Promise<unknown>) => {
     setError(null);
     setNotice(null);
-    try { await fn(); } catch (e) { setError(e instanceof Error ? e.message.replace(/^.*Uncaught Error:\s*/s, '').split('\n')[0] : 'Something went wrong.'); }
+    try { await fn(); } catch (e) { setError(e instanceof ConvexError ? String(e.data) : 'Something went wrong. Try again.'); }
   };
 
   if (mine === undefined || !cities) return <p className="p-4 text-dusk">Loading...</p>;
