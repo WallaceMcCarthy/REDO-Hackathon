@@ -64,6 +64,14 @@ describe("rankMatches", () => {
     const others = ["b", "c", "d"].map((id) => person(id));
     expect(rankMatches(person("a"), others, [], 2)).toHaveLength(2);
   });
+
+  it("keeps every equally ranked profile reachable beyond twenty matches", () => {
+    const others = Array.from({ length: 31 }, (_, i) => person(`person-${String(i).padStart(2, "0")}`));
+    const ranked = rankMatches(person("me"), others);
+    expect(ranked).toHaveLength(31);
+    expect(ranked.map(m => m.userId)).toEqual(others.map(p => p.userId));
+    expect(rankMatches(person("me"), [...others].reverse())).toEqual(ranked);
+  });
 });
 
 describe("canSeeContact", () => {

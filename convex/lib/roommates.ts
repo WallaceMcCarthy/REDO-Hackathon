@@ -70,12 +70,12 @@ export function scoreMatch(me: RoommateProfile, other: RoommateProfile): Roommat
   };
 }
 
-/** Best matches first. `excludeUserIds` covers people already connected, declined or blocked. */
+/** Best matches first. All eligible people are reachable unless a caller explicitly limits them. */
 export function rankMatches(
   me: RoommateProfile,
   others: readonly RoommateProfile[],
   excludeUserIds: readonly string[] = [],
-  limit = 20,
+  limit = Infinity,
 ): RoommateMatch[] {
   const excluded = new Set([me.userId, ...excludeUserIds]);
   return others
