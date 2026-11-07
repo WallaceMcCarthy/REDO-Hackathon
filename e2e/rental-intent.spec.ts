@@ -8,7 +8,7 @@ test('rent selection survives a blank budget and returning to the quiz', async (
   await page.getByRole('button', { name: 'Show my matches', exact: true }).click();
   await expect(page).toHaveURL(/#\/results\?view=apartments$/);
   await showList(page);
-  await expect(page.getByText(/Showing \d+ apartments in \d+ areas?/)).toBeVisible();
+  await expect(page.getByText(/Top \d+ apartments in \d+ areas?/)).toBeVisible();
   await expect(page.getByLabel('Max rent', { exact: true })).toHaveValue('5050');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('rent-without-budget.png') });
@@ -19,5 +19,5 @@ test('rent selection survives a blank budget and returning to the quiz', async (
   await page.getByRole('button', { name: 'Show my matches', exact: true }).click();
   await expect(page).toHaveURL(/#\/results$/);
   await showList(page);
-  await expect(page.getByText(/Showing \d+ homes in \d+ areas?/)).toBeVisible();
+  await expect(page.getByText(/Top \d+ homes in \d+ areas?/)).toBeVisible();
 });

@@ -26,7 +26,7 @@ const isRec = (item: Listing | Recommendation): item is Recommendation => 'listi
 
 export default function ListingCard({ item, isSelected, onSelect, onHover, onOpenTown, cityName, commentCount, className = '' }: ListingCardProps) {
   const listing: Listing = isRec(item) ? item.listing : item;
-  const reason = isRec(item) ? item.reason : undefined;
+  const reason = (isRec(item) ? item.reason : undefined) ?? (listing.market && !listing.cityId ? 'No area score. This Utah location is outside our ranked town coverage.' : undefined);
   const fit = isRec(item) && item.townScore !== null ? Math.max(0, Math.min(100, Math.round(item.townScore))) : undefined;
   const apt = listing.kind === 'apartment';
   const live = !!listing.market;

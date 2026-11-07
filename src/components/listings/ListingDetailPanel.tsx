@@ -34,6 +34,7 @@ const ICON_BTN = `inline-flex size-8 cursor-pointer items-center justify-center 
 export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown, onMessageUser }: Props) {
   const apt = listing.kind === 'apartment';
   const live = !!listing.market;
+  const reason = rec?.reason ?? (live && !listing.cityId ? 'No area score. This Utah location is outside our ranked town coverage.' : undefined);
   const { preview } = useZillowPreview(listing.id, shouldFetchListingPreview(listing.kind));
   const zUrl = zillowUrl(listing.address, cityName, listing.kind);
   const fit = rec?.townScore != null ? Math.max(0, Math.min(100, Math.round(rec.townScore))) : undefined;
@@ -147,7 +148,7 @@ export default function ListingDetailPanel({ listing, rec, cityName, variant, in
             <span className="w-16 text-right text-xs tabular-nums text-dusk">{fit} / 100</span>
           </div>
         )}
-        {rec?.reason && <p className="mt-2 text-sm text-ink"><span className="font-semibold text-alpine-700">Why this place: </span>{rec.reason}</p>}
+        {reason && <p className="mt-2 text-sm text-ink"><span className="font-semibold text-alpine-700">Why this place: </span>{reason}</p>}
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-rock-100 pt-3">
           <a href={preview?.pageUrl ?? zUrl} target="_blank" rel="noopener noreferrer" className={LINK}>View on Zillow</a>

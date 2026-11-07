@@ -19,7 +19,7 @@ export async function gotoResults(page: Page, persona = 'Skier') {
   await page.getByRole('button', { name: persona, exact: false }).first().click();
   await page.getByRole('button', { name: 'Show my matches' }).click();
   await expect(page).toHaveURL(/#\/results$/);
-  await expect(page.getByText(/Showing \d+ homes in \d+ areas?/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Top \d+ homes in \d+ areas?/)).toBeVisible({ timeout: 20_000 });
 }
 
 export async function gotoAreas(page: Page, persona = 'Skier') {
