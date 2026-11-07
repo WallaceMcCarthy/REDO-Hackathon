@@ -7,6 +7,7 @@ import type { Listing } from '../components/listings/types';
 import type { Row } from '../components/results/types';
 import { useFlip } from '../components/results/useFlip';
 import { useCities, useMetrics, useRank } from '../data/hooks';
+import { useRecommendedListings } from '../data/listingsHooks';
 import { toMetricWeights } from '../prefs';
 import type { Prefs } from '../types';
 
@@ -29,8 +30,15 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   const ranked = useRank(metrics ? toMetricWeights(prefs.categories, metrics) : {}, prefs.filters);
   const [hovered, setHovered] = useState<string | null>(null);
   const [controlsOpen] = useState(isWide);
-  const [activeTab, setActiveTab] = useState<'towns' | 'listings'>('towns');
+  const [activeTab, setActiveTab] = useState<'towns' | 'listings'>('listings');
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const mapWeights = useMemo(() => (metrics ? toMetricWeights(prefs.categories, metrics) : {}), [prefs.categories, metrics]);
+  const homeRecs = useRecommendedListings({ weights: mapWeights, filters: prefs.filters, kind: 'home', limit: 60 });
+  const mapListings = useMemo<Listing[] | undefined>(() => {
+    const homes = (homeRecs ?? []).map((r) => r.listing as unknown as Listing);
+    if (selectedListing && !homes.some((h) => h.id === selectedListing.id)) homes.push(selectedListing);
+    return homes.length ? homes : undefined;
+  }, [homeRecs, selectedListing]);
 
   const rows = useMemo<Row[] | undefined>(() => {
     if (!cities || !metrics || !ranked) return undefined;
@@ -66,7 +74,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
   return (
     <main className="xl:sticky xl:top-0 xl:grid xl:h-dvh xl:grid-cols-[18rem_minmax(0,28rem)_minmax(0,1fr)]">
       <section aria-label="Map of ranked towns" className="sticky top-0 isolate z-10 order-first h-56 border-b border-rock-100 sm:h-80 xl:static xl:order-last xl:h-full xl:border-b-0">
-        <ResultsMap rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} listings={selectedListing ? [selectedListing] : undefined} onSelectListing={setSelectedListing} />
+        <ResultsMap rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered} onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={setSelectedListing} />
       </section>
 
       <aside className="border-b border-rock-100 p-5 xl:overflow-y-auto xl:border-b-0 xl:border-r">

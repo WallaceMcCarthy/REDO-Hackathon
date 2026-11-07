@@ -22,7 +22,7 @@ export default function HomesForYou({
   onSelectListing,
   className = '',
 }: HomesForYouProps) {
-  const [kind, setKind] = useState<ListingKind>('apartment');
+  const [kind, setKind] = useState<ListingKind>('home');
 
   const weights: Weights = useMemo(() => {
     return metrics ? toMetricWeights(prefs.categories, metrics) : {};

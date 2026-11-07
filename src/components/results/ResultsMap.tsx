@@ -4,6 +4,7 @@ import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from 'react-le
 import type { City, Metric } from '../../types';
 import HeatmapLayer from './HeatmapLayer';
 import LayerPicker from './LayerPicker';
+import SmoothWheel from './SmoothWheel';
 import ListingMarker from '../listings/ListingMarker';
 import type { Listing } from '../listings/types';
 import type { Row } from './types';
@@ -43,8 +44,7 @@ function ZoomGate({ zooming }: { zooming: { current: boolean } }) {
     zoomstart: () => { zooming.current = true; },
     zoomend: () => { zooming.current = false; },
   });
-  // The opening fit stays fractional so Utah fills the frame. After that a pinch moves whole levels: at 0.25 steps the same pinch took 6x longer.
-  useEffect(() => { map.options.zoomSnap = 1; }, [map]);
+  void map;
   return null;
 }
 
@@ -94,10 +94,13 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     <div className="relative size-full">
     <MapContainer
       bounds={UTAH_BOUNDS} boundsOptions={BOUNDS_OPTIONS} minZoom={5}
-      zoomSnap={0.25} zoomDelta={1}
-      className="size-full bg-alpine-50" scrollWheelZoom
+      // Fine snap so trackpad pinch follows the fingers. With whole-level snap, Leaflet rounds every small
+      // wheel burst UP to a full level, so one gentle pinch jumped 6 levels in a chain of animations.
+      zoomSnap={0} zoomDelta={1}
+      className="size-full bg-alpine-50" scrollWheelZoom={false}
     >
       <ZoomGate zooming={zooming} />
+      <SmoothWheel />
       {/* Esri light gray canvas: keyless and fast. CARTO basemaps now require an API key. */}
       <TileLayer
         attribution="Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
