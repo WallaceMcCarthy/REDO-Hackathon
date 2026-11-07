@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { deleteCommentsFor } from "./comments";
+import { deleteCommentsFor } from "./social";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
 import { isRateLimited, nextLikes, newestFirst, RATE_LIMIT_POSTS, shouldHide, validateBody } from "./lib/feed";
 

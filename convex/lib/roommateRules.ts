@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 /** Roommate input validation and request rules. Pure: no Convex imports, so every privacy rule is testable without a backend. */
 import type { Connection } from "./roommates";
 
@@ -31,18 +32,18 @@ const isMoney = (n: number) => Number.isFinite(n) && n >= 0 && n <= LIMITS.maxBu
 
 /** Returns the cleaned profile or throws a user-readable Error. `validCityIds` is the set of real town ids. */
 export function validateProfile(input: ProfileInput, validCityIds: ReadonlySet<string>): ProfileInput {
-  if (!isMoney(input.budgetMin) || !isMoney(input.budgetMax)) throw new Error("Budget must be between 0 and 100,000.");
-  if (input.budgetMin > input.budgetMax) throw new Error("Minimum budget can't be above maximum.");
-  if (!Number.isFinite(input.moveIn) || input.moveIn < 0 || input.moveIn > MAX_MOVE_IN) throw new Error("Move-in date is not valid.");
+  if (!isMoney(input.budgetMin) || !isMoney(input.budgetMax)) throw new ConvexError("Budget must be between 0 and 100,000.");
+  if (input.budgetMin > input.budgetMax) throw new ConvexError("Minimum budget can't be above maximum.");
+  if (!Number.isFinite(input.moveIn) || input.moveIn < 0 || input.moveIn > MAX_MOVE_IN) throw new ConvexError("Move-in date is not valid.");
   const cityIds = [...new Set(input.cityIds)];
-  if (cityIds.length === 0 || cityIds.length > LIMITS.maxCities) throw new Error(`Pick 1 to ${LIMITS.maxCities} towns.`);
-  if (!cityIds.every((id) => validCityIds.has(id))) throw new Error("Unknown town.");
+  if (cityIds.length === 0 || cityIds.length > LIMITS.maxCities) throw new ConvexError(`Pick 1 to ${LIMITS.maxCities} towns.`);
+  if (!cityIds.every((id) => validCityIds.has(id))) throw new ConvexError("Unknown town.");
   const tags = [...new Set(input.tags)];
-  if (!tags.every((t) => (ROOMMATE_TAGS as readonly string[]).includes(t))) throw new Error("Unknown lifestyle tag.");
+  if (!tags.every((t) => (ROOMMATE_TAGS as readonly string[]).includes(t))) throw new ConvexError("Unknown lifestyle tag.");
   const bio = input.bio.trim();
   const contact = input.contact.trim();
-  if (bio.length > LIMITS.bio) throw new Error(`Bio is limited to ${LIMITS.bio} characters.`);
-  if (contact.length === 0 || contact.length > LIMITS.contact) throw new Error(`Contact is required, up to ${LIMITS.contact} characters.`);
+  if (bio.length > LIMITS.bio) throw new ConvexError(`Bio is limited to ${LIMITS.bio} characters.`);
+  if (contact.length === 0 || contact.length > LIMITS.contact) throw new ConvexError(`Contact is required, up to ${LIMITS.contact} characters.`);
   return { budgetMin: input.budgetMin, budgetMax: input.budgetMax, cityIds, moveIn: input.moveIn, tags, bio, contact };
 }
 
@@ -59,7 +60,7 @@ export function usersToExclude(me: string, connections: readonly Connection[]): 
  * so a repeat or a request after a decline changes nothing. The caller answers both the same way so a decline is not revealed.
  */
 export function planRequest(me: string, target: string, connections: readonly Connection[]): "create" | "noop" {
-  if (me === target) throw new Error("You can't request yourself.");
+  if (me === target) throw new ConvexError("You can't request yourself.");
   return connections.some((c) => between(c, me, target)) ? "noop" : "create";
 }
 

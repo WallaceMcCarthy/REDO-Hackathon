@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
@@ -70,7 +70,7 @@ export const setActive = mutation({
   handler: async (ctx, { active }) => {
     const me = await requireUserId(ctx);
     const p = await profileOf(ctx, me);
-    if (!p) throw new Error("Create a roommate profile first.");
+    if (!p) throw new ConvexError("Create a roommate profile first.");
     await ctx.db.patch(p._id, { active });
   },
 });
@@ -113,9 +113,9 @@ export const sendRequest = mutation({
   handler: async (ctx, { profileId }) => {
     const me = await requireUserId(ctx);
     const mine = await profileOf(ctx, me);
-    if (!mine?.active) throw new Error("Turn on your roommate profile first.");
+    if (!mine?.active) throw new ConvexError("Turn on your roommate profile first.");
     const target = await ctx.db.get(profileId);
-    if (!target?.active) throw new Error("That profile is not available.");
+    if (!target?.active) throw new ConvexError("That profile is not available.");
     if (planRequest(me, target.userId, await connectionsOf(ctx, me)) === "create") {
       await ctx.db.insert("connections", { fromUserId: me, toUserId: target.userId, status: "pending" });
     }
@@ -128,7 +128,7 @@ export const respond = mutation({
   handler: async (ctx, { connectionId, accept }) => {
     const me = await requireUserId(ctx);
     const c = await ctx.db.get(connectionId);
-    if (!c || !canRespond(me, c)) throw new Error("Request not found.");
+    if (!c || !canRespond(me, c)) throw new ConvexError("Request not found.");
     await ctx.db.patch(connectionId, { status: accept ? "accepted" : "declined" });
   },
 });
