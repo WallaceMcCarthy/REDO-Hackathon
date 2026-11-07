@@ -64,15 +64,21 @@ export const replaceAll = internalMutation({
  * several calls). Pass reset:true on the first chunk to clear old rows,
  * false on every chunk after so later chunks don't wipe earlier ones.
  */
+/** Called in a loop: one mutation can read only 4096 rows, and listings have outgrown that. */
+export const clearListings = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("listings").take(2000);
+    for (const doc of rows) await ctx.db.delete(doc._id);
+    return rows.length;
+  },
+});
+
 export const replaceListings = internalMutation({
   args: {
     listings: v.array(listingValidator),
-    reset: v.boolean(),
   },
-  handler: async (ctx, { listings, reset }) => {
-    if (reset) {
-      for (const doc of await ctx.db.query("listings").collect()) await ctx.db.delete(doc._id);
-    }
+  handler: async (ctx, { listings }) => {
     for (const l of listings) await ctx.db.insert("listings", l);
     return { inserted: listings.length };
   },

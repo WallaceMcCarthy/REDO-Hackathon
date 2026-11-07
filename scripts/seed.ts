@@ -11,7 +11,7 @@ const readJson = (p: string) => JSON.parse(readFileSync(p, "utf8"));
 const prodFlag = process.argv.includes("--prod") ? ["--prod"] : [];
 
 function runConvex(fn: string, args: unknown) {
-  execFileSync("npx", ["convex", "run", fn, JSON.stringify(args), ...prodFlag], { stdio: "inherit" });
+  return execFileSync("npx", ["convex", "run", fn, JSON.stringify(args), ...prodFlag], { stdio: ["inherit", "pipe", "inherit"], encoding: "utf8" });
 }
 
 const cities = existsSync("data/cities.json") ? readJson("data/cities.json") : [];
@@ -25,9 +25,10 @@ runConvex("seed:replaceAll", { cities, metrics });
 
 const listingsDir = "data/listings";
 const listings = existsSync(listingsDir)
-  ? readdirSync(listingsDir).filter((f) => f.endsWith(".json")).sort().flatMap((f) => readJson(join(listingsDir, f)))
+  ? readdirSync(listingsDir).filter((f) => f.endsWith(".json") && !f.endsWith("_migration.json")).sort().flatMap((f) => readJson(join(listingsDir, f)))
   : [];
 if (listings.length) {
+  while (Number(runConvex("seed:clearListings", {})) > 0);
   // Byte-bounded, not row-count-bounded: a fixed row count risks the OS's
   // single-argument size limit (ARG_MAX) on some platforms/shells once rows
   // get bigger (e.g. longer addresses), and risks Convex's ~1MB CLI arg cap
@@ -37,14 +38,12 @@ if (listings.length) {
   let chunk: unknown[] = [];
   let chunkBytes = 2; // "[]"
   let seeded = 0;
-  let first = true;
 
   function flush() {
     if (chunk.length === 0) return;
-    runConvex("seed:replaceListings", { listings: chunk, reset: first });
+    runConvex("seed:replaceListings", { listings: chunk });
     seeded += chunk.length;
     console.log(`Seeded listings ${seeded}/${listings.length}`);
-    first = false;
     chunk = [];
     chunkBytes = 2;
   }
