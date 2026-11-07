@@ -1,8 +1,9 @@
 /**
  * Streams every improved residential UGRC parcel inside our towns into Convex.
- * Run: npm run seed:assessor -- [--dry-run] [--town=provo] [--refresh]
+ * Run: npm run seed:assessor -- [--dry-run] [--town=provo] [--max-per-town=25000] [--refresh]
  *      npm run seed:assessor:prod
  * --dry-run fetches and counts without touching Convex.
+ * Each town keeps at most MAX_PER_TOWN homes (free Convex plan), an even spatial spread that is the same on every run.
  * Raw ArcGIS pages cache under data/raw/homes/ and progress under data/raw/assessor-load/,
  * both outside git. Rerun after any failure to resume. Delete the progress file after
  * wiping a deployment, or finished towns are skipped.
@@ -25,6 +26,9 @@ const PAGE_SIZE = 2000;
 const MAX_CHUNK_BYTES = 400_000;
 // Value is per parcel, so past a few structures it prices a complex, not a home. A judgment call: raise it to admit more.
 const MAX_STRUCTURES = 4;
+// Sized so a dev plus a prod load stay under half of the Free plan's 1 GB/month (estimate, see CONTRACT.md).
+export const MAX_PER_TOWN = 25_000;
+const GRID = 16;
 // Measured parcels inside the polygon but in another county's layer. Others are boundary slivers under 30.
 const EXTRA_COUNTIES: Record<string, string[]> = { draper: ["Utah"], "park-city": ["Wasatch"] };
 
@@ -69,6 +73,22 @@ export function asParcelRow(structures: Parcel[], town: Town, rings: Point[][]):
   return asAssessorRow({ ...main, attributes: { ...main.attributes, HOUSE_CNT: count > 1 ? null : main.attributes.HOUSE_CNT } }, town, rings);
 }
 
+const byId = (a: AssessorRow, b: AssessorRow) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * Order rows by 16x16 grid cell, then id, and take evenly spaced positions. Dense areas keep
+ * proportionally more homes, and no input order or value enters the choice, so reruns agree.
+ */
+export function capRows(rows: AssessorRow[], max: number): AssessorRow[] {
+  if (rows.length <= max) return rows;
+  const lats = rows.map((row) => row.lat), lngs = rows.map((row) => row.lng);
+  const [minLat, maxLat, minLng, maxLng] = [Math.min(...lats), Math.max(...lats), Math.min(...lngs), Math.max(...lngs)];
+  const cell = (value: number, min: number, top: number) => Math.min(GRID - 1, Math.floor((value - min) / ((top - min) || 1) * GRID));
+  const key = (row: AssessorRow) => cell(row.lat, minLat, maxLat) * GRID + cell(row.lng, minLng, maxLng);
+  const ordered = [...rows].sort((a, b) => key(a) - key(b) || byId(a, b));
+  return Array.from({ length: max }, (_, index) => ordered[Math.floor(index * ordered.length / max)]).sort(byId);
+}
+
 export async function townRows(town: Town, rings: Point[][], request: Request): Promise<AssessorRow[]> {
   const rows: AssessorRow[] = [];
   for (const county of [town.county, ...(EXTRA_COUNTIES[town.id] ?? [])]) {
@@ -84,7 +104,7 @@ export async function townRows(town: Town, rings: Point[][], request: Request): 
       if (row) rows.push(row);
     }
   }
-  return rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return rows.sort(byId);
 }
 
 /** Bounded by rows for the mutation's read budget and by bytes for the CLI argument limit. */
@@ -115,10 +135,18 @@ export async function loadTown(cityId: string, rows: AssessorRow[], progress: Pr
   progress[cityId] ??= { hash, rows: rows.length, done: 0 };
 }
 
+export function maxPerTownFlag(argv: string[]): number {
+  const raw = argv.find((arg) => arg.startsWith("--max-per-town="))?.slice(15);
+  const max = raw === undefined ? MAX_PER_TOWN : Number(raw);
+  if (!Number.isInteger(max) || max < 1) throw new Error(`--max-per-town must be a positive integer, got ${raw}`);
+  return max;
+}
+
 async function main() {
   const prod = process.argv.includes("--prod");
   const dryRun = process.argv.includes("--dry-run");
   const onlyTown = process.argv.find((arg) => arg.startsWith("--town="))?.slice(7);
+  const maxPerTown = maxPerTownFlag(process.argv);
   const allTowns: Town[] = JSON.parse(await readFile(new URL("data/cities.json", ROOT), "utf8"));
   const towns = onlyTown ? allTowns.filter((town) => town.id === onlyTown) : allTowns;
   if (!towns.length) throw new Error(`Unknown town ${onlyTown}`);
@@ -136,20 +164,21 @@ async function main() {
   };
 
   const byName = await municipalRings();
-  const counts: Record<string, { count: number; bytes: number }> = {};
+  const counts: Record<string, { available: number; count: number; bytes: number }> = {};
   for (const town of towns) {
     const rings = byName.get(town.name.toLowerCase());
     if (!rings) throw new Error(`No official municipal polygon for ${town.id}`);
-    const rows = await townRows(town, rings, cachedRequest);
-    counts[town.id] = { count: rows.length, bytes: JSON.stringify(rows).length };
-    console.log(`${town.id}: ${rows.length} homes, ${counts[town.id].bytes} bytes`);
+    const all = await townRows(town, rings, cachedRequest);
+    const rows = capRows(all, maxPerTown);
+    counts[town.id] = { available: all.length, count: rows.length, bytes: JSON.stringify(rows).length };
+    console.log(`${town.id}: ${rows.length} of ${all.length} homes, ${counts[town.id].bytes} bytes`);
     if (!dryRun) await loadTown(town.id, rows, progress, save, upsert);
   }
   const total = Object.values(counts).reduce((sum, town) => sum + town.count, 0);
   if (!onlyTown) {
     await writeFile(new URL("data/assessor-provenance.json", ROOT), JSON.stringify({
       generatedAt: new Date().toISOString(), source: "https://gis.utah.gov/products/sgid/cadastre/parcels/",
-      methodology: `One row per improved residential assessor parcel whose centroid falls inside an official municipal polygon, read from the county LIR layers. LIR repeats a parcel per structure, so sqft and year come from the largest structure, and parcels with more than ${MAX_STRUCTURES} structures are excluded. Public records, not homes for sale. Bedrooms are not in the source. No owner data retrieved.`,
+      methodology: `Up to ${maxPerTown} improved residential assessor parcels per town, an even spatial spread (16x16 grid, evenly spaced positions, deterministic), chosen from the parcels whose centroid falls inside an official municipal polygon, read from the county LIR layers. LIR repeats a parcel per structure, so sqft and year come from the largest structure, and parcels with more than ${MAX_STRUCTURES} structures are excluded. Public records, not homes for sale. Bedrooms are not in the source. No owner data retrieved.`,
       total, counts,
     }, null, 2) + "\n");
   }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssessorRow } from "../../convex/lib/assessor";
-import { asAssessorRow, asParcelRow, chunkRows, loadTown, parcelPages, townRows, type Progress } from "./assessor_homes";
+import { asAssessorRow, asParcelRow, capRows, chunkRows, loadTown, MAX_PER_TOWN, maxPerTownFlag, parcelPages, townRows, type Progress } from "./assessor_homes";
 import { fetchWithBackoff, type Parcel, type Point } from "./listings_homes";
 
 const rings: Point[][] = [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]];
@@ -92,6 +92,56 @@ describe("assessor parcel stream", () => {
     await loadTown("example", [row(1), row(2)], progress, async () => {}, upsert);
     expect(upsert).toHaveBeenCalledTimes(1);
     expect(upsert.mock.calls[0][0]).toHaveLength(2);
+  });
+});
+
+describe("per-town cap", () => {
+  const placed = (n: number): AssessorRow => ({ ...row(n), lat: Math.floor(n / 100), lng: n % 100 });
+  const grid = Array.from({ length: 10_000 }, (_, n) => placed(n));
+
+  it("defaults to 25000 and the flag overrides it", () => {
+    expect(MAX_PER_TOWN).toBe(25_000);
+    expect(maxPerTownFlag(["node", "x.ts"])).toBe(25_000);
+    expect(maxPerTownFlag(["--max-per-town=150"])).toBe(150);
+    expect(() => maxPerTownFlag(["--max-per-town=abc"])).toThrow("positive integer");
+    expect(() => maxPerTownFlag(["--max-per-town=0"])).toThrow("positive integer");
+  });
+
+  it("spreads evenly across the town instead of taking the first or cheapest N", () => {
+    const kept = capRows(grid, 400);
+    expect(kept).toHaveLength(400);
+    expect(new Set(kept.map((item) => item.id)).size).toBe(400);
+    expect(Math.max(...kept.map((item) => item.lat)) - Math.min(...kept.map((item) => item.lat))).toBeGreaterThan(90);
+    const cells = new Map<string, number>();
+    for (const item of kept) cells.set(`${Math.floor(item.lat / 25)},${Math.floor(item.lng / 25)}`, (cells.get(`${Math.floor(item.lat / 25)},${Math.floor(item.lng / 25)}`) ?? 0) + 1);
+    expect([...cells.values()]).toEqual(Array(16).fill(25));
+    expect(kept.map((item) => item.id)).not.toEqual(grid.slice(0, 400).map((item) => item.id));
+  });
+
+  it("picks the same homes on every run, whatever the input order", () => {
+    const first = capRows(grid, 400).map((item) => item.id);
+    expect(capRows([...grid].reverse(), 400).map((item) => item.id)).toEqual(first);
+    expect(capRows(grid, 400).map((item) => item.id)).toEqual(first);
+  });
+
+  it("loads towns at or under the cap in full", () => {
+    const small = grid.slice(0, 150);
+    expect(capRows(small, 2000)).toBe(small);
+    expect(capRows(small, 150)).toBe(small);
+  });
+
+  it("keeps resume correct: a capped town hashes the same on rerun, so finished chunks are skipped", async () => {
+    const progress: Progress = {};
+    await loadTown("example", capRows(grid, 300), progress, async () => {}, () => {});
+    const upsert = vi.fn();
+    await loadTown("example", capRows([...grid].reverse(), 300), progress, async () => {}, upsert);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("caps a mocked ArcGIS town end to end", async () => {
+    const parcels = Array.from({ length: 50 }, (_, n) => parcel(n + 1, {}, 1 + n % 9));
+    const rows = capRows(await townRows(town, rings, pagedRequest([parcels]) as never), 10);
+    expect(rows).toHaveLength(10);
   });
 });
 
