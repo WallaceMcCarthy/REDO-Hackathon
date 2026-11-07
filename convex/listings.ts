@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { bestListingsForTown, recommendListings, type Listing } from "./lib/listings";
+import { bestListingsForTown, recommendListings, withListingMetadata, type Listing } from "./lib/listings";
 import { searchListings } from "./lib/listingSearch";
 import { indexedListingSearch } from "./marketSearch";
+import { findListing } from "./social";
 
 /** Homes-first browsing. Budget caps apply to source estimates, not asking prices. */
 export const search = query({
@@ -20,6 +21,15 @@ export const search = query({
   },
   handler: async (ctx, args) => {
     return indexedListingSearch(ctx, args);
+  },
+});
+
+/** One listing by public id, so a map pin can open a listing that is not on a loaded list page. */
+export const get = query({
+  args: { id: v.string() },
+  handler: async (ctx, { id }) => {
+    const listing = await findListing(ctx, id);
+    return listing && withListingMetadata(listing as Listing);
   },
 });
 

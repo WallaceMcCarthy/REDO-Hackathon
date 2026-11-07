@@ -11,7 +11,7 @@ import SponsoredMapPins from '../ads/SponsoredMapPins';
 import SafeSectionBoundary from '../SafeSectionBoundary';
 import { BOUNDS, UTAH, computeGrid, gridToDataUrl } from './heatmap';
 import LayerPicker from './LayerPicker';
-import type { Listing } from '../listings/types';
+import type { MapPin } from '../../data/mapPoints';
 import type { Row } from './types';
 
 declare global {
@@ -44,7 +44,7 @@ export const AREA_MAP_LABEL_LAYOUT = {
   ranksIgnorePlacement: false,
 } as const;
 
-function priceLabel(l: Listing): string {
+function priceLabel(l: MapPin): string {
   if (l.kind === 'home') {
     const v = l.value;
     return v == null ? '' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1000)}k`;
@@ -57,7 +57,7 @@ const HEAT_OPACITY = 0.65;
 type Props = {
   rows: Row[]; cities: City[]; metrics: Metric[]; hovered: string | null;
   onHover: (id: string | null) => void; onOpen: (id: string) => void;
-  listings?: Listing[]; onSelectListing?: (l: Listing) => void; selectedListingId?: string;
+  listings?: MapPin[]; onSelectListing?: (l: MapPin) => void; selectedListingId?: string;
   /** Which pins are primary. 'listings' (default): homes with prices and clusters, towns as muted dots. 'towns': numbered town pins, listings hidden. */
   focus?: 'listings' | 'towns';
   /** The town the list is narrowed to, so sponsored pins can follow it. */
@@ -82,11 +82,13 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
+// MapLibre allows one zoom curve per paint value, and only at the top, so hover scales each stop.
+const hoverScale = hoverCase(1.25, 1);
 const townPinRadius: maplibregl.ExpressionSpecification = [
   'interpolate', ['linear'], ['zoom'],
-  5, ['case', ['<=', ['get', 'rank'], 3], 4.5, 3.5],
-  8, ['case', ['<=', ['get', 'rank'], 3], 14, 10],
-  10, ['get', 'r'],
+  5, ['*', hoverScale, ['case', ['<=', ['get', 'rank'], 3], 4.5, 3.5]],
+  8, ['*', hoverScale, ['case', ['<=', ['get', 'rank'], 3], 14, 10]],
+  10, ['*', hoverScale, ['get', 'r']],
 ];
 
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
@@ -100,7 +102,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   const hoveredRef = useRef<string | null>(null);
   const focusRef = useRef(focus);
   focusRef.current = focus;
-  const listingsRef = useRef<Listing[]>([]);
+  const listingsRef = useRef<MapPin[]>([]);
   const handlers = useRef({ onHover, onOpen, onSelectListing });
   handlers.current = { onHover, onOpen, onSelectListing };
 
@@ -143,7 +145,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left');
 
     map.on('load', () => {
-      map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 11 });
+      map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 13 });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
       const kindColor: maplibregl.ExpressionSpecification = ['match', ['get', 'kind'], 'apartment', APARTMENT_COLOR, HOME_COLOR];
       // Utah border and faint outside mask: above the basemap, beneath all data layers.
@@ -169,7 +171,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         paint: {
           // At the Utah-wide zoom the Wasatch Front towns are only pixels apart. Start compact,
           // then grow to the full pin size as geographic separation becomes visible.
-          'circle-radius': hoverCase(['*', townPinRadius, 1.25], townPinRadius),
+          'circle-radius': townPinRadius,
           'circle-color': ['case', ['<=', ['get', 'rank'], 3], ROCK_500, ALPINE_700],
           'circle-stroke-color': hoverCase(INK, SAND), 'circle-stroke-width': hoverCase(3, 2),
         },
