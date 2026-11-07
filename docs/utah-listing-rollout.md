@@ -8,11 +8,13 @@ When enabled, Best fit exhausts scored-town inventory before the unranked group.
 
 ## Operator audit
 
+Read-only one-command wrapper: `npx tsx scripts/audit-utah.ts --prod --assessor` (omit `--prod` for the configured DEV deployment). It uses the operator's existing Convex CLI login, collects all pages and up to five examples per table, and has no deletion mode. `--max-pages=1` is only a partial smoke check and reports `complete:false` when more pages remain. Run after imports are settled for a meaningful final count.
+
 1. Deploy Convex before shipping the frontend.
 2. On DEV and PROD, call internal mutation `marketSeed:purgeNonUtahPage` with `{ "cursor": null }`. It is read-only by default. Repeat with each returned `continueCursor` until `isDone`, sum `checked`, `matched`, `eligibleOutsideTown` and `unlocatedPricedResidential`, and retain the sample evidence. Page size is at most 200.
 3. Post real counts and examples before any deletion. Per the coordinator's current instruction, deletion still needs the human's approval after the preview. Never infer outside-Utah status merely from null `cityId` or missing fields.
 4. If approved, repeat the full pass from cursor null with `dryRun:false`. Only affirmative non-Utah matches are deleted. Missing-coordinate records remain stored but are removed from the displayable inventory index. Exact price/newest metadata is rebuilt only for affected keys, avoiding repeated rewrites of every town's index. If both `matched` and `unlocatedPricedResidential` were zero, no repair pass is needed.
-5. Read-only internal query `marketSeed:auditLegacyUtahPage` audits the old assessor/HUD/OSM `listings` sample table. It never deletes shared social targets. The separate assessor source uses official Utah municipal containment; audit that table separately if it has been loaded.
+5. Read-only internal query `marketSeed:auditLegacyUtahPage` audits the old assessor/HUD/OSM `listings` sample table. Pass `table:"assessorListings"` to audit the separate assessor table too. It never deletes shared social targets. The assessor source also uses official Utah municipal containment.
 6. Verify totals, price/budget ordering, cursor pages, saves and panels on DEV. Then enable `UTAH_STATEWIDE_ENABLED=true` for production and confirm the same public responses.
 7. Extend the CDN map files from the existing slim snapshot with `npx tsx scripts/data/map_points.ts --augment-market-snapshot=/path/to/slim-snapshot.json`. This reuses the tracked map files and already-paid provider snapshot, with zero cloud requests. It adds only eligible rural records, deduplicates stable IDs, and checks the 2 MB limit per file before writing. Commit the generated files. Loaded rural cards already contribute their own map points before that full snapshot refresh.
 

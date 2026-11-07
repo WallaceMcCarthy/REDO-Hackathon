@@ -82,3 +82,18 @@ it('keeps cursor pagination valid while deleting rows and caps each transaction'
   expect(await t.run(ctx => ctx.db.query('marketListings').collect())).toEqual([]);
   await expect(t.mutation(purge, { limit: 201 })).rejects.toThrow('200');
 });
+
+it('audits the separate assessor table without deleting or trusting a canonical town id', async () => {
+  const t = await setup();
+  await t.run(async ctx => {
+    const base = { cityId: 'provo', county: 'Utah', address: 'Fixture', value: 300000, sqft: null, yearBuilt: null, units: null, propertyType: 'Residential', asOf: '2026-11-07' };
+    await ctx.db.insert('assessorListings', { ...base, id: 'utah', lat: 40.23, lng: -111.66 });
+    await ctx.db.insert('assessorListings', { ...base, id: 'outside', lat: 39.25, lng: -114.88 });
+  });
+  const audit = makeFunctionReference<'query'>('marketSeed:auditLegacyUtahPage');
+  const result = await t.query(audit, { table: 'assessorListings' });
+  expect(result).toMatchObject({ table: 'assessorListings', checked: 2, matched: 1, isDone: true });
+  expect(result.examples[0].id).toBe('outside');
+  expect(await t.run(ctx => ctx.db.query('assessorListings').collect())).toHaveLength(2);
+  expect(await t.query(audit, {})).toMatchObject({ table: 'listings', checked: 0, matched: 0 });
+});

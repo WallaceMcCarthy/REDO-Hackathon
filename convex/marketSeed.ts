@@ -102,11 +102,12 @@ export const purgeNonUtahPage = internalMutation({
 
 /** Read-only check of the old assessor/HUD/OSM sample table. Never deletes shared social targets. */
 export const auditLegacyUtahPage = internalQuery({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  args: { cursor: v.optional(v.union(v.string(), v.null())), table: v.optional(v.union(v.literal('listings'), v.literal('assessorListings'))) },
   handler: async (ctx, args) => {
-    const page = await ctx.db.query('listings').paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    const table = args.table ?? 'listings';
+    const page = await ctx.db.query(table).paginate({ cursor: args.cursor ?? null, numItems: 200 });
     const affected = page.page.map(row => ({ row, reasons: nonUtahReasons(row) })).filter(x => x.reasons.length > 0);
-    return { checked: page.page.length, matched: affected.length, isDone: page.isDone,
+    return { table, checked: page.page.length, matched: affected.length, isDone: page.isDone,
       continueCursor: page.isDone ? null : page.continueCursor,
       examples: affected.slice(0, 5).map(({ row, reasons }) => ({ id: row.id, address: row.address, lat: row.lat, lng: row.lng, reasons })) };
   },
