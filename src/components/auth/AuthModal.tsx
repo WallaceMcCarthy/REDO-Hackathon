@@ -22,6 +22,9 @@ function plainError(err: unknown, mode: Mode): string {
   return 'Something went wrong. Check your connection and try again.';
 }
 
+let lastPressed: Element | null = null;
+if (typeof document !== 'undefined') document.addEventListener('click', e => { lastPressed = (e.target as Element).closest('button, a'); }, true);
+
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const { signIn } = useAuthActions();
   const [mode, setMode] = useState<Mode>('signIn');
@@ -35,16 +38,17 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
+    // Safari does not focus a button on click, so activeElement is body; fall back to the pressed control.
+    const opener = (document.activeElement === document.body ? lastPressed : document.activeElement) as HTMLElement | null;
     emailInput.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') return onCloseRef.current();
       if (e.key !== 'Tab' || !dialog.current) return;
       const items = dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), input');
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      // Safari's Tab skips buttons by default, so step focus ourselves instead of trusting the browser.
+      e.preventDefault();
+      const at = Array.from(items).indexOf(document.activeElement as HTMLElement);
+      items[(at + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
     }
     document.addEventListener('keydown', onKey);
     return () => {
