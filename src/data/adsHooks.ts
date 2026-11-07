@@ -43,7 +43,8 @@ export function useActiveFeatured(cityId?: string): CampaignRecord[] | undefined
 export function useTownCampaigns(cityId: string): CampaignRecord[] | undefined {
   const pins = useActivePins(cityId);
   const featured = useActiveFeatured(cityId);
-  return pins && featured ? [...featured, ...pins] : undefined;
+  // The old REDO job sample in Salt Lake City is retired; REDO now sits in Draper.
+  return pins && featured ? [...featured, ...pins].filter(c => !c.url.startsWith('https://getredo.com/')) : undefined;
 }
 
 export function useMyCampaigns(): CampaignRecord[] | undefined {

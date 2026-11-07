@@ -6,7 +6,7 @@ import type { CampaignRecord } from '../../data/adsHooks';
 import type { City } from '../../types';
 import { useActivePins, useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { FOCUS } from '../homes/ui';
-import { REDO_IT, adLink, declutter, listingAction } from './placement';
+import { REDO_IT, adLink, isRedoCampaign, declutter, listingAction } from './placement';
 
 // A collapsed marker is a 32px circle; two never overlap and phone targets stay apart.
 const PIN_SIZE = 32;
@@ -30,8 +30,7 @@ const isShowable = (c: CampaignRecord): c is Located => c.lat !== undefined && c
 
 /** A small accent marker; hover, focus or tap opens a card above it. The whole ad is one link. `flip` aligns the card to the marker's right edge; `below` puts it under the marker when there is no room above. */
 export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip?: boolean; below?: boolean; onClick?: () => void }) {
-  // The one main advertiser stands out on the map: bigger than a sample pin, and a mark instead of a star.
-  // Scaled from the bottom so it grows in place rather than drifting off the marker's anchored point.
+  // The one main advertiser is the same star as every ad, in black.
   const redo = pin.url === REDO_IT.url;
   return (
     <a
@@ -39,7 +38,7 @@ export function MapAd({ pin, flip, below, onClick }: { pin: CampaignRecord; flip
       aria-label={`Sponsored: ${pin.title}`}
       className={`group relative block size-8 rounded-pill ${FOCUS}`}
     >
-      <span aria-hidden className={`flex size-8 origin-bottom items-center justify-center rounded-pill border-2 border-white text-[13px] font-bold leading-none text-white shadow-raised ${redo ? 'scale-150 bg-black' : 'bg-rock-800'}`}>{redo ? 'R' : '★'}</span>
+      <span aria-hidden className={`flex size-8 origin-bottom items-center justify-center rounded-pill border-2 border-white text-[13px] font-bold leading-none text-white shadow-raised ${redo ? 'bg-black' : 'bg-rock-800'}`}>★</span>
       <span className={`pointer-events-none invisible absolute z-10 w-60 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${below ? 'top-full pt-2' : 'bottom-full pb-2'} ${flip ? 'right-0' : 'left-0'}`}>
         <span className="flex flex-col gap-1 rounded-card bg-surface-raised p-3 text-left shadow-raised">
           <span className="flex items-center gap-1 text-[10px] font-medium uppercase leading-4 tracking-wide text-text-muted">
@@ -88,7 +87,7 @@ export default function SponsoredMapPins({ map, cities, selectedTown }: Props) {
   // Every impression patches a campaign, so `pins` changes often: diff the markers rather than rebuild them.
   useEffect(() => {
     // REDO is a normal sponsored pin; its fixed entry replaces any sample campaign for the same url.
-    const located = [...pins.filter(p => p.url !== REDO_IT.url), REDO_PIN].filter(isShowable);
+    const located = [REDO_PIN, ...pins.filter(p => !isRedoCampaign(p))].filter(isShowable);
     const sync = () => {
       const bounds = map.getBounds();
       const inView = declutter(map.getZoom() >= TOWN_ZOOM ? located : [], p => map.project([p.lng, p.lat]), PIN_WIDTH, PIN_HEIGHT)
