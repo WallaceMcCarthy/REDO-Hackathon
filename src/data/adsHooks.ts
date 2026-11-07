@@ -19,6 +19,8 @@ export interface CampaignRecord {
   impressions: number;
   clicks: number;
   isSample?: boolean;
+  expectedAmount?: number;
+  expectedCurrency?: string;
 }
 
 export function useActivePins(cityId?: string): CampaignRecord[] | undefined {
@@ -63,6 +65,19 @@ export function useCreateCampaign() {
   );
 }
 
+export function useSimulateSandboxPayment() {
+  const mutationFn = (api as any).ads?.simulateSandboxPayment;
+  const mutate = useMutation(mutationFn ?? (() => Promise.resolve({ success: false, status: 'active' })));
+
+  return useCallback(
+    async (campaignId: string, sessionId?: string) => {
+      if (!mutationFn) return null;
+      return await mutate({ campaignId: campaignId as any, sessionId });
+    },
+    [mutate, mutationFn],
+  );
+}
+
 export function useRecordImpression() {
   const mutationFn = (api as any).ads?.recordImpression;
   const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
@@ -70,7 +85,11 @@ export function useRecordImpression() {
   return useCallback(
     async (campaignId: string) => {
       if (!mutationFn) return;
-      await mutate({ campaignId });
+      try {
+        await mutate({ campaignId: campaignId as any });
+      } catch {
+        // Silently ignore if unauthenticated session
+      }
     },
     [mutate, mutationFn],
   );
@@ -83,7 +102,11 @@ export function useRecordClick() {
   return useCallback(
     async (campaignId: string) => {
       if (!mutationFn) return;
-      await mutate({ campaignId });
+      try {
+        await mutate({ campaignId: campaignId as any });
+      } catch {
+        // Silently ignore if unauthenticated session
+      }
     },
     [mutate, mutationFn],
   );

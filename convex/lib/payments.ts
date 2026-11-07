@@ -1,8 +1,9 @@
 // REDO Payments Client & Sandbox Stub
 // Conforms to CONTRACT.md Phase 3.
+// Standard Web Crypto API only (no Node imports) to ensure full Convex runtime compatibility.
 // Never exposes secret keys to git or frontend.
 
-import crypto from "node:crypto";
+declare const process: { env?: Record<string, string | undefined> } | undefined;
 
 export interface RedoCheckoutParams {
   campaignId: string;
@@ -39,24 +40,79 @@ export interface RedoWebhookEvent {
 
 export interface IRedoPaymentClient {
   createCheckoutSession(params: RedoCheckoutParams): Promise<RedoCheckoutSession>;
-  verifyWebhookSignature(rawBody: string, signature: string): boolean;
+  verifyWebhookSignature(rawBody: string, signature: string): Promise<boolean>;
   parseWebhookEvent(rawBody: string): RedoWebhookEvent;
 }
 
 /**
+ * Constant-time comparison between two hex strings to mitigate timing attacks.
+ */
+export function timingSafeEqualHex(a: string, b: string): boolean {
+  const normA = a.toLowerCase();
+  const normB = b.toLowerCase();
+  if (normA.length !== normB.length) return false;
+  let diff = 0;
+  for (let i = 0; i < normA.length; i++) {
+    diff |= normA.charCodeAt(i) ^ normB.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+/**
+ * Compute SHA-256 HMAC using Web Crypto API.
+ */
+export async function computeHmacSha256Hex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sigBuffer = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(sigBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
  * Sandbox implementation of the REDO Payment Client.
- * Handles checkout simulation and HMAC webhook signature verification.
+ * Handles checkout simulation and Web Crypto HMAC webhook signature verification.
+ * Fails closed if REDO_WEBHOOK_SECRET is not configured.
  */
 export class RedoSandboxClient implements IRedoPaymentClient {
-  private webhookSecret: string;
+  private webhookSecret?: string;
 
   constructor(webhookSecret?: string) {
-    this.webhookSecret = webhookSecret || process.env.REDO_WEBHOOK_SECRET || "redo_sandbox_secret_2026";
+    this.webhookSecret =
+      webhookSecret ||
+      (typeof process !== "undefined" && process?.env ? process.env.REDO_WEBHOOK_SECRET : undefined);
+  }
+
+  isConfigured(): boolean {
+    return Boolean(this.webhookSecret && this.webhookSecret.trim().length > 0);
   }
 
   async createCheckoutSession(params: RedoCheckoutParams): Promise<RedoCheckoutSession> {
-    const sessionId = `redo_sess_${crypto.randomBytes(12).toString("hex")}`;
-    const checkoutUrl = `https://sandbox.getredo.com/checkout/${sessionId}?campaignId=${params.campaignId}&amt=${params.amount}`;
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const randomHex = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const sessionId = `redo_sandbox_${randomHex}`;
+
+    // Conforms strictly to review instructions:
+    // Do NOT invent external provider endpoints (e.g. sandbox.getredo.com) before REDO docs arrive.
+    // Point to our in-app sandbox checkout page: /#ads-sandbox-checkout
+    const query = new URLSearchParams({
+      sessionId,
+      campaignId: params.campaignId,
+      amount: String(params.amount),
+      currency: params.currency || "USD",
+      title: params.title || "",
+    }).toString();
+    const checkoutUrl = `/#ads-sandbox-checkout?${query}`;
 
     return {
       sessionId,
@@ -68,22 +124,24 @@ export class RedoSandboxClient implements IRedoPaymentClient {
     };
   }
 
-  computeSignature(rawBody: string): string {
-    return crypto
-      .createHmac("sha256", this.webhookSecret)
-      .update(rawBody)
-      .digest("hex");
+  async computeSignature(rawBody: string): Promise<string> {
+    if (!this.webhookSecret) {
+      throw new Error("REDO_WEBHOOK_SECRET is not configured (fail closed)");
+    }
+    return computeHmacSha256Hex(this.webhookSecret, rawBody);
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string): boolean {
-    if (!signature || !rawBody) return false;
+  async verifyWebhookSignature(rawBody: string, signature: string): Promise<boolean> {
+    if (!this.isConfigured()) {
+      console.warn("[REDO] Webhook rejected: REDO_WEBHOOK_SECRET is not configured (failing closed).");
+      return false;
+    }
+    if (!signature || !rawBody) {
+      return false;
+    }
     try {
-      const expected = this.computeSignature(rawBody);
-      // Constant-time buffer comparison to prevent timing attacks
-      const expectedBuf = Buffer.from(expected, "hex");
-      const sigBuf = Buffer.from(signature, "hex");
-      if (expectedBuf.length !== sigBuf.length) return false;
-      return crypto.timingSafeEqual(expectedBuf, sigBuf);
+      const expected = await this.computeSignature(rawBody);
+      return timingSafeEqualHex(expected, signature.trim());
     } catch {
       return false;
     }

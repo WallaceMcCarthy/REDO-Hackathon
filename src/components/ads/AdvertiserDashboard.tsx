@@ -20,6 +20,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
   const [isSample, setIsSample] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+  const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
 
   const selectedCity = cities.find((c) => c.id === cityId);
 
@@ -32,6 +33,7 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
     if (!title.trim() || !url.trim() || submitting) return;
     setSubmitting(true);
     setCheckoutNotice(null);
+    setPendingCheckoutUrl(null);
 
     try {
       const res = await createCampaign({
@@ -47,8 +49,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
       });
 
       if (res?.checkoutUrl) {
+        setPendingCheckoutUrl(res.checkoutUrl);
         setCheckoutNotice(
-          `Campaign created! REDO Checkout Session initialized. (In sandbox mode, payment webhook activates within simulated workflow).`
+          `Campaign created in pending_payment state! REDO checkout session generated.`
         );
         // Clear form
         setTitle('');
@@ -76,11 +79,12 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         <div>
           <h1 className="font-display text-4xl font-bold text-ink">Advertiser Dashboard</h1>
           <p className="mt-1 text-sm text-dusk">
-            Self-serve local advertising powered by REDO Payments.
+            Self-serve local advertising for Utah businesses and employers.
           </p>
         </div>
-        <div className="rounded-xl bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-900 border border-purple-200">
-          🔒 Secure Checkout via REDO
+        <div className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 border border-amber-200 flex items-center gap-1.5">
+          <span>⚠️</span>
+          <span>SANDBOX: REDO payments not connected yet</span>
         </div>
       </div>
 
@@ -128,17 +132,27 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                           </span>
                         )}
                       </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          c.status === 'active'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : c.status === 'pending_payment'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-rock-100 text-rock-600'
-                        }`}
-                      >
-                        {c.status.replace('_', ' ')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            c.status === 'active'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : c.status === 'pending_payment'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rock-100 text-rock-600'
+                          }`}
+                        >
+                          {c.status.replace('_', ' ')}
+                        </span>
+                        {c.status === 'pending_payment' && (
+                          <a
+                            href={`/#ads-sandbox-checkout?campaignId=${c._id}&amount=${c.expectedAmount || 3500}&title=${encodeURIComponent(c.title)}`}
+                            className="cursor-pointer rounded-full bg-amber-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-700"
+                          >
+                            Simulate Payment →
+                          </a>
+                        )}
+                      </div>
                     </div>
 
                     <p className="mt-2 text-xs text-rock-600 line-clamp-2">{c.body}</p>
@@ -295,13 +309,25 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
                 <span>${totalCost}.00 USD</span>
               </div>
               <p className="mt-1 text-[10px] text-dusk">
-                Billed securely via REDO Payment Gateway.
+                Billed securely via REDO Payments (Sandbox Mode).
               </p>
             </div>
 
             {checkoutNotice && (
               <div className="rounded-xl bg-purple-50 p-3 text-xs text-purple-900 border border-purple-200">
                 {checkoutNotice}
+              </div>
+            )}
+
+            {pendingCheckoutUrl && (
+              <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-300 space-y-2">
+                <div className="font-semibold">Simulated Checkout Available:</div>
+                <a
+                  href={pendingCheckoutUrl}
+                  className="inline-block cursor-pointer rounded-full bg-purple-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-purple-800"
+                >
+                  Proceed to Sandbox Checkout →
+                </a>
               </div>
             )}
 

@@ -35,6 +35,8 @@ export const adsTables = {
     impressions: v.number(),
     clicks: v.number(),
     isSample: v.boolean(),
+    expectedAmount: v.optional(v.number()),
+    expectedCurrency: v.optional(v.string()),
   })
     .index("by_advertiser", ["advertiserUserId"])
     .index("by_status", ["status"])

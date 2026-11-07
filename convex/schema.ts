@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { adsTables } from "./adsSchema";
 import { feedTables } from "./feedSchema";
 import { roommateTables } from "./roommateSchema";
 import { socialTables } from "./socialSchema";
@@ -10,6 +11,7 @@ export default defineSchema({
   ...socialTables,
   ...feedTables,
   ...roommateTables,
+  ...adsTables,
   profiles: defineTable({
     userId: v.id("users"),
     displayName: v.string(),

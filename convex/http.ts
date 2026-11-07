@@ -19,9 +19,11 @@ http.route({
       "";
     const rawBody = await request.text();
 
-    const isValid = redoClient.verifyWebhookSignature(rawBody, signature);
+    // Async Web Crypto HMAC signature verification; fails closed if secret is unset
+    const isValid = await redoClient.verifyWebhookSignature(rawBody, signature);
     if (!isValid) {
-      return new Response("Invalid signature", { status: 401 });
+      console.warn("[REDO Webhook] Unauthorized attempt: signature verification failed or secret unset");
+      return new Response("Invalid signature or unconfigured secret", { status: 401 });
     }
 
     try {

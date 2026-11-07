@@ -5,6 +5,7 @@ import Quiz from './screens/Quiz';
 import Results from './screens/Results';
 import Roommates from './screens/Roommates';
 import TownDetail from './screens/TownDetail';
+import AdsSandboxCheckout from './screens/AdsSandboxCheckout';
 import type { Prefs } from './types';
 
 const readHash = () => window.location.hash.replace(/^#\/?/, '');
@@ -21,11 +22,15 @@ export default function App() {
   }, []);
 
   const town = route.match(/^town\/(.+)$/)?.[1];
+  const isAdsCheckout = route.startsWith('ads-sandbox-checkout');
+
   return (
     <>
       <AccountMenu />
       {town ? (
         <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
+      ) : isAdsCheckout ? (
+        <AdsSandboxCheckout onDone={() => go('results')} />
       ) : route === 'roommates' ? (
         <Roommates onSignIn={openSignIn} />
       ) : route === 'results' ? (
