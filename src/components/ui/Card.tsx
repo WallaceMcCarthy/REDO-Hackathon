@@ -9,5 +9,5 @@ type CardProps = HTMLAttributes<HTMLElement> & {
 };
 
 export function Card({ as: Tag = 'div', raised, padded = true, className = '', ...rest }: CardProps) {
-  return <Tag {...rest} className={`rounded-card border border-border bg-surface-raised ${raised ? 'shadow-raised' : ''} ${padded ? 'p-5' : 'overflow-hidden'} ${className}`} />;
+  return <Tag {...rest} className={`rounded-card border border-border bg-surface-raised ${raised ? 'shadow-raised' : ''} ${padded ? 'p-4' : 'overflow-hidden'} ${className}`} />;
 }

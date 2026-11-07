@@ -2,7 +2,7 @@
 
 Import from `src/components/ui`. Review every state at `#/ui`. Every interactive part is at least 44px tall.
 
-Tokens: `bg-surface`, `bg-surface-raised`, `bg-surface-sunken`, `border-border`, `border-border-strong`, `text-text`, `text-text-muted`, `bg-primary`, `text-danger`, `text-success`. Type: `text-display`, `heading`, `title`, `body`, `small`, `caption`. Spacing: 4px steps, plus `gutter` (page edge), `stack` (between blocks), `section` (between sections). Radius: `rounded-control`, `card`, `pill`. Shadow: `shadow-raised`, `overlay`. Focus ring is global, so add none. Never write a hex value or `text-white`.
+Tokens: `bg-surface`, `bg-surface-raised`, `bg-surface-sunken`, `border-border`, `border-border-strong`, `text-text`, `text-text-muted`, `bg-primary`, `text-danger`, `text-success`. Type: `text-display`, `heading`, `title`, `body`, `small`, `caption`. Spacing: 4px steps, plus `gutter` (page edge), `stack` (between blocks), `section` (between sections). Radius: `rounded-control`, `card`, `pill`. Shadow: `shadow-raised`, `overlay`. Focus ring is global, so add none. Never write a hex value or `text-white`. Inline text links use `text-alpine-700 underline underline-offset-2`.
 
 | Use | When | Example |
 | --- | --- | --- |
@@ -22,4 +22,4 @@ Tokens: `bg-surface`, `bg-surface-raised`, `bg-surface-sunken`, `border-border`,
 
 AppHeader renders AccountMenu itself. App.tsx still renders the floating AccountMenu on other routes, so when a screen adopts AppHeader, exclude that route in App.tsx. Two mounted menus would open two sign-in modals. Move AppHeader into App.tsx and delete the floating variant once every screen has it.
 
-Map wrappers need no z-index. The header sits above Leaflet through `z-header`.
+`AppHeader` takes vertical space, so a full-height screen uses `flex-1 min-h-0` inside a `h-dvh` column, not `h-dvh` on its own `main`. It sits above Leaflet through `z-header`.

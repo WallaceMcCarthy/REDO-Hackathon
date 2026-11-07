@@ -31,7 +31,7 @@ export function Segmented<T extends string>({ label, options, value, onChange, c
   }
 
   return (
-    <div ref={group} role="radiogroup" aria-label={label} className={`flex gap-1 rounded-pill bg-surface-sunken p-1 ${className}`}>
+    <div ref={group} role="radiogroup" aria-label={label} className={`flex rounded-control bg-rock-100 p-1 ${className}`}>
       {options.map((option, i) => {
         const on = i === selected;
         return (
@@ -44,8 +44,8 @@ export function Segmented<T extends string>({ label, options, value, onChange, c
             tabIndex={on || (selected === -1 && i === 0) ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={e => onKeyDown(e, i)}
-            className={`min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold transition-colors ${
-              on ? 'bg-primary text-on-primary shadow-sm' : 'text-primary-hover hover:bg-rock-100'
+            className={`min-h-11 flex-1 cursor-pointer rounded-md px-3 text-small font-semibold transition-colors ${
+              on ? 'bg-surface-raised text-text shadow-sm' : 'text-text-muted hover:text-text'
             }`}
           >
             {option.label}

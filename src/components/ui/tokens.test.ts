@@ -19,12 +19,13 @@ it.each(Object.entries(surfaces))('text on %s meets AA', (_, bg) => {
   for (const fg of [c.text, c['text-muted'], c.danger, c.success, c['primary-hover']]) expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
 });
 
-it('button and tinted-badge pairs meet AA', () => {
+it('button, segmented, chip and badge pairs meet AA', () => {
   const pairs = [
     [c['on-primary'], c.primary],
     [c['on-primary'], c['primary-hover']],
     [c['on-primary'], c.danger],
-    [c['primary-hover'], c.rock[100]],
+    [c['text-muted'], c.rock[100]],
+    [c.alpine[700], c.alpine[50]],
     [c.alpine[900], c.alpine[100]],
     [c.rock[800], c.rock[100]],
   ];

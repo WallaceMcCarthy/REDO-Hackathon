@@ -9,7 +9,7 @@ export function Chip({ pressed, className = '', children, ...rest }: ChipProps) 
       {...rest}
       aria-pressed={pressed}
       className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-pill border px-4 text-small font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-        pressed ? 'border-primary bg-rock-100 text-primary-hover' : 'border-border-strong bg-surface-raised text-text hover:bg-surface-sunken'
+        pressed ? 'border-alpine-500 bg-alpine-50 text-alpine-700' : 'border-border bg-surface-raised text-text hover:border-rock-300'
       } ${className}`}
     >
       {pressed && (

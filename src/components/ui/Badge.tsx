@@ -8,7 +8,7 @@ type BadgeProps = { className?: string } & (
 const TONE = {
   sample: 'bg-alpine-100 text-alpine-900',
   sponsored: 'bg-rock-100 text-rock-800',
-  neutral: 'bg-surface-sunken text-text',
+  neutral: 'border border-border bg-surface-raised text-text',
 };
 const LABEL = { sample: 'Sample', sponsored: 'Sponsored', neutral: null };
 

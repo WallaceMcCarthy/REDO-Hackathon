@@ -4,7 +4,7 @@ const control =
   'w-full rounded-control border border-border-strong bg-surface-raised px-3.5 text-body text-text placeholder:text-text-muted disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-text-muted aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className = '', ...rest }, ref) {
-  return <input ref={ref} {...rest} className={`${control} min-h-12 ${className}`} />;
+  return <input ref={ref} {...rest} className={`${control} min-h-11 ${className}`} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className = '', rows = 4, ...rest }, ref) {
@@ -14,7 +14,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className = '', children, ...rest }, ref) {
   return (
     <span className="relative block">
-      <select ref={ref} {...rest} className={`${control} min-h-12 cursor-pointer appearance-none pr-10 ${className}`}>{children}</select>
+      <select ref={ref} {...rest} className={`${control} min-h-11 cursor-pointer appearance-none pr-10 ${className}`}>{children}</select>
       <svg viewBox="0 0 24 24" aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 size-5 -translate-y-1/2 text-text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 9l6 6 6-6" />
       </svg>

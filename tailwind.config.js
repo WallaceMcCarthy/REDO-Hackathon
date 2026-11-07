@@ -31,11 +31,11 @@ export default {
         focus: alpine[500],
       },
       fontSize: {
-        caption: ["0.8125rem", { lineHeight: "1.25rem" }],
+        caption: ["0.75rem", { lineHeight: "1rem" }],
         small: ["0.875rem", { lineHeight: "1.25rem" }],
         body: ["1rem", { lineHeight: "1.5rem" }],
         title: ["1.25rem", { lineHeight: "1.75rem" }],
-        heading: ["1.75rem", { lineHeight: "2.125rem" }],
+        heading: ["1.5rem", { lineHeight: "2rem" }],
         display: ["clamp(2.25rem, 6vw, 3.5rem)", { lineHeight: "1.1" }],
       },
       spacing: {
@@ -44,8 +44,8 @@ export default {
         section: "3rem",
       },
       borderRadius: {
-        control: "0.75rem",
-        card: "1rem",
+        control: "0.5rem",
+        card: "0.75rem",
         pill: "9999px",
       },
       boxShadow: {
