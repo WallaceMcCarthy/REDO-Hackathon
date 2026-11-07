@@ -33,7 +33,13 @@ export type Home = {
 const ROOT = new URL("../../", import.meta.url);
 const SERVICES = "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services";
 const MUNICIPAL = `${SERVICES}/UtahMunicipalBoundaries/FeatureServer/0`;
-const MAX_PER_TOWN = 60;
+// CONTRACT.md allows up to 150/town, but the 2MB file-size cap (checked below)
+// binds first at ~601 bytes/row observed: every town that has any homes at all
+// is source-constrained far above 60 (confirmed: all 40 non-gap towns hit the
+// old cap exactly), so raising this is a near-linear density increase until
+// the byte budget runs out. 80/town * 40 towns ~= 1.92MB, leaving headroom
+// under the 2MB assertion below.
+const MAX_PER_TOWN = 80;
 const FIELDS = ["OBJECTID", "COUNTY_NAME", "PARCEL_ID", "PARCEL_ADD", "PARCEL_CITY", "TOTAL_MKT_VALUE", "LAND_MKT_VALUE", "PROP_CLASS", "PRIMARY_RES", "HOUSE_CNT", "BLDG_SQFT", "BUILT_YR", "CURRENT_ASOF"];
 const residentialWhere = "UPPER(PROP_CLASS) IN ('RESIDENTIAL','SINGLE FAMILY') AND TOTAL_MKT_VALUE > 0 AND BLDG_SQFT > 0";
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -217,7 +223,7 @@ async function main() {
     await writeFile(new URL("data/listings/homes.json", ROOT), body);
     await writeFile(new URL("data/homes-provenance.json", ROOT), JSON.stringify({
       generatedAt: new Date().toISOString(), source: "https://gis.utah.gov/products/sgid/cadastre/parcels/", municipalSource: MUNICIPAL,
-      methodology: "Up to 60 improved residential assessor parcels per town; 4x4 municipal-extent grid, up to 150 source candidates per cell, centroid-in-municipality check, round-robin selection across occupied cells. If building sizes are absent, source year-built or improvement value must establish a building; unavailable sqft stays null. Excludes multi-unit records where unit count is known. This is a spatial sample of public records, not homes advertised for sale. year is CURRENT_ASOF snapshot year, not independently verified assessment tax year. Missing bedrooms are null. No owner data retrieved.",
+      methodology: `Up to ${MAX_PER_TOWN} improved residential assessor parcels per town; 4x4 municipal-extent grid, up to 150 source candidates per cell, centroid-in-municipality check, round-robin selection across occupied cells. If building sizes are absent, source year-built or improvement value must establish a building; unavailable sqft stays null. Excludes multi-unit records where unit count is known. This is a spatial sample of public records, not homes advertised for sale. year is CURRENT_ASOF snapshot year, not independently verified assessment tax year. Missing bedrooms are null. No owner data retrieved.`,
       count: homes.length, bytes, coverage,
     }, null, 2) + "\n");
   }
