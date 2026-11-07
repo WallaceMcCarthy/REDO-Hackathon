@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const NEW = ["population_growth", "net_migration", "owner_occupancy", "flood_risk", "wildfire_risk", "unemployment_rate"];
+const NEW = ["population_growth", "net_migration", "owner_occupancy", "flood_risk", "wildfire_risk", "unemployment_rate", "job_growth"];
 const CATEGORIES = ["cost", "safety", "environment", "outdoors", "transit", "culture", "education", "community"];
 const ids: string[] = JSON.parse(readFileSync("data/cities.json", "utf8")).map((c: { id: string }) => c.id);
 const BARRED = /race|racial|ethnic|age|family|household.?type|children|senior|youth/i;
