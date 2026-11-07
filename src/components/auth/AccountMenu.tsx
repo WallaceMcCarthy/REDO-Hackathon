@@ -24,7 +24,7 @@ export default function AccountMenu() {
 
   return (
     <div className="fixed right-3 top-3 z-40 flex items-center gap-2 text-sm">
-      <a href="#/roommates" className="rounded-full bg-white/90 px-3 py-1.5 font-medium shadow dark:bg-neutral-900/90">
+      <a href="#/roommates" className="hidden sm:inline-block rounded-full bg-white/90 px-3 py-1.5 font-medium shadow dark:bg-neutral-900/90">
         Roommates
       </a>
       {isLoading ? null : isAuthenticated ? (

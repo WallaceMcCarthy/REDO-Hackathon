@@ -35,6 +35,11 @@ export function applyPersonas(ids: string[]): CategoryWeights {
   return out;
 }
 
+// Scoring sums per metric, so extra cost metrics would raise Cost's share; hold it at the original three.
+const COST_METRICS_BASELINE = 3;
+
 export function toMetricWeights(categories: CategoryWeights, metrics: Metric[]): Weights {
-  return Object.fromEntries(metrics.map(m => [m.id, categories[m.category]]));
+  const costMetrics = metrics.filter(m => m.category === 'cost').length;
+  const costScale = Math.min(1, COST_METRICS_BASELINE / costMetrics);
+  return Object.fromEntries(metrics.map(m => [m.id, categories[m.category] * (m.category === 'cost' ? costScale : 1)]));
 }
