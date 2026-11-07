@@ -1,18 +1,27 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { defaultPrefs } from './prefs';
 import { openSignIn } from './components/auth/AccountMenu';
-import Account from './screens/Account';
-import AdvertiserDashboard from './components/ads/AdvertiserDashboard';
 import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
-import Messages from './screens/Messages';
-import Results from './screens/Results';
-import SavedPlaces from './screens/SavedPlaces';
-import { AppHeader, Button, EmptyState } from './components/ui';
+import { AppHeader, Button, EmptyState, Skeleton } from './components/ui';
 import SafeSectionBoundary from './components/SafeSectionBoundary';
-import TownDetail from './screens/TownDetail';
-import UiKit from './screens/UiKit';
 import type { Prefs } from './types';
+
+const loadResults = () => import('./screens/Results');
+const Results = lazy(loadResults);
+const Account = lazy(() => import('./screens/Account'));
+const AdvertiserDashboard = lazy(() => import('./components/ads/AdvertiserDashboard'));
+const Messages = lazy(() => import('./screens/Messages'));
+const SavedPlaces = lazy(() => import('./screens/SavedPlaces'));
+const TownDetail = lazy(() => import('./screens/TownDetail'));
+const UiKit = lazy(() => import('./screens/UiKit'));
+
+// A deploy removes the old hashed chunks, so a tab left open reloads once to pick up the new ones.
+window.addEventListener('vite:preloadError', () => {
+  if (sessionStorage.getItem('chunkReload')) return;
+  sessionStorage.setItem('chunkReload', '1');
+  window.location.reload();
+});
 
 const readHash = () => window.location.hash.replace(/^#\/?/, '');
 export const go = (path: string) => { window.location.hash = `/${path}`; };
@@ -41,6 +50,12 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
+  // Most visitors go on to results, so fetch the map after the landing page has painted.
+  useEffect(() => {
+    const warm = setTimeout(loadResults, 2000);
+    return () => clearTimeout(warm);
+  }, []);
+
   const cities = useCities();
   const town = route.match(/^town\/(.+)$/)?.[1];
   const [path, query] = route.split('?');
@@ -54,28 +69,30 @@ export default function App() {
   return (
     <div className={path === 'results' || isMessages ? 'flex h-dvh flex-col' : undefined}>
       {route !== 'ui' && <AppHeader route={route} />}
-      {route === 'ui' ? (
-        <UiKit />
-      ) : town ? (
-        <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
-      ) : route === 'account' ? (
-        <Account onBack={() => go('results')} onSignIn={openSignIn} />
-      ) : route === 'saved' ? (
-        <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
-      ) : isMessages ? (
-        <SafeSectionBoundary key={route} fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button href="#/messages">Back to messages</Button>} />}>
-          <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
-        </SafeSectionBoundary>
-      ) : route === 'advertise' || path === 'ads' ? (
-        <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
-      ) : path === 'results' ? (
-        <Results
-          prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')}
-          view={!homesTown && (view === 'apartments' || view === 'areas') ? view : 'homes'} townFilter={homesTown}
-        />
-      ) : (
-        <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go(prefs.budget.maxRent !== undefined ? 'results?view=apartments' : 'results')} />
-      )}
+      <Suspense fallback={<div aria-busy="true" className="flex min-h-64 flex-1 p-gutter"><Skeleton className="flex-1" /></div>}>
+        {route === 'ui' ? (
+          <UiKit />
+        ) : town ? (
+          <TownDetail id={town} prefs={prefs} onBack={() => go('results')} />
+        ) : route === 'account' ? (
+          <Account onBack={() => go('results')} onSignIn={openSignIn} />
+        ) : route === 'saved' ? (
+          <SavedPlaces onBack={() => go('results')} onOpenTown={id => go(`town/${id}`)} />
+        ) : isMessages ? (
+          <SafeSectionBoundary key={route} fallback={<EmptyState className="m-gutter" title="That conversation is not available" action={<Button href="#/messages">Back to messages</Button>} />}>
+            <Messages conversationId={path.split('/')[1]} onSignIn={openSignIn} onBack={() => go('results')} />
+          </SafeSectionBoundary>
+        ) : route === 'advertise' || path === 'ads' ? (
+          <AdvertiserDashboard cities={cities ?? []} onBack={() => go('results')} />
+        ) : path === 'results' ? (
+          <Results
+            prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')}
+            view={!homesTown && (view === 'apartments' || view === 'areas') ? view : 'homes'} townFilter={homesTown}
+          />
+        ) : (
+          <Quiz prefs={prefs} setPrefs={setPrefs} onDone={() => go(prefs.budget.maxRent !== undefined ? 'results?view=apartments' : 'results')} />
+        )}
+      </Suspense>
     </div>
   );
 }
