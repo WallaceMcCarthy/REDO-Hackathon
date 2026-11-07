@@ -7,6 +7,8 @@ const dusk = "#6e625a";
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  // The site has no dark theme. The default "media" let dark: classes follow the OS and put ink text on near-black buttons.
+  darkMode: "selector",
   theme: {
     extend: {
       colors: {
@@ -21,6 +23,8 @@ export default {
         "surface-sunken": rock[50],
         border: rock[100],
         "border-strong": dusk,
+        // Unfilled slider track and ticks: 3:1 on every surface, and lighter than primary so the fill reads.
+        track: "#8f8378",
         text: ink,
         "text-muted": dusk,
         primary: rock[600],
