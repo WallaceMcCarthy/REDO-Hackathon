@@ -233,7 +233,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
     <div role="status" className="rounded-xl border border-dashed border-rock-300 p-6 text-center">
       <h2 className="font-display text-xl text-ink">No areas match</h2>
       <p className="mt-1 text-sm text-dusk">{filtered ? 'Nothing fits every limit at once. Loosen one to see areas again.' : 'No areas came back for these settings.'}</p>
-      {filtered && <button type="button" onClick={() => setPrefs({ ...prefs, filters: {} })} className={`${BTN_PRIMARY} mt-4`}>Remove limits</button>}
+      {filtered && <button type="button" className={`${BTN_PRIMARY} mt-4 transition-colors duration-200`} onClick={() => setPrefs({ ...prefs, filters: {} })}>Remove limits</button>}
     </div>
   ) : (
     <>
@@ -263,7 +263,7 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           <Segmented value={view} onChange={changeView} />
           <FilterBar view={view} budget={budget} onBudget={setBudget} sort={sort} onSort={setSort} />
           <PrioritiesPopover prefs={prefs} setPrefs={setPrefs} metrics={metrics} />
-          <button type="button" onClick={onRestart} className={`ml-auto hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
+          <button type="button" onClick={onRestart} className={`ml-auto hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 transition-colors duration-200 lg:inline ${FOCUS}`}>
             Change my answers
           </button>
           <a href="#/advertise" className={`hidden rounded text-sm font-semibold text-alpine-700 underline underline-offset-2 lg:inline ${FOCUS}`}>
@@ -272,8 +272,9 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart, view, 
           <div role="group" aria-label="List or map" className="ml-auto inline-flex rounded-lg bg-rock-100 p-1 lg:hidden">
             {(['list', 'map'] as const).map(p => (
               <button
-                key={p} type="button" aria-pressed={pane === p} onClick={() => setPane(p)}
-                className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-semibold capitalize ${FOCUS} ${pane === p ? 'bg-white text-ink shadow-sm' : 'text-dusk'}`}
+                key={p} type="button" aria-pressed={pane === p}
+                className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-semibold capitalize transition-colors duration-200 ${FOCUS} ${pane === p ? 'bg-white text-ink shadow-sm' : 'text-dusk'}`}
+                onClick={() => setPane(p)}
               >
                 {p}
               </button>

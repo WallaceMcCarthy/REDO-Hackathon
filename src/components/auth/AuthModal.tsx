@@ -6,7 +6,7 @@ type Mode = 'signIn' | 'signUp';
 
 const MIN_PASSWORD = 8;
 
-const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold transition-colors';
+const TAB = 'min-h-11 flex-1 cursor-pointer rounded-pill px-3 text-small font-semibold';
 
 const SIGN_IN_FAILED = 'Wrong email or password. Check both and try again. After several failed tries, sign-in pauses for a while.';
 
@@ -109,8 +109,8 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
               key={value}
               type="button"
               aria-pressed={mode === value}
+              className={`${TAB} transition-colors duration-200 ${mode === value ? 'bg-surface-raised text-text shadow-raised' : 'text-text-muted hover:text-text'}`}
               onClick={() => switchMode(value)}
-              className={`${TAB} ${mode === value ? 'bg-surface-raised text-text shadow-raised' : 'text-text-muted hover:text-text'}`}
             >
               {label}
             </button>

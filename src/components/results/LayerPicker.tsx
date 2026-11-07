@@ -34,8 +34,9 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
     <div className={`absolute right-2 top-14 z-[1000] space-y-1.5 text-ink ${dialOpen ? 'w-44 sm:w-60' : 'w-36'}`}>
       <div className="rounded-xl border border-rock-100 bg-sand/95 p-1.5 shadow-sm">
         <button
-          type="button" aria-expanded={dialOpen} onClick={() => setDialOpen(open => !open)}
-          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 px-1 text-left sm:hidden"
+          type="button" aria-expanded={dialOpen}
+          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 px-1 text-left transition-colors sm:hidden"
+          onClick={() => setDialOpen(open => !open)}
         >
           <span className="truncate text-xs font-semibold text-ink">{selected?.label ?? 'Map layer'}</span>
           <span aria-hidden="true" className="text-[10px] text-dusk">{dialOpen ? '▲' : '▼'}</span>
@@ -61,8 +62,8 @@ export default function LayerPicker({ metrics, selected, onSelect }: Props) {
                 type="button"
                 role="option"
                 aria-selected={active}
-                onClick={() => onSelect(option.id)}
                 className={`my-1 flex min-h-9 w-full snap-center items-center justify-between rounded-lg px-2 text-left text-xs transition ${active ? 'bg-alpine-700 font-semibold text-white shadow' : 'text-ink hover:bg-rock-100'}`}
+                onClick={() => onSelect(option.id)}
               >
                 <span className="truncate">{option.label}</span>
                 {option.category && <span className={`ml-2 text-[9px] uppercase ${active ? 'text-white/75' : 'text-dusk'}`}>{option.category}</span>}

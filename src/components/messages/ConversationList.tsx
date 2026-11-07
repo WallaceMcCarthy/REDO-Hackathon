@@ -84,10 +84,10 @@ export default function ConversationList({ items, activeId, onSelect }: Conversa
               <button
                 key={item._id}
                 type="button"
-                onClick={() => onSelect(item._id)}
                 className={`flex w-full cursor-pointer items-start gap-3 p-3 text-left transition-colors min-h-[56px] focus-visible:outline-2 focus-visible:outline-alpine-500 ${
                   isActive ? 'bg-alpine-50/70 border-l-4 border-alpine-700' : 'hover:bg-rock-50'
                 }`}
+                onClick={() => onSelect(item._id)}
               >
                 {/* Avatar */}
                 <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rock-100 font-semibold text-rock-800">
