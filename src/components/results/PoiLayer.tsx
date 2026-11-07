@@ -1,15 +1,14 @@
 import * as maplibregl from 'maplibre-gl';
 import type { Point } from 'geojson';
 import { useEffect } from 'react';
+import { POI_VISUALS, POI_VISUAL_BY_KIND, type PoiKind } from './poiVisuals';
 
-export type PoiKind = 'restaurant' | 'trail' | 'ski' | 'school';
+export type { PoiKind } from './poiVisuals';
 type PoiPoint = [kind: PoiKind, name: string, lat: number, lng: number];
 type PoiFile = { version: 1; sources: Record<PoiKind, string>; points: PoiPoint[] };
 
 const SOURCE_ID = 'nearby-pois';
-const KINDS: PoiKind[] = ['restaurant', 'trail', 'ski', 'school'];
-const SHAPES: Record<PoiKind, string> = { restaurant: '◆', trail: '▲', ski: '●', school: '■' };
-const COLORS: Record<PoiKind, string> = { restaurant: '#be4b32', trail: '#28786f', ski: '#3b62a3', school: '#76509b' };
+const KINDS = POI_VISUALS.map(visual => visual.kind);
 const layerId = (kind: PoiKind) => `nearby-pois-${kind}`;
 
 type Props = { map: maplibregl.Map | null; enabled: ReadonlySet<PoiKind> };
@@ -49,17 +48,18 @@ export default function PoiLayer({ map, enabled }: Props) {
           },
         });
         for (const kind of KINDS) {
+          const visual = POI_VISUAL_BY_KIND[kind];
           map.addLayer({
             id: layerId(kind), type: 'symbol', source: SOURCE_ID, minzoom: kind === 'ski' ? 7 : 10,
             filter: ['==', ['get', 'kind'], kind],
             layout: {
               visibility: enabled.has(kind) ? 'visible' : 'none',
               // The map font has no star glyph. Ski resorts are few, so they also carry their name.
-              'text-field': kind === 'ski' ? ['concat', SHAPES[kind], ' ', ['get', 'name']] : SHAPES[kind], 'text-font': ['Noto Sans Bold'],
+              'text-field': kind === 'ski' ? ['concat', visual.shape, ' ', ['get', 'name']] : visual.shape, 'text-font': ['Noto Sans Bold'],
               'text-size': ['interpolate', ['linear'], ['zoom'], 10, 15, 14, 21],
               'text-allow-overlap': kind === 'ski', 'text-padding': 3,
             },
-            paint: { 'text-color': COLORS[kind], 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
+            paint: { 'text-color': visual.color, 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
           });
         }
         map.on('mousemove', onMove);
