@@ -24,6 +24,10 @@ const SCREENS: { name: string; path: string; ready: (page: Page) => ReturnType<P
   { name: 'ui-kit', path: '/#/ui', ready: p => p.locator('main') },
 ];
 
+// Each size runs in both projects, and the shot worth keeping is the one on the matching device.
+const shoot = (page: Page, file: string, project: string, size: string) =>
+  SHOTS && project === (size === '1400' ? 'desktop' : 'mobile') ? page.screenshot({ path: `${SHOTS}/${file}.png` }) : undefined;
+
 const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
 for (const size of SIZES) {
@@ -31,15 +35,15 @@ for (const size of SIZES) {
     test.use({ viewport: { width: size.width, height: size.height } });
 
     for (const screen of SCREENS) {
-      test(`${screen.name} has no sideways scroll`, async ({ page }) => {
+      test(`${screen.name} has no sideways scroll`, async ({ page }, info) => {
         await page.goto(screen.path);
         await expect(screen.ready(page).first()).toBeVisible({ timeout: 20_000 });
         expect(await noSideScroll(page), `${screen.name} overflow px`).toBeLessThanOrEqual(0);
-        if (SHOTS) await page.screenshot({ path: `${SHOTS}/${screen.name}-${size.name}.png` });
+        await shoot(page, `${screen.name}-${size.name}`, info.project.name, size.name);
       });
     }
 
-    test('Results fills the screen under the header with one scroller', async ({ page }) => {
+    test('Results fills the screen under the header with one scroller', async ({ page }, info) => {
       await page.goto('/#/results');
       await expect(page.getByText(/Showing \d+ homes/)).toBeVisible({ timeout: 20_000 });
       const pageScroll = await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
@@ -51,7 +55,7 @@ for (const size of SIZES) {
       const map = (await page.locator('canvas.maplibregl-canvas').boundingBox())!;
       expect(map.y, 'map starts below the header').toBeGreaterThanOrEqual(header.y + header.height);
       expect(map.y + map.height, 'map ends inside the viewport').toBeLessThanOrEqual(size.height + 1);
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/results-map-${size.name}.png` });
+      await shoot(page, `results-map-${size.name}`, info.project.name, size.name);
     });
   });
 }

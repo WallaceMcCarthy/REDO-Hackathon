@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useConvexAuth } from 'convex/react';
 import { ConvexError } from 'convex/values';
+import { openSignIn } from '../auth/AccountMenu';
 import { useCreateCampaign, useMyCampaigns } from '../../data/adsHooks';
 import type { City } from '../../types';
 import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Segmented, Select, Skeleton, Textarea } from '../ui';
@@ -16,6 +18,7 @@ interface AdvertiserDashboardProps {
 }
 
 export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashboardProps) {
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const campaigns = useMyCampaigns();
   const createCampaign = useCreateCampaign();
 
@@ -90,7 +93,9 @@ export default function AdvertiserDashboard({ cities, onBack }: AdvertiserDashbo
         <section aria-labelledby="campaigns-heading" className="min-w-0 space-y-stack">
           <h2 id="campaigns-heading" className="font-display text-title text-text">Your campaigns</h2>
 
-          {campaigns === undefined ? (
+          {!isLoading && !isAuthenticated ? (
+            <EmptyState title="Sign in to see your campaigns" description="You need an account to create and track campaigns." action={<Button onClick={openSignIn}>Sign in</Button>} />
+          ) : campaigns === undefined ? (
             <div aria-busy="true" className="space-y-3">
               {[0, 1].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
             </div>

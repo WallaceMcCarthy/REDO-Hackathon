@@ -135,6 +135,8 @@ test.describe('Utah Fit', () => {
     await showList(page);
     await openControls(page);
     await setRange(page, /Max commute/, 'max');
+    // On phones the Priorities sheet covers the List/Map toggle until it is dismissed.
+    await page.keyboard.press('Escape');
     await showList(page);
     await expect(cards(page)).toHaveCount(TOWNS);
     await showMap(page);

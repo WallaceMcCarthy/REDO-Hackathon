@@ -244,8 +244,8 @@ test('roommates: match, request, accept, contact only after accept', async ({ br
   const fill = async (page: Page, bio: string, contact: string) => {
     await page.goto('/#/roommates');
     await expect(page.getByRole('heading', { name: 'Join the roommate finder' })).toBeVisible();
-    await page.getByLabel(MATE_TOWN, { exact: true }).check();
-    await page.getByLabel('Quiet').check();
+    await page.getByRole('button', { name: MATE_TOWN, exact: true }).click();
+    await page.getByRole('button', { name: 'Quiet' }).click();
     await page.getByLabel(/Short bio/).fill(bio);
     await page.getByLabel(/^Contact/).fill(contact);
     await page.getByRole('button', { name: 'Create profile' }).click();
@@ -380,10 +380,61 @@ test('delete account needs DELETE, removes the login and signs out', async ({ br
   await expect(page.getByRole('heading', { name: 'Your account has been deleted' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
 
-  await page.reload();
+  await page.goto('/#/results');
   await signIn(page, email, PASSWORD);
   await expect(modal(page).getByText('Wrong email or password.')).toBeVisible();
   expect(w.errors.filter(e => !/InvalidAccountId|InvalidSecret|Invalid credentials/.test(e))).toEqual([]);
+  await ctx.close();
+});
+
+test('signed-in screens have no sideways scroll', async ({ browser }, info) => {
+  const { ctx, page } = await newUser(browser);
+  const shots = process.env.E2E_SHOTS;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(modal(page)).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/sign-in-modal-${info.project.name}.png` });
+  await modal(page).getByRole('button', { name: 'Close' }).click();
+  await signUp(page, `s-${RUN}@example.test`);
+
+  await page.goto(`/#/town/${TOWN}`);
+  await page.getByRole('button', { name: 'Save to my places' }).first().click();
+  await expect(page.getByRole('button', { name: 'Remove from saved places' }).first()).toBeVisible();
+
+  const screens: [string, string, RegExp | string][] = [
+    ['account', '/#/account', 'Your Profile'],
+    ['saved', '/#/saved', 'My saved places'],
+    ['roommates', '/#/roommates', 'Join the roommate finder'],
+    ['advertise', '/#/advertise', 'Advertiser dashboard'],
+    ['town', `/#/town/${TOWN}`, `Ask the locals in ${TOWN_NAME}`],
+  ];
+  for (const [name, url, heading] of screens) {
+    await page.goto(url);
+    await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${name} overflow px`).toBeLessThanOrEqual(0);
+    if (shots) await page.screenshot({ path: `${shots}/signed-in-${name}-${info.project.name}.png`, fullPage: name !== 'town' });
+  }
+  await page.goto('/#/account');
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await page.getByLabel('Type DELETE to confirm').scrollIntoViewIfNeeded();
+  if (shots) await page.screenshot({ path: `${shots}/signed-in-delete-confirm-${info.project.name}.png`, fullPage: true });
+  await ctx.close();
+});
+
+test('advertiser form shows validation text, never a raw Convex error', async ({ browser }) => {
+  const { ctx, page } = await newUser(browser);
+  await page.goto('/#/advertise');
+  await expect(page.getByText('Sign in to see your campaigns')).toBeVisible();
+  await signUp(page, `ad-${RUN}@example.test`);
+  await page.goto('/#/advertise');
+  await expect(page.getByText('No campaigns yet')).toBeVisible();
+  await page.getByLabel('Headline').fill('Test campaign');
+  await page.getByLabel('Description').fill('A short pitch');
+  await page.getByLabel(/Destination URL/).fill('http://example.test');
+  await page.locator('main form').getByRole('button', { name: /checkout|campaign|create/i }).click();
+  await expect(page.getByText('Destination URL must use HTTPS protocol (https://)')).toBeVisible();
+  await expect(page.getByText(/\[CONVEX|Uncaught|Server Error/)).toHaveCount(0);
   await ctx.close();
 });
 
@@ -394,7 +445,7 @@ test('roommate profile form shows readable errors', async ({ browser }) => {
   await page.getByLabel(/^Contact/).fill('x@example.test');
   await page.getByRole('button', { name: 'Create profile' }).click();
   await expect(page.getByRole('alert')).toHaveText('Pick 1 to 10 towns.');
-  await page.getByLabel(TOWN_NAME, { exact: true }).check();
+  await page.getByRole('button', { name: TOWN_NAME, exact: true }).click();
   await page.getByLabel('Budget min ($/mo)').fill('2000');
   await page.getByRole('button', { name: 'Create profile' }).click();
   await expect(page.getByRole('alert')).toContainText("Minimum budget can't be above maximum.");

@@ -35,6 +35,11 @@ export function applyPersonas(ids: string[]): CategoryWeights {
   return out;
 }
 
+// Sliders were balanced with three Cost metrics. Extra affordability metrics refine Cost, so they share that weight instead of adding to it.
+const COST_METRICS_BASELINE = 3;
+
 export function toMetricWeights(categories: CategoryWeights, metrics: Metric[]): Weights {
-  return Object.fromEntries(metrics.map(m => [m.id, categories[m.category]]));
+  const costMetrics = metrics.filter(m => m.category === 'cost').length;
+  const costScale = Math.min(1, COST_METRICS_BASELINE / costMetrics);
+  return Object.fromEntries(metrics.map(m => [m.id, categories[m.category] * (m.category === 'cost' ? costScale : 1)]));
 }
