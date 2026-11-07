@@ -46,6 +46,7 @@ export default defineSchema({
     source: v.string(),
     sourceUrl: v.string(),
     year: v.number(),
+    lastUpdated: v.optional(v.string()),
     values: v.record(v.string(), v.number()),
   }).index("by_metricId", ["id"]),
   listings: defineTable({

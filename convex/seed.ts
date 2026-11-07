@@ -46,6 +46,7 @@ export const replaceAll = internalMutation({
         source: v.string(),
         sourceUrl: v.string(),
         year: v.number(),
+        lastUpdated: v.optional(v.string()),
         values: v.record(v.string(), v.number()),
       })
     ),

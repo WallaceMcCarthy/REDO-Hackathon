@@ -38,6 +38,11 @@ const ALPINE_500_DOT = ALPINE_500;
 // Topmost first, so a listing wins over the town dot beneath it.
 const HIT_LAYERS = ['listings-clusters', 'listings-circle', 'towns-circle', 'towns-dots'];
 const TOWN_MUTED = '#6e625a';
+export const AREA_MAP_LABEL_LAYOUT = {
+  townNamesVisibility: 'none',
+  ranksAllowOverlap: false,
+  ranksIgnorePlacement: false,
+} as const;
 
 function priceLabel(l: Listing): string {
   if (l.kind === 'home') {
@@ -70,11 +75,19 @@ function applyFocus(map: maplibregl.Map, focus: 'listings' | 'towns') {
   map.setPaintProperty('towns-dots', 'circle-color', towns ? ALPINE_500_DOT : TOWN_MUTED);
   map.setPaintProperty('towns-dots', 'circle-opacity', towns ? 1 : 0.8);
   map.setPaintProperty('towns-dots', 'circle-radius', hoverCase(towns ? 9 : 7, towns ? 6 : 4.5));
+  // Positron already labels towns. Hiding our copy in Areas mode avoids doubled names when zoomed in.
+  map.setLayoutProperty('towns-label', 'visibility', towns ? AREA_MAP_LABEL_LAYOUT.townNamesVisibility : 'visible');
   map.setPaintProperty('towns-label', 'text-color', towns ? INK : TOWN_MUTED);
 }
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const hoverCase = (on: unknown, off: unknown) => ['case', ['boolean', ['feature-state', 'hover'], false], on, off] as maplibregl.ExpressionSpecification;
+const townPinRadius: maplibregl.ExpressionSpecification = [
+  'interpolate', ['linear'], ['zoom'],
+  5, ['case', ['<=', ['get', 'rank'], 3], 4.5, 3.5],
+  8, ['case', ['<=', ['get', 'rank'], 3], 14, 10],
+  10, ['get', 'r'],
+];
 
 export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHover, onOpen, listings, onSelectListing, selectedListingId, focus = 'listings', selectedTown }: Props) {
   const [layerId, setLayerId] = useState('');
@@ -154,7 +167,9 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         id: 'towns-circle', type: 'circle', source: 'towns', filter: ['<=', ['get', 'rank'], NUMBERED_PINS],
         layout: { 'circle-sort-key': ['-', 100, ['get', 'rank']], visibility: 'none' },
         paint: {
-          'circle-radius': hoverCase(['*', ['get', 'r'], 1.25], ['get', 'r']),
+          // At the Utah-wide zoom the Wasatch Front towns are only pixels apart. Start compact,
+          // then grow to the full pin size as geographic separation becomes visible.
+          'circle-radius': hoverCase(['*', townPinRadius, 1.25], townPinRadius),
           'circle-color': ['case', ['<=', ['get', 'rank'], 3], ROCK_500, ALPINE_700],
           'circle-stroke-color': hoverCase(INK, SAND), 'circle-stroke-width': hoverCase(3, 2),
         },
@@ -163,8 +178,11 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
         id: 'towns-rank', type: 'symbol', source: 'towns', filter: ['<=', ['get', 'rank'], NUMBERED_PINS],
         layout: {
           'text-field': ['to-string', ['get', 'rank']], 'text-font': ['Noto Sans Bold'],
-          'text-size': ['case', ['<=', ['get', 'rank'], 3], 16, 12],
-          'text-allow-overlap': true, 'text-ignore-placement': true,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 5, 9, 8, ['case', ['<=', ['get', 'rank'], 3], 16, 12]],
+          // Let MapLibre suppress a rank when two pins truly cannot be separated. Forced overlap
+          // produced unreadable strings such as "9 1 2" over Salt Lake County.
+          'text-allow-overlap': AREA_MAP_LABEL_LAYOUT.ranksAllowOverlap,
+          'text-ignore-placement': AREA_MAP_LABEL_LAYOUT.ranksIgnorePlacement,
           'symbol-sort-key': ['-', 100, ['get', 'rank']], visibility: 'none',
         },
         paint: { 'text-color': '#ffffff' },

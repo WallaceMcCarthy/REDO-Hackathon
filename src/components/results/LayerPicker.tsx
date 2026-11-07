@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { CATEGORIES } from '../../types';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { Metric } from '../../types';
 import { rampCss } from './heatmap';
 
@@ -7,29 +6,61 @@ const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: Ma
 
 type Props = { metrics: Metric[]; selected: Metric | undefined; onSelect: (id: string) => void };
 
+export const stepLayer = (ids: string[], current: string, delta: -1 | 1) => {
+  const index = Math.max(0, ids.indexOf(current));
+  return ids[Math.max(0, Math.min(ids.length - 1, index + delta))] ?? '';
+};
+
 export default function LayerPicker({ metrics, selected, onSelect }: Props) {
   // Phone maps are short, so the long note starts folded there. The same pattern as the controls on the Results screen.
   const [aboutOpen] = useState(() => window.matchMedia('(min-width: 640px)').matches);
   const nums = selected ? Object.values(selected.values) : [];
+  const dialRef = useRef<HTMLDivElement>(null);
+  const options = useMemo(() => [{ id: '', label: 'No heatmap', category: '' }, ...metrics.map(metric => ({ id: metric.id, label: metric.label, category: metric.category }))], [metrics]);
+  const ids = options.map(option => option.id);
+
+  useEffect(() => {
+    dialRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'center' });
+  }, [selected?.id]);
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    onSelect(stepLayer(ids, selected?.id ?? '', event.key === 'ArrowDown' ? 1 : -1));
+  };
   return (
     <div className="absolute right-2 top-14 z-[1000] w-44 sm:w-60 space-y-1.5 text-ink">
-      <label className="block rounded-lg border border-rock-100 bg-sand/95 px-2 py-1 shadow-sm">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-dusk">Map layer</span>
-        <select
-          value={selected?.id ?? ''} onChange={e => onSelect(e.target.value)}
-          className="w-full bg-transparent text-sm font-semibold focus-visible:outline-2 focus-visible:outline-alpine-500"
+      <div className="rounded-xl border border-rock-100 bg-sand/95 p-1.5 shadow-sm">
+        <div className="flex items-center justify-between px-1 pb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-dusk">Map layer</span>
+          <span className="text-[10px] text-dusk">Scroll to choose</span>
+        </div>
+        <div
+          ref={dialRef}
+          role="listbox"
+          aria-label="Map heatmap layer"
+          tabIndex={0}
+          onKeyDown={onKeyDown}
+          className="max-h-28 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-lg bg-white/70 px-1 py-8 [scrollbar-width:thin] sm:max-h-40"
         >
-          <option value="">None</option>
-          {CATEGORIES.map(cat => {
-            const group = metrics.filter(m => m.category === cat);
-            return group.length ? (
-              <optgroup key={cat} label={cat[0].toUpperCase() + cat.slice(1)}>
-                {group.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </optgroup>
-            ) : null;
+          {options.map(option => {
+            const active = option.id === (selected?.id ?? '');
+            return (
+              <button
+                key={option.id || 'none'}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => onSelect(option.id)}
+                className={`my-1 flex min-h-9 w-full snap-center items-center justify-between rounded-lg px-2 text-left text-xs transition ${active ? 'bg-alpine-700 font-semibold text-white shadow' : 'text-ink hover:bg-rock-100'}`}
+              >
+                <span className="truncate">{option.label}</span>
+                {option.category && <span className={`ml-2 text-[9px] uppercase ${active ? 'text-white/75' : 'text-dusk'}`}>{option.category}</span>}
+              </button>
+            );
           })}
-        </select>
-      </label>
+        </div>
+      </div>
       {selected && nums.length > 0 && (
         <div className="rounded-lg border border-rock-100 bg-sand/95 px-2 py-1.5 text-[11px] leading-snug shadow-sm">
           <p className="hidden font-semibold sm:block">{selected.label}</p>
