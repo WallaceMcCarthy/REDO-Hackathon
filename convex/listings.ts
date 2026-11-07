@@ -1,6 +1,28 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { bestListingsForTown, recommendListings, type Listing } from "./lib/listings";
+import { searchListings } from "./lib/listingSearch";
+
+/** Homes-first browsing. Budget caps apply to source estimates, not asking prices. */
+export const search = query({
+  args: {
+    weights: v.record(v.string(), v.number()),
+    kind: v.union(v.literal("home"), v.literal("apartment")),
+    filters: v.optional(v.object({ maxHomeValue: v.optional(v.number()), maxCommuteMinutes: v.optional(v.number()) })),
+    maxValue: v.optional(v.number()),
+    maxRent: v.optional(v.number()),
+    cityIds: v.optional(v.array(v.string())),
+    sort: v.optional(v.union(v.literal("fit"), v.literal("price_asc"), v.literal("newest"))),
+    offset: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const [cities, metrics, listings] = await Promise.all([
+      ctx.db.query("cities").collect(), ctx.db.query("metrics").collect(), ctx.db.query("listings").collect(),
+    ]);
+    return searchListings({ cities, metrics, listings }, args);
+  },
+});
 
 /** Listings inside one town, sorted by fit (cheapest first within budget). */
 export const forTown = query({

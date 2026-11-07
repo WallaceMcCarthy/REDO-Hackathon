@@ -65,7 +65,7 @@ export default function AdsSandboxCheckout({ onDone }: AdsSandboxCheckoutProps) 
           <button
             type="button"
             onClick={onDone}
-            className="w-full cursor-pointer rounded-full bg-purple-700 py-2.5 text-xs font-bold text-white hover:bg-purple-800 shadow-sm"
+            className="w-full inline-flex min-h-[44px] items-center justify-center cursor-pointer rounded-full bg-purple-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-800 shadow-sm focus-visible:outline-2 focus-visible:outline-purple-500"
           >
             Return to Dashboard
           </button>
