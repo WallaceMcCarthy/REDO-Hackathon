@@ -34,10 +34,12 @@ type Props = { rows: Row[]; hovered: string | null; onHover: (id: string | null)
 
 /** Tracks whether a zoom is in flight so pins sliding under a still cursor do not fire hover. */
 function ZoomGate({ zooming }: { zooming: { current: boolean } }) {
-  useMapEvents({
+  const map = useMapEvents({
     zoomstart: () => { zooming.current = true; },
     zoomend: () => { zooming.current = false; },
   });
+  // The opening fit stays fractional so Utah fills the frame. After that a pinch moves whole levels: at 0.25 steps the same pinch took 6x longer.
+  useEffect(() => { map.options.zoomSnap = 1; }, [map]);
   return null;
 }
 
@@ -84,7 +86,7 @@ export default memo(function ResultsMap({ rows, hovered, onHover, onOpen }: Prop
   return (
     <MapContainer
       bounds={UTAH_BOUNDS} boundsOptions={BOUNDS_OPTIONS} minZoom={5}
-      zoomSnap={0.5} zoomDelta={1} wheelPxPerZoomLevel={120}
+      zoomSnap={0.25} zoomDelta={1}
       className="size-full bg-alpine-50" scrollWheelZoom
     >
       <ZoomGate zooming={zooming} />
