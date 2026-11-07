@@ -1,4 +1,5 @@
-import { useAction, useConvexAuth, useQuery } from 'convex/react';
+import { useAction, useConvexAuth } from 'convex/react';
+import { useResilientQuery as useQuery } from './resilient';
 import { api } from '../../convex/_generated/api';
 
 export function usePreferenceAssistant() {

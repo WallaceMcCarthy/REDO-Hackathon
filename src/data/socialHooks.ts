@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { useMutation, useQuery } from 'convex/react';
+import { useResilientQuery as useQuery } from './resilient';
+import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { CommentItem, CommentTargetType, SavedListingItem, UserProfile } from '../components/social/types';
 

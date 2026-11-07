@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAction, useQuery } from 'convex/react';
+import { useResilientQuery as useQuery } from '../../data/resilient';
+import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 
 export interface ZillowPreview {

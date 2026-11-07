@@ -1,33 +1,10 @@
-import { Component, type ReactNode } from 'react';
-
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-}
-
-interface State {
-  failed: boolean;
-}
+import type { ReactNode } from 'react';
+import RetryBoundary from './RetryBoundary';
 
 /**
  * Protects subcomponents (like comments or listings) from crashing parent screens
- * when backend functions are pending deployment or seeding.
+ * when backend functions are pending deployment or seeding. Retries silently first.
  */
-export default class SafeSectionBoundary extends Component<Props, State> {
-  state: State = { failed: false };
-
-  static getDerivedStateFromError(): State {
-    return { failed: true };
-  }
-
-  componentDidCatch(error: unknown) {
-    console.warn('SafeSectionBoundary caught error:', error);
-  }
-
-  render() {
-    if (this.state.failed) {
-      return this.props.fallback ?? null;
-    }
-    return this.props.children;
-  }
+export default function SafeSectionBoundary({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+  return <RetryBoundary fallback={fallback}>{children}</RetryBoundary>;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from 'convex/react';
+import { useResilientQuery as useQuery } from '../../data/resilient';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
