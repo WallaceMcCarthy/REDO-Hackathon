@@ -24,6 +24,8 @@ export const PERSONAS: Persona[] = [
 
 export const defaultPrefs = (): Prefs => ({ categories: flat(2), filters: {}, budget: {} });
 
+export const isRenting = (prefs: Prefs) => prefs.budget.mode === 'rent' || (prefs.budget.mode === undefined && prefs.budget.maxRent !== undefined);
+
 export const isDefaultPrefs = (prefs: Prefs) => CATEGORIES.every(c => prefs.categories[c] === 2);
 
 const PREFS_KEY = 'utahFitPrefs';

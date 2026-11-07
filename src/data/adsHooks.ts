@@ -17,7 +17,7 @@ export interface CampaignRecord {
   cityId?: string;
   startsAt: number;
   endsAt: number;
-  status: 'pending_payment' | 'active' | 'expired';
+  status: 'pending_payment' | 'pending_review' | 'active' | 'expired';
   redoPaymentId?: string;
   impressions: number;
   clicks: number;
@@ -51,6 +51,15 @@ export function useMyCampaigns(): CampaignRecord[] | undefined {
   // The query throws for signed-out visitors, which would take the whole app down.
   const result = useQuery(queryFn, queryFn && isAuthenticated ? {} : 'skip');
   return result as CampaignRecord[] | undefined;
+}
+
+export function useDeleteCampaign() {
+  const mutationFn = (api as any).ads?.deleteCampaign;
+  const mutate = useMutation(mutationFn ?? (() => Promise.resolve()));
+  return useCallback(async (campaignId: string) => {
+    if (!mutationFn) return;
+    await mutate({ campaignId: campaignId as any });
+  }, [mutate, mutationFn]);
 }
 
 export interface CampaignDailyStat {

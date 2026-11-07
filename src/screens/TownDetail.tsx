@@ -8,7 +8,7 @@ import CommentsThread from '../components/social/CommentsThread';
 import SafeSectionBoundary from '../components/SafeSectionBoundary';
 import { Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { useCities, useMetrics, useRank } from '../data/hooks';
-import { CATEGORY_LABELS, isDefaultPrefs, toMetricWeights } from '../prefs';
+import { CATEGORY_LABELS, isDefaultPrefs, isRenting, toMetricWeights } from '../prefs';
 import { CATEGORIES, type Prefs } from '../types';
 
 const BackButton = ({ onBack }: { onBack: () => void }) => (
@@ -47,6 +47,7 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
     );
   }
 
+  const renting = isRenting(prefs);
   const idx = ranked.findIndex(r => r.cityId === id);
   const score = ranked[idx];
   const groups = CATEGORIES.map(category => ({ category, items: metrics.filter(m => m.category === category) })).filter(g => g.items.length);
@@ -59,7 +60,7 @@ export default function TownDetail({ id, prefs, onBack }: { id: string; prefs: P
         <PageHeader
           title={town.name}
           description={`${town.county} County, population ${town.population.toLocaleString('en-US')}`}
-          actions={<Button href={`#/results?town=${encodeURIComponent(town.id)}`} size="lg" fullWidth className="sm:w-auto">See homes in {town.name}</Button>}
+          actions={<Button href={`#/results?town=${encodeURIComponent(town.id)}${renting ? '&view=apartments' : ''}`} size="lg" fullWidth className="sm:w-auto">{renting ? 'See rentals' : 'See homes'} in {town.name}</Button>}
         />
         <p className="max-w-prose break-words font-display text-body text-text sm:text-title">{town.blurb}</p>
         <div className="flex flex-col gap-4 border-t border-border pt-stack sm:flex-row sm:items-start sm:gap-8">

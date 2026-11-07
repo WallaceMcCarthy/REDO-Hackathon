@@ -103,6 +103,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   const focusRef = useRef(focus);
   focusRef.current = focus;
   const listingsRef = useRef<MapPin[]>([]);
+  const viewBeforeListing = useRef<{ center: maplibregl.LngLat; zoom: number } | null>(null);
   const handlers = useRef({ onHover, onOpen, onSelectListing });
   handlers.current = { onHover, onOpen, onSelectListing };
 
@@ -307,7 +308,15 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     if (!ready || !map) return;
     map.setFilter('listings-selected', ['==', ['get', 'id'], selectedListingId ?? '']);
     const l = selectedListingId ? listingsRef.current.find(x => x.id === selectedListingId) : undefined;
-    if (l) map.easeTo({ center: [l.lng, l.lat], zoom: Math.max(map.getZoom(), 14), duration: 800 });
+    if (l) {
+      viewBeforeListing.current ??= { center: map.getCenter(), zoom: map.getZoom() };
+      // The phone sheet covers the lower part of the map, so centre the pin in what stays visible.
+      const sheet = window.matchMedia('(min-width: 1024px)').matches ? 0 : map.getContainer().clientHeight * 0.55;
+      map.easeTo({ center: [l.lng, l.lat], zoom: Math.max(map.getZoom(), 14), padding: { top: 0, left: 0, right: 0, bottom: sheet }, duration: 800 });
+    } else if (!selectedListingId && viewBeforeListing.current) {
+      map.easeTo({ ...viewBeforeListing.current, padding: { top: 0, left: 0, right: 0, bottom: 0 }, duration: 800 });
+      viewBeforeListing.current = null;
+    }
   }, [ready, selectedListingId]);
 
   useEffect(() => {
