@@ -47,8 +47,16 @@ interface RawCandidate {
   priority: number;
 }
 
-// HUD FY2025 Fair Market Rent (2-Bedroom) by County / Metro Area
-// Source: https://www.huduser.gov/portal/datasets/fmr.html
+// HUD FY2025 Fair Market Rent (2-Bedroom) by County / Metro Area.
+// Source: https://www.huduser.gov/portal/datasets/fmr.html (huduser.gov's own
+// FMR documentation pages return a bot-check response to scripted fetches, so
+// these values were cross-checked against the "2 BR FMR" column of the
+// National Low Income Housing Coalition's "Out of Reach 2025" Utah report,
+// https://nlihc.org/sites/default/files/oor/2025_OOR-Utah.pdf, which states
+// on each table page "2: FMR = Fiscal Year 2025 Fair Market Rent" and is
+// itself built directly from HUD's official FY2025 FMR release. Several
+// entries below differed from the prior hand-typed values (Summit, Wasatch,
+// Tooele, Grand, Kane especially) and were corrected to match.
 export const COUNTY_FMR_2BR_2025: Record<string, number> = {
   "Salt Lake": 1748,
   "Utah": 1355,
@@ -56,17 +64,17 @@ export const COUNTY_FMR_2BR_2025: Record<string, number> = {
   "Weber": 1532,
   "Washington": 1485,
   "Cache": 1169,
-  "Summit": 2240,
-  "Wasatch": 1680,
-  "Tooele": 1390,
-  "Box Elder": 1020,
-  "Iron": 1040,
-  "Grand": 1280,
-  "Uintah": 990,
-  "Carbon": 890,
-  "Sevier": 880,
-  "Sanpete": 860,
-  "Kane": 1060,
+  "Summit": 1808,
+  "Wasatch": 1457,
+  "Tooele": 1203,
+  "Box Elder": 1012,
+  "Iron": 1098,
+  "Grand": 1409,
+  "Uintah": 933,
+  "Carbon": 933,
+  "Sevier": 933,
+  "Sanpete": 999,
+  "Kane": 1401,
 };
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -166,6 +174,7 @@ out center tags;`;
       if (!isNaN(y) && y >= 1850 && y <= 2026) yearBuilt = y;
     }
 
+    const objectId = attr.OBJECTID;
     candidates.push({
       name: name.trim(),
       address,
@@ -174,7 +183,9 @@ out center tags;`;
       units,
       yearBuilt,
       source: "HUD LIHTC Database",
-      sourceUrl: "https://lihtc.huduser.gov/",
+      sourceUrl: objectId != null
+        ? `https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/LIHTC/FeatureServer/0/query?where=OBJECTID%3D${objectId}&outFields=*&f=json`
+        : "https://lihtc.huduser.gov/",
       priority: 1,
     });
   }
@@ -203,6 +214,7 @@ out center tags;`;
       if (!isNaN(u) && u > 0) units = u;
     }
 
+    const objectId = attr.OBJECTID;
     candidates.push({
       name: name.trim(),
       address,
@@ -211,7 +223,9 @@ out center tags;`;
       units,
       yearBuilt: null,
       source: "HUD Multifamily Properties Assisted",
-      sourceUrl: "https://hudgis-hud.opendata.arcgis.com/datasets/multifamily-properties-assisted",
+      sourceUrl: objectId != null
+        ? `https://services.arcgis.com/VTyQ9soqVukalItT/arcgis/rest/services/Multifamily_Properties_Assisted/FeatureServer/0/query?where=OBJECTID%3D${objectId}&outFields=*&f=json`
+        : "https://hudgis-hud.opendata.arcgis.com/datasets/multifamily-properties-assisted",
       priority: 2,
     });
   }
@@ -259,7 +273,9 @@ out center tags;`;
       units,
       yearBuilt,
       source: "OpenStreetMap contributors (building=apartments)",
-      sourceUrl: "https://www.openstreetmap.org/copyright",
+      sourceUrl: el.type && el.id != null
+        ? `https://www.openstreetmap.org/${el.type}/${el.id}`
+        : "https://www.openstreetmap.org/copyright",
       priority: 3,
     });
   }
@@ -270,49 +286,56 @@ out center tags;`;
     cityCandidates[c.id] = [];
   }
 
+  // Towns whose municipal area is spread thin across a large or sparsely-built
+  // county: allow a wider catchment radius than the dense Wasatch Front default.
   const ruralCities = new Set([
     "moab", "vernal", "price", "richfield", "kanab", "ephraim",
     "cedar-city", "tooele", "brigham-city", "heber-city", "hurricane",
+    "herriman", "spanish-fork",
   ]);
 
+  // "Ambiguous far pin" guard: a candidate whose nearest canonical town is only
+  // reachable at a rural-radius distance (>12 km, i.e. beyond what any normal
+  // town's own catchment would allow), AND whose second-nearest town is almost
+  // exactly as far away (<2.5 km gap), is more likely sitting in a real but
+  // untracked third town between the two (e.g. Kamas, between Heber City and
+  // Park City) than genuinely inside either one's catchment. Verified against
+  // the full candidate set: this fires on exactly the one confirmed
+  // misattribution (two LIHTC records in Kamas, UT wrongly claimed by
+  // heber-city) and nothing else, so it's safe to exclude rather than guess.
   for (const cand of candidates) {
-    let bestDist = Infinity;
-    let bestCity = cities[0];
+    const sorted = cities
+      .map((c) => ({ city: c, dist: haversineKm(cand.lat, cand.lng, c.lat, c.lng) }))
+      .sort((a, b) => a.dist - b.dist);
+    const [best, second] = sorted;
 
-    for (const c of cities) {
-      const dist = haversineKm(cand.lat, cand.lng, c.lat, c.lng);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestCity = c;
-      }
+    if (best.dist > 12.0 && second.dist - best.dist < 2.5) {
+      continue; // Ambiguous between two distant towns; likely a third, untracked town. Drop it.
     }
 
-    const maxRadius = ruralCities.has(bestCity.id) ? 25.0 : 12.0;
-    if (bestDist <= maxRadius) {
-      cityCandidates[bestCity.id].push({
-        dist: bestDist,
+    const maxRadius = ruralCities.has(best.city.id) ? 25.0 : 12.0;
+    if (best.dist <= maxRadius) {
+      cityCandidates[best.city.id].push({
+        dist: best.dist,
         priority: cand.priority,
         item: cand,
       });
     }
   }
 
-  // Fallback for smaller suburban/rural cities within 14 km (e.g. Eagle Mountain, Midway)
-  for (const cid of ["eagle-mountain", "midway"]) {
-    if (cityCandidates[cid].length === 0) {
-      const c = cities.find((x) => x.id === cid)!;
-      for (const cand of candidates) {
-        const dist = haversineKm(cand.lat, cand.lng, c.lat, c.lng);
-        if (dist <= 14.0) {
-          cityCandidates[cid].push({
-            dist,
-            priority: cand.priority + 5,
-            item: cand,
-          });
-        }
-      }
-    }
-  }
+  // There used to be a "fallback" here that filled Eagle Mountain and Midway
+  // by raw distance alone (within 14km, later tried at 25km) whenever the
+  // normal nearest-city loop above found nothing for them, ignoring whether
+  // some other town was actually closer. That's what put six real Heber
+  // City/Park City apartment complexes on Midway's page and ten real
+  // Saratoga Springs complexes on Eagle Mountain's: duplicated listings
+  // (identical name+address+coords) under the wrong town, not real records
+  // for that town. Checked with a nearest-city-respecting search out to
+  // 30km: zero LIHTC/HUD-Multifamily/OSM-tagged complexes are ever actually
+  // closer to Eagle Mountain's or Midway's center than to some other
+  // canonical town, so there's no fallback radius that would find real,
+  // correctly-attributed candidates for them. Removed rather than kept at a
+  // radius that would just relabel someone else's complexes again.
 
   const listings: ListingRecord[] = [];
   const townCounts: Record<string, number> = {};

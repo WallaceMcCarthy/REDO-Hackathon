@@ -25,6 +25,7 @@ import type * as lib_roommateRules from "../lib/roommateRules.js";
 import type * as lib_roommates from "../lib/roommates.js";
 import type * as lib_scoring from "../lib/scoring.js";
 import type * as lib_social from "../lib/social.js";
+import type * as lib_zillow from "../lib/zillow.js";
 import type * as listings from "../listings.js";
 import type * as metrics from "../metrics.js";
 import type * as posts from "../posts.js";
@@ -36,6 +37,8 @@ import type * as search from "../search.js";
 import type * as seed from "../seed.js";
 import type * as social from "../social.js";
 import type * as socialSchema from "../socialSchema.js";
+import type * as zillowPreviews from "../zillowPreviews.js";
+import type * as zillowPreviewsSchema from "../zillowPreviewsSchema.js";
 
 import type {
   ApiFromModules,
@@ -61,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   "lib/roommates": typeof lib_roommates;
   "lib/scoring": typeof lib_scoring;
   "lib/social": typeof lib_social;
+  "lib/zillow": typeof lib_zillow;
   listings: typeof listings;
   metrics: typeof metrics;
   posts: typeof posts;
@@ -72,6 +76,8 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   social: typeof social;
   socialSchema: typeof socialSchema;
+  zillowPreviews: typeof zillowPreviews;
+  zillowPreviewsSchema: typeof zillowPreviewsSchema;
 }>;
 
 /**
