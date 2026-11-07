@@ -55,7 +55,7 @@ export default function Messages({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex min-h-[44px] items-center cursor-pointer rounded-full border border-rock-300 px-4 py-2 text-sm font-semibold text-rock-700 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
+            className="inline-flex min-h-[44px] items-center cursor-pointer rounded-full border border-rock-300 px-4 py-2 text-sm font-semibold text-rock-800 hover:bg-rock-100 focus-visible:outline-2 focus-visible:outline-alpine-500"
           >
             ← Back to results
           </button>
@@ -81,17 +81,17 @@ export default function Messages({
           <button
             type="button"
             onClick={onSignIn}
-            className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-alpine-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-alpine-700 focus-visible:outline-2 focus-visible:outline-alpine-500 cursor-pointer"
+            className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-alpine-700 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-alpine-700 focus-visible:outline-2 focus-visible:outline-alpine-500 cursor-pointer"
           >
             Sign in or create account
           </button>
         </div>
       ) : (
         /* Main Messages Container */
-        <div className="flex flex-1 overflow-hidden rounded-3xl border border-rock-200 bg-white shadow-sm">
+        <div className="flex flex-1 overflow-hidden rounded-3xl border border-rock-100 bg-white shadow-sm">
           {/* Inbox Column: always on desktop (w-80), on mobile only if no active conversation */}
           <div
-            className={`w-full md:w-80 md:border-r md:border-rock-200 ${
+            className={`w-full md:w-80 md:border-r md:border-rock-100 ${
               activeId ? 'hidden md:flex md:flex-col' : 'flex flex-col'
             }`}
           >
@@ -118,7 +118,7 @@ export default function Messages({
               <div className="p-8 text-center text-dusk">
                 <span className="text-4xl">✉️</span>
                 <p className="mt-3 text-sm font-medium text-ink">Select a conversation</p>
-                <p className="mt-1 text-xs text-rock-400">
+                <p className="mt-1 text-xs text-dusk">
                   Choose a chat from the left or message someone from a listing.
                 </p>
               </div>

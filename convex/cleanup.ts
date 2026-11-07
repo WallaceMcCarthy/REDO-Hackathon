@@ -1,5 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { deleteConversationsForUser } from "./messages";
 
 export const deleteTestAccounts = internalMutation({
   args: {
@@ -126,7 +127,11 @@ export const deleteTestAccounts = internalMutation({
       for (const s of sessions) await ctx.db.delete(s._id);
       deletedRecords.authSessions = sessions.length;
 
-      // 12. Delete user row itself
+      // 12. Delete private messages & conversations
+      while ((await deleteConversationsForUser(ctx, userId)) > 0);
+      deletedRecords.conversations = 1;
+
+      // 13. Delete user row itself
       await ctx.db.delete(userId);
       deletedRecords.users = 1;
 

@@ -22,7 +22,7 @@ export default function CategorySliders({ value, onChange }: { value: CategoryWe
               step={1}
               value={value[category]}
               onChange={e => onChange({ ...value, [category]: Number(e.target.value) })}
-              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-rock-200 accent-rock-500 focus-visible:outline-2 focus-visible:outline-alpine-500"
+              className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-rock-100 accent-rock-500 focus-visible:outline-2 focus-visible:outline-alpine-500"
             />
           </div>
         </label>

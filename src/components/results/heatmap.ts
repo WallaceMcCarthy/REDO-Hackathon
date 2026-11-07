@@ -6,7 +6,7 @@ export type Rgba = [number, number, number, number];
 export const BOUNDS = { south: 37, north: 42, west: -114.05, east: -109.05 };
 
 // [lat, lng] outline of Utah.
-const UTAH: [number, number][] = [[42, -114.05], [42, -111.05], [41, -111.05], [41, -109.05], [37, -109.05], [37, -114.05]];
+export const UTAH: [number, number][] = [[42, -114.05], [42, -111.05], [41, -111.05], [41, -109.05], [37, -109.05], [37, -114.05]];
 
 const merc = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 const unmerc = (y: number) => (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * (180 / Math.PI);

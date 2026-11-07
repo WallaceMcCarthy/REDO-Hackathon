@@ -5,6 +5,7 @@ import schema from "./schema";
 
 const modules = {
   "./cleanup.ts": () => import("./cleanup"),
+  "./messages.ts": () => import("./messages"),
   "./_generated/server.js": () => import("./_generated/server.js"),
 };
 

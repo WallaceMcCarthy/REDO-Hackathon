@@ -49,7 +49,7 @@ export default function ConversationList({ items, activeId, onSelect }: Conversa
   return (
     <div className="flex h-full flex-col">
       {/* Search Filter */}
-      <div className="border-b border-rock-200 p-3">
+      <div className="border-b border-rock-100 p-3">
         <label htmlFor="message-search" className="sr-only">
           Search conversations
         </label>
@@ -59,7 +59,7 @@ export default function ConversationList({ items, activeId, onSelect }: Conversa
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter messages..."
-          className="w-full rounded-xl border border-rock-200 bg-rock-50 px-3 py-2 text-xs text-ink placeholder:text-rock-400 focus:border-alpine-500 focus:bg-white focus:outline-none"
+          className="w-full rounded-xl border border-rock-100 bg-rock-50 px-3 py-2 text-xs text-ink placeholder:text-dusk focus:border-alpine-500 focus:bg-white focus:outline-none"
         />
       </div>
 
@@ -86,16 +86,16 @@ export default function ConversationList({ items, activeId, onSelect }: Conversa
                 type="button"
                 onClick={() => onSelect(item._id)}
                 className={`flex w-full cursor-pointer items-start gap-3 p-3 text-left transition-colors min-h-[56px] focus-visible:outline-2 focus-visible:outline-alpine-500 ${
-                  isActive ? 'bg-alpine-50/70 border-l-4 border-alpine-600' : 'hover:bg-rock-50'
+                  isActive ? 'bg-alpine-50/70 border-l-4 border-alpine-700' : 'hover:bg-rock-50'
                 }`}
               >
                 {/* Avatar */}
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rock-200 font-semibold text-rock-700">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rock-100 font-semibold text-rock-800">
                   {item.otherDisplayName ? item.otherDisplayName.charAt(0).toUpperCase() : '?'}
                   {hasUnread && (
                     <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-alpine-400 opacity-75" />
-                      <span className="relative inline-flex h-3 w-3 rounded-full bg-alpine-600" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-alpine-500 opacity-75" />
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-alpine-700" />
                     </span>
                   )}
                 </div>
@@ -113,7 +113,7 @@ export default function ConversationList({ items, activeId, onSelect }: Conversa
                         </span>
                       )}
                     </div>
-                    <span className="shrink-0 text-[10px] text-rock-400">
+                    <span className="shrink-0 text-[10px] text-dusk">
                       {formatTime(item.lastMessageAt)}
                     </span>
                   </div>

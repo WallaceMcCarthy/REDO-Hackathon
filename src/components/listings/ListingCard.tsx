@@ -116,11 +116,6 @@ export default function ListingCard({ item, isSelected, onSelect, onHover, onOpe
           <a href={preview?.pageUrl ?? zUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={LINK}>
             View on Zillow
           </a>
-          {listing.sourceUrl && (
-            <a href={listing.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-dusk underline-offset-2 hover:underline">
-              Data source
-            </a>
-          )}
         </div>
         {onOpenTown && cityName && (
           <button type="button" onClick={e => { e.stopPropagation(); onOpenTown(listing.cityId); }} className={LINK}>
