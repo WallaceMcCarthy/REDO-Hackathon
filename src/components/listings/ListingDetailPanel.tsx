@@ -8,6 +8,7 @@ import CommentsThread from '../social/CommentsThread';
 import SavedButton from '../social/SavedButton';
 import { Badge } from '../ui';
 import { FOCUS, LINK, money, rentFmt } from '../homes/ui';
+import { shouldFetchListingPreview } from './previewPolicy';
 
 interface Props {
   listing: Listing;
@@ -33,7 +34,7 @@ const ICON_BTN = `inline-flex size-8 cursor-pointer items-center justify-center 
 export default function ListingDetailPanel({ listing, rec, cityName, variant, index, total, onPrev, onNext, onClose, onOpenTown, onMessageUser }: Props) {
   const apt = listing.kind === 'apartment';
   const live = !!listing.market;
-  const { preview } = useZillowPreview(listing.id, listing.kind === 'home');
+  const { preview } = useZillowPreview(listing.id, shouldFetchListingPreview(listing.kind));
   const zUrl = zillowUrl(listing.address, cityName, listing.kind);
   const fit = rec?.townScore != null ? Math.max(0, Math.min(100, Math.round(rec.townScore))) : undefined;
   const financials = formatListingFinancials(listing);
