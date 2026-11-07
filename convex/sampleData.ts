@@ -74,6 +74,8 @@ export const seedSampleContent = internalMutation({
     }
 
     // Sample ads carry no advertiserUserId, so they sit in nobody's dashboard.
+    // Generated rows go in first: the statewide read takes the newest rows, and those should be the hand-written ones.
+    for (const ad of buildSampleAds(now)) await ctx.db.insert("campaigns", ad);
     const cities = await ctx.db.query("cities").collect();
     for (const camp of SAMPLE_CAMPAIGNS) {
       const city = cities.find((c) => c.id === camp.cityId);
@@ -91,7 +93,6 @@ export const seedSampleContent = internalMutation({
         isSample: true,
       });
     }
-    for (const ad of buildSampleAds(now)) await ctx.db.insert("campaigns", ad);
 
     // 4. Seed Sample Town Comments (with 1-level nested replies)
     const sampleComments = [

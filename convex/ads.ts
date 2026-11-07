@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { campaignCategoryValidator } from "./adsSchema";
 import type { AdCategory } from "./lib/adCategories";
 import { getOptionalUserId, requireUserId } from "./lib/auth";
@@ -21,6 +21,12 @@ export const UTAH_BOUNDS = {
 
 const MAX_PUBLIC_PINS = 8;
 const MAX_PUBLIC_FEATURED = 3;
+const DAY_MS = 24 * 3600 * 1000;
+// shortcut: a read range stops at its newest 100 rows of any status, add a status-and-town index if one town outgrows that.
+const READ_LIMIT = 100;
+// Hand-written samples are seeded last, so the pin pool covers all 26 of them, REDO included, plus some generated ones.
+const STATEWIDE_PIN_POOL = 48;
+const STATEWIDE_FEATURED_POOL = 12;
 
 /**
  * Validates destination URLs:
@@ -49,27 +55,57 @@ export function validateHttpsUrl(rawUrl: string, label = "Destination URL"): str
   return parsed.toString();
 }
 
+type Campaign = Doc<"campaigns">;
+
+/** The newest rows for a town plus the town-less ones, so a town query costs the same however many towns have ads. */
+async function townRows(ctx: QueryCtx, cityId: string) {
+  const newest = (id: string | undefined) =>
+    ctx.db.query("campaigns").withIndex("by_cityId", (q) => q.eq("cityId", id)).order("desc").take(READ_LIMIT);
+  return (await Promise.all([newest(cityId), newest(undefined)])).flat();
+}
+
+/** Real ads have an advertiser, so this index reaches them however many samples were seeded after them. */
+async function statewideRows(ctx: QueryCtx, samplePool: Campaign[]) {
+  const real = await ctx.db
+    .query("campaigns")
+    .withIndex("by_advertiser", (q) => q.gt("advertiserUserId", undefined))
+    .order("desc")
+    .take(READ_LIMIT);
+  return [...real, ...samplePool.filter((c) => c.isSample)];
+}
+
+/** A stable slot per sample per day, so the shown samples change daily without changing between reads. */
+function dailySlot(campaign: Campaign, day: number) {
+  // CONTRACT.md requires the Apply to REDO ad, the one sample that links outside example.com.
+  if (!campaign.url.startsWith("https://example.com/")) return -1;
+  let hash = day;
+  for (let i = 0; i < campaign._id.length; i++) hash = Math.imul(hash ^ campaign._id.charCodeAt(i), 16777619);
+  return hash >>> 0;
+}
+
+/** Live ads of the given kinds: real before sample, then local before town-less. Real ads run newest first, samples rotate. */
+function pickPublic(rows: Campaign[], kinds: Campaign["kind"][], cityId: string | undefined, max: number) {
+  const now = Date.now();
+  const day = Math.floor(now / DAY_MS);
+  const tier = (c: Campaign) => (c.isSample ? 2 : 0) + (cityId && c.cityId === cityId ? 0 : 1);
+  return rows
+    .filter((c) => c.status === "active" && c.endsAt >= now && kinds.includes(c.kind))
+    .sort((a, b) => tier(a) - tier(b) || (a.isSample ? dailySlot(a, day) - dailySlot(b, day) : b.startsAt - a.startsAt))
+    .slice(0, max);
+}
+
 export const getActivePins = query({
   args: {
     cityId: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    const rows = await ctx.db
-      .query("campaigns")
-      .withIndex("by_status", (q) => q.eq("status", "active"))
-      .collect();
-
-    return rows.filter((c) => {
-      if (c.endsAt && c.endsAt < now) return false;
-      if (c.kind !== "pin" && c.kind !== "job") return false;
-      if (args.cityId && c.cityId && c.cityId !== args.cityId) return false;
-      return true;
-    }).sort((a, b) => {
-      const aLocal = args.cityId && a.cityId === args.cityId ? 1 : 0;
-      const bLocal = args.cityId && b.cityId === args.cityId ? 1 : 0;
-      return bLocal - aLocal || b.startsAt - a.startsAt;
-    }).slice(0, MAX_PUBLIC_PINS);
+  handler: async (ctx, { cityId }) => {
+    const rows = cityId
+      ? await townRows(ctx, cityId)
+      : await statewideRows(
+          ctx,
+          await ctx.db.query("campaigns").withIndex("by_status", (q) => q.eq("status", "active")).order("desc").take(STATEWIDE_PIN_POOL),
+        );
+    return pickPublic(rows, ["pin", "job"], cityId, MAX_PUBLIC_PINS);
   },
 });
 
@@ -77,22 +113,18 @@ export const getActiveFeatured = query({
   args: {
     cityId: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    const rows = await ctx.db
-      .query("campaigns")
-      .withIndex("by_status_kind", (q) => q.eq("status", "active").eq("kind", "featured"))
-      .collect();
-
-    return rows.filter((c) => {
-      if (c.endsAt && c.endsAt < now) return false;
-      if (args.cityId && c.cityId && c.cityId !== args.cityId) return false;
-      return true;
-    }).sort((a, b) => {
-      const aLocal = args.cityId && a.cityId === args.cityId ? 1 : 0;
-      const bLocal = args.cityId && b.cityId === args.cityId ? 1 : 0;
-      return bLocal - aLocal || b.startsAt - a.startsAt;
-    }).slice(0, MAX_PUBLIC_FEATURED);
+  handler: async (ctx, { cityId }) => {
+    const rows = cityId
+      ? await townRows(ctx, cityId)
+      : await statewideRows(
+          ctx,
+          await ctx.db
+            .query("campaigns")
+            .withIndex("by_status_kind", (q) => q.eq("status", "active").eq("kind", "featured"))
+            .order("desc")
+            .take(STATEWIDE_FEATURED_POOL),
+        );
+    return pickPublic(rows, ["featured"], cityId, MAX_PUBLIC_FEATURED);
   },
 });
 

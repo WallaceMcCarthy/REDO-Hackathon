@@ -25,14 +25,14 @@ const DAY = 24 * 3600 * 1000;
 
 // [cityId, lat, lng, jitter degrees, pin categories, featured categories, job roles]
 const TOWNS: [string, number, number, number, string, string, string][] = [
-  ["salt-lake-city", 40.777, -111.921, 0.046, "cafe restaurant gym bike service", "apartments realtor", "nurse dev barista"],
+  ["salt-lake-city", 40.777, -111.921, 0.046, "cafe restaurant gym bike service clinic", "apartments realtor", "nurse dev barista"],
   ["west-valley-city", 40.679, -112.009, 0.029, "restaurant mover contractor", "townhomes", "warehouse"],
   ["west-jordan", 40.603, -111.997, 0.022, "gym contractor cafe", "builder", "teacher"],
-  ["provo", 40.257, -111.639, 0.043, "cafe restaurant bike gym", "apartments", "dev teacher barista"],
+  ["provo", 40.257, -111.639, 0.043, "cafe restaurant bike gym clinic", "apartments", "dev teacher barista"],
   ["orem", 40.295, -111.694, 0.023, "restaurant service", "realtor", "dev"],
   ["sandy", 40.573, -111.849, 0.027, "gym ski cafe", "townhomes", "nurse"],
   ["st-george", 37.105, -113.563, 0.063, "outfitter bike restaurant contractor", "builder realtor", "nurse"],
-  ["ogden", 41.223, -111.973, 0.038, "ski outfitter cafe bike", "apartments", "mechanic"],
+  ["ogden", 41.223, -111.973, 0.038, "ski outfitter cafe bike clinic", "apartments", "mechanic"],
   ["layton", 41.077, -111.969, 0.024, "restaurant gym", "townhomes", "admin"],
   ["south-jordan", 40.551, -111.995, 0.019, "service gym", "builder", "dev"],
   ["lehi", 40.414, -111.880, 0.035, "cafe restaurant gym service", "apartments builder", "dev dev admin"],
@@ -88,6 +88,10 @@ const PIN: Record<string, Cat> = {
   contractor: { cat: "services", nouns: ["Builders", "Remodeling", "Roofing & Siding", "Home Repair"], blurbs: ["Kitchens, basements and decks done on schedule in {town}.", "Licensed and insured. Free estimates for {town} homeowners."] },
   mover: { cat: "services", nouns: ["Movers", "Moving & Storage", "Haul Crew"], blurbs: ["Flat-rate local moves in {town}. Careful crews, no surprise fees.", "Moving to or from {town}? Packing help and short-term storage included."] },
   service: { cat: "services", nouns: ["Cleaning Co.", "Plumbing", "Landscaping", "Pet Care"], blurbs: ["Reliable same-week service for {town} households.", "Book online, get a text when we are on the way. Serving {town}."] },
+  clinic: { cat: "health", nouns: ["Family Clinic", "Urgent Care", "Physical Therapy"], blurbs: ["New patients welcome, with same-week visits in {town}.", "Evening hours for busy {town} families."] },
+  arcade: { cat: "recreation", nouns: ["Bowling Lanes", "Arcade", "Mini Golf", "Rec Center"], blurbs: ["Rainy-day fun and birthday parties for {town} families.", "League nights, open play and cheap snacks in {town}."] },
+  market: { cat: "retail", nouns: ["Mercantile", "Hardware", "Thrift Shop", "Book Nook"], blurbs: ["Everything for a first week in a new {town} home.", "Locally run, well stocked and open seven days in {town}."] },
+  coworking: { cat: "tech_jobs", nouns: ["Coworking", "Computer Repair", "Tech Hub"], blurbs: ["Desks, fast internet and meeting rooms for remote workers in {town}.", "Laptop fixes, home networks and friendly tech help in {town}."] },
 };
 const FEATURED: Record<string, Cat> = {
   apartments: { cat: "other", nouns: ["Flats", "Apartments", "Lofts"], blurbs: ["New one- and two-bedroom apartments near downtown {town}. Ask about move-in specials.", "Pet-friendly apartment homes with a gym, courtyard and mountain views in {town}."] },
@@ -111,6 +115,22 @@ const JOB: Record<string, Role> = {
   retail: { cat: "retail", title: "Retail Associate", lo: 15, hi: 20, unit: "hr", employers: ["Mercantile", "Goods", "Supply"], blurb: "Flexible hours, 20 percent staff discount." },
   admin: { cat: "services", title: "Office Administrator", lo: 21, hi: 29, unit: "hr", employers: ["Partners", "Group", "Services"], blurb: "Weekday office role with health benefits." },
 };
+
+// Towns with short lists fill up from these, so a small town still has a few of everything without losing its own mix.
+const MIN_PINS = 4;
+const PIN_FILL = ["arcade", "market", "coworking"];
+const FEATURED_FILL = ["realtor", "townhomes", "apartments", "builder"];
+const JOB_FILL = ["retail", "dev", "teacher", "nurse"];
+
+/** The town's own keys, then the fill pool from `start` until there are `min`. */
+function fill(own: string, pool: string[], min: number, start: number) {
+  const keys = own.split(" ").filter(Boolean);
+  for (let i = 0; i < pool.length && keys.length < min; i++) {
+    const key = pool[(start + i) % pool.length];
+    if (!keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
 
 /** mulberry32: tiny seeded PRNG so reruns produce identical rows. */
 function rng(seed: number) {
@@ -171,18 +191,18 @@ export function buildSampleAds(now: number): SampleAd[] {
     });
   };
 
-  for (const town of TOWNS) {
+  for (const [index, town] of TOWNS.entries()) {
     const name = town[0].split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
     const [, , , , pins, featured, jobs] = town;
-    for (const key of pins.split(" ").filter(Boolean)) {
+    for (const key of fill(pins, PIN_FILL, MIN_PINS, index)) {
       const cat = PIN[key];
       push("pin", cat.cat, town, uniqueName(cat.nouns), pick(cat.blurbs).replace("{town}", name));
     }
-    for (const key of featured.split(" ").filter(Boolean)) {
+    for (const key of fill(featured, FEATURED_FILL, 1, index)) {
       const cat = FEATURED[key];
       push("featured", cat.cat, town, uniqueName(cat.nouns), pick(cat.blurbs).replace("{town}", name));
     }
-    for (const key of jobs.split(" ").filter(Boolean)) {
+    for (const key of fill(jobs, JOB_FILL, 1, index)) {
       const role = JOB[key];
       const lo = role.lo + Math.floor(rand() * 4);
       const pay = `${money(lo, role.unit)}-${money(lo + Math.round((role.hi - role.lo) / 2), role.unit)}/${role.unit}`;

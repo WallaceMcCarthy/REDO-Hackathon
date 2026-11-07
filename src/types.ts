@@ -21,6 +21,7 @@ export type Metric = {
   source: string;
   sourceUrl: string;
   year: number;
+  lastUpdated?: string;
   values: Record<string, number>;
 };
 

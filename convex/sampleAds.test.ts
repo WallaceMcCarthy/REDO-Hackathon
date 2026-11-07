@@ -10,14 +10,31 @@ import { SAMPLE_CAMPAIGNS } from "./sampleData";
 const TOWN_COUNT = 42;
 const NOW = Date.UTC(2026, 10, 6);
 const ads = buildSampleAds(NOW);
-const count = (kind: string) => ads.filter((a) => a.kind === kind).length;
+const all = [...ads, ...SAMPLE_CAMPAIGNS];
 
 describe("sample ads generator", () => {
-  it("has the expected volume and covers all 42 towns", () => {
-    expect(count("pin")).toBeGreaterThanOrEqual(80);
-    expect(count("featured")).toBeGreaterThanOrEqual(25);
-    expect(count("job")).toBeGreaterThanOrEqual(35);
-    expect(new Set(ads.map((a) => a.cityId)).size).toBe(TOWN_COUNT);
+  it("totals exactly 300 with the hand-written rows and gives every town pins, a job and a featured ad", () => {
+    expect(all).toHaveLength(300);
+    expect(new Set(all.map((a) => a.cityId)).size).toBe(TOWN_COUNT);
+    for (const cityId of new Set(ads.map((a) => a.cityId))) {
+      const town = ads.filter((a) => a.cityId === cityId);
+      expect(town.filter((a) => a.kind === "pin").length).toBeGreaterThanOrEqual(4);
+      expect(town.filter((a) => a.kind === "job").length).toBeGreaterThanOrEqual(1);
+      expect(town.filter((a) => a.kind === "featured").length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("keeps at least 20 ads in every category, spread over many towns", () => {
+    for (const category of AD_CATEGORY_IDS) {
+      const rows = all.filter((a) => a.category === category);
+      expect(rows.length, category).toBeGreaterThanOrEqual(20);
+      expect(new Set(rows.map((a) => a.cityId)).size, category).toBeGreaterThanOrEqual(12);
+    }
+  });
+
+  it("keeps town character: ski shops only in towns listed for them", () => {
+    const skiTowns = new Set(ads.filter((a) => /Ski|Snow Shop|Powder Rentals/.test(a.title) && a.kind === "pin").map((a) => a.cityId));
+    expect([...skiTowns].sort()).toEqual(["cottonwood-heights", "ogden", "logan", "park-city", "sandy"].sort());
   });
 
   it("is deterministic and has unique titles and urls", () => {
