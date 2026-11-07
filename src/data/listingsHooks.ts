@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from 'convex/react';
+import { useResilientQuery as useQuery } from './resilient';
 import { api } from '../../convex/_generated/api';
 import type { Listing, ListingKind, Recommendation } from '../../convex/lib/listings';
 import type { Filters, Weights } from '../types';

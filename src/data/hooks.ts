@@ -1,7 +1,7 @@
 // The only file that knows where data comes from. Screens import these hooks and nothing else.
+import { useResilientQuery as useQuery } from './resilient';
 // undefined means still loading, matching Convex useQuery.
 import { useMemo } from 'react';
-import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { rankTowns } from '../../convex/lib/scoring';
 import type { City, Filters, Metric, TownScore, Weights } from '../types';

@@ -2,6 +2,7 @@
 // Same seed in, same rows out. Only `now` shifts the dates.
 
 import type { AdCategory } from "./lib/adCategories";
+import { marketToListing, type MarketInput } from "./lib/market";
 
 export type SampleAd = {
   kind: "pin" | "featured" | "job";
@@ -10,6 +11,7 @@ export type SampleAd = {
   title: string;
   body: string;
   url: string;
+  listingId?: string;
   lat: number;
   lng: number;
   cityId: string;
@@ -211,4 +213,46 @@ export function buildSampleAds(now: number): SampleAd[] {
     }
   }
   return ads;
+}
+
+const LISTING_AD_DURATION = 365 * DAY;
+
+/** A real listing as a sample ad, or null when the row lacks what the ad shows. */
+export function buildListingAd(row: MarketInput & { cityId: string | null; importedAt: number }, townName: string, kind: "pin" | "featured", now: number): SampleAd | null {
+  const listing = marketToListing(row);
+  if (!listing?.address || !listing.askingPrice) return null;
+  const rental = listing.market === "for_rent";
+  const street = listing.address.split(",")[0].trim();
+  const price = `$${listing.askingPrice.toLocaleString("en-US")}`;
+  const specs = [listing.beds && `${listing.beds} bed`, listing.baths && `${listing.baths} bath`, rental ? "rental" : "home"].filter(Boolean).join(" ");
+  return {
+    kind,
+    category: "other",
+    imageUrl: "/sample-ads/home.svg",
+    title: rental ? `Rent ${price}/mo at ${street}` : `Asking ${price} at ${street}`,
+    body: `${rental ? "Asking rent" : "Asking price"} from an active listing snapshot. ${specs} in ${townName}. Sample ad, not placed by the owner.`,
+    // Never opened, since listingId takes the click. It stays on example.com because ads.ts pins any other sample url first.
+    url: `https://example.com/sample/${listing.cityId}/home-${slug(street)}`,
+    listingId: listing.id,
+    lat: listing.lat,
+    lng: listing.lng,
+    cityId: listing.cityId,
+    startsAt: now,
+    endsAt: now + LISTING_AD_DURATION,
+    status: "active",
+    impressions: 0,
+    clicks: 0,
+    isSample: true,
+  };
+}
+
+/** Each listing ad takes the slot of a generated ad of its kind in its town, so the total holds and the town keeps its mix. */
+export function withListingAds(ads: SampleAd[], listingAds: SampleAd[]) {
+  const rest = [...ads];
+  const placed = listingAds.filter((listingAd) => {
+    const slot = rest.findIndex((ad) => ad.cityId === listingAd.cityId && ad.kind === listingAd.kind);
+    if (slot >= 0) rest.splice(slot, 1);
+    return slot >= 0;
+  });
+  return [...rest, ...placed];
 }

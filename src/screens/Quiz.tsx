@@ -83,7 +83,7 @@ export default function Quiz({ prefs, setPrefs, onDone }: { prefs: Prefs; setPre
           setPrefs({ ...next, personas: [] });
           setMode(next.budget.mode ?? (next.budget.maxRent !== undefined ? 'rent' : 'buy'));
           setDraft(null);
-        }} />
+        }} onGo={m => onDone(m)} />
         <section aria-labelledby="who" className="mt-stack">
           <h2 id="who" className="font-display text-heading text-text">Who is moving?</h2>
           <p className="mt-1 text-body text-text-muted">Pick one or more. They stack, and you can fine tune below.</p>

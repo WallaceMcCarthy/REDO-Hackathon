@@ -1,4 +1,21 @@
 import type { CampaignRecord } from '../../data/adsHooks';
+import { safeHttpsHref } from './safeHttpsHref';
+
+const isRental = (listingId: string) => listingId.startsWith('market:for_rent:');
+
+/** Where an ad's click goes: the listing inside this app, or the advertiser's site in a new tab. Undefined when the url is unsafe. */
+export function adLink({ listingId, cityId, url }: Pick<CampaignRecord, 'listingId' | 'cityId' | 'url'>) {
+  if (listingId) {
+    // The app reads a town as the homes view, so a rental opens in the apartments view instead.
+    const place: Record<string, string> = isRental(listingId) ? { view: 'apartments' } : cityId ? { town: cityId } : {};
+    return { href: `#/results?${new URLSearchParams({ ...place, listing: listingId })}` };
+  }
+  const href = safeHttpsHref(url);
+  return href ? { href, target: '_blank', rel: 'noopener noreferrer' } : undefined;
+}
+
+/** The call to action on an ad for a listing. */
+export const listingAction = (listingId: string) => (isRental(listingId) ? 'View rental' : 'View home');
 
 /** Featured campaigns for the towns on screen, first town first. Statewide campaigns only fill what is left. */
 export function pickFeatured(featured: CampaignRecord[], townIds: string[], max: number): CampaignRecord[] {

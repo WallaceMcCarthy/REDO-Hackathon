@@ -1,22 +1,24 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { loadPrefs, savePrefs } from './prefs';
 import { openSignIn } from './components/auth/AccountMenu';
 import { useCities } from './data/hooks';
 import Quiz from './screens/Quiz';
 import { AppHeader, Button, EmptyState, Skeleton } from './components/ui';
+import { lazyWithRetry } from './lib/chunkReload';
+import ReconnectingPill from './components/ReconnectingPill';
 import SafeSectionBoundary from './components/SafeSectionBoundary';
 import type { Prefs } from './types';
 
 const loadResults = () => import('./screens/Results');
-const Results = lazy(loadResults);
-const Account = lazy(() => import('./screens/Account'));
-const AdvertiserDashboard = lazy(() => import('./components/ads/AdvertiserDashboard'));
-const Messages = lazy(() => import('./screens/Messages'));
-const SavedPlaces = lazy(() => import('./screens/SavedPlaces'));
-const TownDetail = lazy(() => import('./screens/TownDetail'));
-const UiKit = lazy(() => import('./screens/UiKit'));
-const Privacy = lazy(() => import('./screens/Privacy'));
-const Terms = lazy(() => import('./screens/Terms'));
+const Results = lazyWithRetry(loadResults);
+const Account = lazyWithRetry(() => import('./screens/Account'));
+const AdvertiserDashboard = lazyWithRetry(() => import('./components/ads/AdvertiserDashboard'));
+const Messages = lazyWithRetry(() => import('./screens/Messages'));
+const SavedPlaces = lazyWithRetry(() => import('./screens/SavedPlaces'));
+const TownDetail = lazyWithRetry(() => import('./screens/TownDetail'));
+const UiKit = lazyWithRetry(() => import('./screens/UiKit'));
+const Privacy = lazyWithRetry(() => import('./screens/Privacy'));
+const Terms = lazyWithRetry(() => import('./screens/Terms'));
 
 // A deploy removes the old hashed chunks, so a tab left open reloads once to pick up the new ones.
 window.addEventListener('vite:preloadError', () => {
@@ -102,12 +104,13 @@ export default function App() {
         ) : path === 'results' ? (
           <Results
             prefs={prefs} setPrefs={setPrefs} onOpenTown={id => go(`town/${id}`)} onRestart={() => go('')}
-            view={view === 'apartments' || (!homesTown && view === 'areas') ? view : 'homes'} townFilter={homesTown}
+            view={view === 'apartments' || (!homesTown && view === 'areas') ? view : 'homes'} townFilter={homesTown} openListing={params.get('listing')}
           />
         ) : (
           <Quiz prefs={prefs} setPrefs={setPrefs} onDone={mode => go(mode === 'rent' ? 'results?view=apartments' : 'results')} />
         )}
       </Suspense>
+      <ReconnectingPill />
       {!(path === 'results' || isMessages) && route !== 'ui' && (
         <footer className="mt-auto px-gutter py-4 text-center text-small text-text-muted">
           <a href="#/privacy" className="underline underline-offset-2 hover:text-text">Privacy</a>

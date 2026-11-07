@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useResilientQuery as useQuery } from '../../data/resilient';
+import { useConvexAuth, useMutation } from 'convex/react';
 import { ConvexError } from 'convex/values';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';

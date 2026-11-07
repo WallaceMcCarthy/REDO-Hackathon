@@ -4,7 +4,7 @@ import type { CampaignRecord } from '../../data/adsHooks';
 import { useRecordClick, useRecordImpression } from '../../data/adsHooks';
 import { Badge, Button, Card } from '../ui';
 import AdImage from './AdImage';
-import { safeHttpsHref } from './safeHttpsHref';
+import { adLink, listingAction } from './placement';
 
 interface FeaturedListingSlotProps {
   campaign: CampaignRecord;
@@ -28,7 +28,7 @@ export default function FeaturedListingSlot({
     }
   }, [campaign._id, pageTownId, recordImpression]);
 
-  const href = safeHttpsHref(campaign.url);
+  const link = adLink(campaign);
 
   return (
     <Card as="article" raised className={`flex flex-col justify-between ${className}`}>
@@ -48,17 +48,15 @@ export default function FeaturedListingSlot({
       </div>
 
       <div className="mt-stack border-t border-border pt-3">
-        {href ? (
+        {link ? (
           <Button
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
+            {...link}
             onClick={() => recordClick(campaign._id, 'results_featured', pageTownId)}
             variant="secondary"
             size="sm"
             fullWidth
           >
-            Learn more
+            {campaign.listingId ? listingAction(campaign.listingId) : 'Learn more'}
           </Button>
         ) : (
           <span className="text-small text-text-muted">Website link unavailable</span>

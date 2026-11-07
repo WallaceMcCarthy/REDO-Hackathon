@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { useConvexAuth, useAction, useMutation, useQuery } from 'convex/react';
+import { useResilientQuery as useQuery } from './resilient';
+import { useConvexAuth, useAction, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { AdCategory } from '../../convex/lib/adCategories';
 
