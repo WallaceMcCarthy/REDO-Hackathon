@@ -30,7 +30,9 @@ export function preferenceRequest(raw: string) {
     .filter(n => Number.isFinite(n) && n >= 1 && n <= 100000000))].slice(0, 12);
   const questions: Record<string, Question> = {};
   for (const [key, topic] of Object.entries(TOPICS)) {
-    questions[`${key}_stated`] = { type: 'noul', instructions: `Does the home seeker's description express a preference about ${topic}?` };
+    questions[`${key}_stated`] = { type: 'noul', instructions: `Does the description state whether ${topic} matters to the person?`,
+      criteria: { true: 'The person discusses the importance of this topic, including saying it is unimportant.',
+        false: 'The description discusses other aspects of housing without addressing this topic.' } };
     questions[key] = { type: 'score', instructions: `How important is ${topic} to this home seeker?`, criteria: [
       'The person explicitly says this does not matter.', 'The person gives this very little priority.',
       'The person sees this as a nice extra.', 'The person gives this moderate priority.',

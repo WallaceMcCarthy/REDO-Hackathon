@@ -30,7 +30,7 @@ describe('server-side preference suggestions', () => {
     const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher);
     await expect(t.action(suggest, { text: 'Near trails please' })).rejects.toThrow('Sign in');
     vi.stubEnv('JEV_PREFERENCES_ENABLED', 'false');
-    expect(await t.query(availability, {})).toEqual({ enabled: false, questionRevision: 2 });
+    expect(await t.query(availability, {})).toEqual({ enabled: false, questionRevision: 3 });
     await expect(user.action(suggest, { text: 'Near trails please' })).rejects.toThrow('not available');
     vi.stubEnv('JEV_PREFERENCES_ENABLED', 'true');
     await t.run(ctx => ctx.db.delete(userId));

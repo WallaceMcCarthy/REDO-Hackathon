@@ -1,6 +1,6 @@
 # Jev preference suggestions
 
-The start page turns a description into existing category priorities and a housing budget. Per the human's auto-apply request, **Set my priorities** applies supported changes immediately and shows what changed. Every slider remains editable. Unmentioned categories stay unchanged. Ambiguous settings are listed for the user to set themselves. The existing town scoring stays deterministic.
+The start page turns a description into existing category priorities and a housing budget. Per the human's one-click request, **Find my homes** applies supported changes immediately and opens matching results. Every slider remains editable. Unmentioned or uncertain categories stay unchanged. The existing town scoring stays deterministic.
 
 ## Rollout
 
@@ -20,12 +20,14 @@ Budget amounts are selected from exact numeric candidates extracted by code, inc
 
 `e2e/jev-preferences.spec.ts` uses a Vite **dev** server and `/e2e/fixtures/jev.html`. The synthetic fixture exercises auto-apply, unchanged unmentioned priorities and visible errors at desktop and 390px. These fixture files are not inputs to the production build. Existing quiz and listing regressions run against a production build served by Vite preview.
 
-With Vite dev already running on port 5175, run `E2E_JEV_FIXTURE=1 E2E_BASE_URL=http://127.0.0.1:5175 npx playwright test e2e/jev-preferences.spec.ts`. Production smoke runs skip this explicitly synthetic fixture. The public `jev:availability` query exposes only enabled state and question revision; revision 2 identifies the clarified environmental wording.
+With Vite dev already running on port 5175, run `E2E_JEV_FIXTURE=1 E2E_BASE_URL=http://127.0.0.1:5175 npx playwright test e2e/jev-preferences.spec.ts`. Production smoke runs skip this explicitly synthetic fixture. The public `jev:availability` query exposes only enabled state and question revision. Revision 2 clarified the environmental topic; revision 3 makes detection of a stated preference explicitly include negative statements.
 
 The approved 20-request DEV trial completed on 2026-11-07: 18 matched all scenario checks, 0 provider errors. Buying/renting, exact budgets (`2k`, `1.2m`, price ranges, conflicting numbers and revised budgets), negation, and Spanish preferences worked. English and French air-only requests both left the environmental priority unchanged and flagged it as uncertain. The original compound “air and water quality” wording has therefore been replaced with “environmental quality”; a separate four-request follow-up is awaiting authorization and deployment. Do not claim that wording change is live-validated yet.
 
 Observed request latency: minimum 177 ms, median 257 ms, p95 357 ms, maximum 368 ms. These are 20 sequential DEV requests, not a load benchmark. The current app response does not expose provider token usage, so actual billed cost was not measured. At the documented $0.042 per million input tokens and default 64k request ceiling, a conservative ceiling for 20 requests is about $0.054, below the approved $0.25 trial budget. Output tokens are free per the [current model documentation](https://docs.typesafe.ai/models).
 
 Use synthetic descriptions for follow-ups, inspect actual outputs and avoid exact-probability assertions. Do not replace a model uncertainty with an arbitrary hardcoded answer.
+
+Revision 2 follow-up: English air-only passed through the real browser, setting environment 5, transit 0, rent $1,800 and navigating to Apartments while preserving education 2. French air-only and water-only also passed (442 ms and 265 ms). The negative environmental preference safely abstained rather than setting 0. Revision 3 clarifies the mention question and its true/false criteria to include an explicit statement that a topic is unimportant; its live follow-up remains pending. No confidence threshold was changed.
 
 Sources: [official skill](https://github.com/typesafe-ai/skills/blob/main/skills/typesafe-ai/SKILL.md), [Choice](https://docs.typesafe.ai/primitives/choice), [Score](https://docs.typesafe.ai/primitives/score), [Noul](https://docs.typesafe.ai/primitives/noul), [API schema](https://api.typesafe.ai/openapi.json).
