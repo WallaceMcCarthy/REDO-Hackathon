@@ -174,7 +174,8 @@ export default function Results({ prefs, setPrefs, onOpenTown, onRestart }: Prop
           {showMap && (
             <ResultsMap
               rows={rows ?? []} cities={cities ?? NONE} metrics={metrics ?? NONE} hovered={hovered}
-              onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={setSelectedListing}
+              onHover={hoverFromPin} onOpen={openFromPin} listings={mapListings} onSelectListing={selectListing}
+              focus={view === 'areas' ? 'towns' : 'listings'} selectedListingId={selectedListing?.id}
             />
           )}
         </section>
