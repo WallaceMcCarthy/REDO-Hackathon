@@ -52,8 +52,8 @@ describe("publishing without payment", () => {
   it("still requires sign-in and runs the campaign validation", async () => {
     const { t, owner } = await setup();
     await expect(t.action(refs.createCheckout, ad)).rejects.toThrow(/Sign in required/);
-    await expect(owner.action(refs.createCheckout, { ...ad, url: "http://example.com" })).rejects.toThrow(/HTTPS/);
-    await expect(owner.action(refs.createCheckout, { ...ad, imageUrl: "javascript:alert(1)" })).rejects.toThrow(/Image URL/);
+    await expect(owner.action(refs.createCheckout, { ...ad, url: "http://example.com" })).rejects.toThrow(/https:/);
+    await expect(owner.action(refs.createCheckout, { ...ad, imageUrl: "javascript:alert(1)" })).rejects.toThrow(/image url/i);
     await expect(owner.action(refs.createCheckout, { ...ad, cityId: "atlantis" })).rejects.toThrow(/target town/);
     await expect(owner.action(refs.createCheckout, { ...ad, category: "casino" } as any)).rejects.toThrow();
     expect(await t.query(refs.getActivePins, {})).toEqual([]);

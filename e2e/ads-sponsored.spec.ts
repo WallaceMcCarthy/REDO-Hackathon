@@ -75,12 +75,12 @@ test('campaign form validates category, image and link', async ({ page }, info) 
   await form.getByLabel('Business category').selectOption('food');
   await form.getByLabel('Image URL').fill('http://example.com/a.png');
   await form.getByRole('button', { name: 'Publish ad' }).click();
-  await expect(page.getByText('Image URL must use HTTPS protocol (https://)')).toBeVisible();
+  await expect(page.getByText('Image URL must start with https://')).toBeVisible();
 
   await form.getByLabel('Image URL').fill('');
   await form.getByLabel('Link').fill('http://example.com/a');
   await form.getByRole('button', { name: 'Publish ad' }).click();
-  await expect(page.getByText('Destination URL must use HTTPS protocol (https://)')).toBeVisible();
+  await expect(page.getByText('Destination URL must start with https://')).toBeVisible();
   await expect(page.getByText('No campaigns yet')).toBeVisible();
   await expect(page.getByText(/\[CONVEX|Uncaught|Server Error/)).toHaveCount(0);
   expect(await noSideScroll(page)).toBe(true);

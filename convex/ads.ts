@@ -19,6 +19,9 @@ export const UTAH_BOUNDS = {
   maxLng: -108.9,
 };
 
+const MAX_PUBLIC_PINS = 8;
+const MAX_PUBLIC_FEATURED = 3;
+
 /**
  * Validates destination URLs:
  * 1. Must parse cleanly with new URL()
@@ -27,8 +30,9 @@ export const UTAH_BOUNDS = {
  */
 export function validateHttpsUrl(rawUrl: string, label = "Destination URL"): string {
   const trimmed = (rawUrl || "").trim();
+  const plain = label[0].toLowerCase() + label.slice(1);
   if (!trimmed) {
-    throw new ConvexError(`${label} is required`);
+    throw new ConvexError(`Enter a ${plain}`);
   }
   if (trimmed.length > 500) {
     throw new ConvexError(`${label} exceeds maximum length of 500 characters`);
@@ -37,10 +41,10 @@ export function validateHttpsUrl(rawUrl: string, label = "Destination URL"): str
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new ConvexError(`Invalid ${label} format`);
+    throw new ConvexError(`Enter a valid ${plain}`);
   }
   if (parsed.protocol !== "https:") {
-    throw new ConvexError(`${label} must use HTTPS protocol (https://)`);
+    throw new ConvexError(`${label} must start with https://`);
   }
   return parsed.toString();
 }
@@ -61,7 +65,11 @@ export const getActivePins = query({
       if (c.kind !== "pin" && c.kind !== "job") return false;
       if (args.cityId && c.cityId && c.cityId !== args.cityId) return false;
       return true;
-    });
+    }).sort((a, b) => {
+      const aLocal = args.cityId && a.cityId === args.cityId ? 1 : 0;
+      const bLocal = args.cityId && b.cityId === args.cityId ? 1 : 0;
+      return bLocal - aLocal || b.startsAt - a.startsAt;
+    }).slice(0, MAX_PUBLIC_PINS);
   },
 });
 
@@ -80,7 +88,11 @@ export const getActiveFeatured = query({
       if (c.endsAt && c.endsAt < now) return false;
       if (args.cityId && c.cityId && c.cityId !== args.cityId) return false;
       return true;
-    });
+    }).sort((a, b) => {
+      const aLocal = args.cityId && a.cityId === args.cityId ? 1 : 0;
+      const bLocal = args.cityId && b.cityId === args.cityId ? 1 : 0;
+      return bLocal - aLocal || b.startsAt - a.startsAt;
+    }).slice(0, MAX_PUBLIC_FEATURED);
   },
 });
 

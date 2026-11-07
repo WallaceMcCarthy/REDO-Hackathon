@@ -51,7 +51,7 @@ describe("ads security & exploit resistance", () => {
         url: "javascript:alert(document.cookie)",
         durationDays: 7,
       })
-    ).rejects.toThrow("Destination URL must use HTTPS protocol (https://)");
+    ).rejects.toThrow("Destination URL must start with https://");
 
     // Insecure HTTP rejected
     await expect(
@@ -62,7 +62,7 @@ describe("ads security & exploit resistance", () => {
         url: "http://insecure-site.com",
         durationDays: 7,
       })
-    ).rejects.toThrow("Destination URL must use HTTPS protocol (https://)");
+    ).rejects.toThrow("Destination URL must start with https://");
 
     // Data URI rejected
     await expect(
@@ -73,7 +73,7 @@ describe("ads security & exploit resistance", () => {
         url: "data:text/html,<script>alert(1)</script>",
         durationDays: 7,
       })
-    ).rejects.toThrow("Destination URL must use HTTPS protocol (https://)");
+    ).rejects.toThrow("Destination URL must start with https://");
   });
 
   it("Enforces pending_payment until verified REDO webhook confirmation", async () => {
@@ -220,6 +220,32 @@ describe("ads security & exploit resistance", () => {
 
     await expect(t.mutation(refs.recordClick, { campaignId: id, viewerKey: "bad key!" })).rejects.toThrow();
   });
+
+  it("caps public ads and prioritizes the requested town over statewide campaigns", async () => {
+    const { t, userId } = await setup();
+    const now = Date.now();
+    await t.run(async (ctx: any) => {
+      for (let i = 0; i < 10; i++) {
+        await ctx.db.insert("campaigns", {
+          advertiserUserId: userId, kind: "pin", title: `Pin ${i}`, body: "Body text", url: "https://example.com",
+          cityId: i < 2 ? "provo" : undefined, startsAt: now + i, endsAt: now + 86400000, status: "active",
+          impressions: 0, clicks: 0, isSample: false,
+        });
+      }
+      for (let i = 0; i < 5; i++) {
+        await ctx.db.insert("campaigns", {
+          advertiserUserId: userId, kind: "featured", title: `Featured ${i}`, body: "Body text", url: "https://example.com",
+          startsAt: now + i, endsAt: now + 86400000, status: "active", impressions: 0, clicks: 0, isSample: false,
+        });
+      }
+    });
+
+    const pins = await t.query(refs.getActivePins, { cityId: "provo" });
+    const featured = await t.query(refs.getActiveFeatured, { cityId: "provo" });
+    expect(pins).toHaveLength(8);
+    expect(pins.slice(0, 2).every((campaign: any) => campaign.cityId === "provo")).toBe(true);
+    expect(featured).toHaveLength(3);
+  });
 });
 
 describe("ad categories and placement", () => {
@@ -247,7 +273,7 @@ describe("ad categories and placement", () => {
     const rows: any[] = await t.run((ctx: any) => ctx.db.query("campaigns").collect());
     expect(rows[0].imageUrl).toBe("https://example.com/a.png");
     for (const imageUrl of ["http://example.com/a.png", "javascript:alert(1)", "data:image/svg+xml,<svg/>", "/sample-ads/food.svg"]) {
-      await expect(advertiser.mutation(refs.createCampaign, { ...draft, imageUrl })).rejects.toThrow(/Image URL/);
+      await expect(advertiser.mutation(refs.createCampaign, { ...draft, imageUrl })).rejects.toThrow(/image url/i);
     }
   });
 

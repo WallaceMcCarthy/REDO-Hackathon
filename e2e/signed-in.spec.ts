@@ -362,7 +362,7 @@ test('advertiser form shows validation text, never a raw Convex error', async ({
   await page.getByLabel('Message').fill('A short pitch');
   await page.getByLabel('Link').fill('http://example.test');
   await page.locator('main form').getByRole('button', { name: /publish|pay/i }).click();
-  await expect(page.getByText('Destination URL must use HTTPS protocol (https://)')).toBeVisible();
+  await expect(page.getByText('Destination URL must start with https://')).toBeVisible();
   await expect(page.getByText(/\[CONVEX|Uncaught|Server Error/)).toHaveCount(0);
   await ctx.close();
 });
