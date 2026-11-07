@@ -103,6 +103,7 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
   const [ready, setReady] = useState(false);
   const [pois, setPois] = useState<Set<PoiKind>>(() => new Set<PoiKind>(['restaurant', 'trail', 'ski', 'school']));
   const [grouped, setGrouped] = useState(readGrouped);
+  const [threeD, setThreeD] = useState(false);
   const groupedRef = useRef(grouped);
   groupedRef.current = grouped;
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -157,6 +158,8 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left');
 
     map.on('load', () => {
+      map.addSource('dem', { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding: 'terrarium', tileSize: 256, maxzoom: 13 });
+      map.addLayer({ id: 'hillshade-3d', type: 'hillshade', source: 'dem', layout: { visibility: 'none' }, paint: { 'hillshade-exaggeration': 0.6 } });
       map.addSource('listings', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: true, clusterRadius: 50, clusterMaxZoom: 13 });
       map.addSource('listings-flat', { type: 'geojson', data: EMPTY, promoteId: 'id', cluster: false });
       map.addSource('towns', { type: 'geojson', data: EMPTY, promoteId: 'id' });
@@ -331,6 +334,14 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
     if (ready) (mapRef.current?.getSource('towns') as maplibregl.GeoJSONSource | undefined)?.setData(townData);
   }, [ready, townData]);
   useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || (!threeD && !map.getTerrain())) return;
+    map.setLayoutProperty('hillshade-3d', 'visibility', threeD ? 'visible' : 'none');
+    map.setTerrain(threeD ? { source: 'dem', exaggeration: 1.6 } : null);
+    map.easeTo(threeD ? { pitch: 60, duration: 800 } : { pitch: 0, bearing: 0, duration: 800 });
+  }, [ready, threeD]);
+
+  useEffect(() => {
     // Only the active source gets data, so the hidden one never re-clusters or re-indexes.
     if (ready) (mapRef.current?.getSource(grouped ? 'listings' : 'listings-flat') as maplibregl.GeoJSONSource | undefined)?.setData(listingData);
     if (ready) (mapRef.current?.getSource(grouped ? 'listings-flat' : 'listings') as maplibregl.GeoJSONSource | undefined)?.setData(EMPTY);
@@ -392,6 +403,12 @@ export default memo(function ResultsMap({ rows, cities, metrics, hovered, onHove
       <ul className="sr-only" aria-label="Towns on the map">
         {rows.map(({ city, rank }) => <li key={city.id}>{`${rank}. ${city.name}`}</li>)}
       </ul>
+      <button
+        type="button" aria-pressed={threeD} onClick={() => setThreeD(on => !on)}
+        className={`absolute left-12 top-2.5 z-[1000] min-h-9 cursor-pointer rounded-xl border border-rock-100 px-3 text-sm font-semibold shadow-sm ${threeD ? 'bg-alpine-700 text-white' : 'bg-sand-50 text-rock-800'}`}
+      >
+        3D
+      </button>
       {focus === 'listings' && (
         <label className="absolute right-2 top-2 z-[1000] flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border border-rock-100 bg-sand/95 px-2.5 text-xs font-semibold text-ink shadow-sm">
           <input
