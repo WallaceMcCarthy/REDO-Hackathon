@@ -139,3 +139,55 @@ There is no free, legal feed of for-sale MLS or Zillow listings, so we use publi
    - Include one "Apply to REDO" pin.
 2. A video of the build process from the git history, board log and chat.
 3. Cut for this hackathon: login, social features, roommates and comments.
+
+---
+
+# Phase 3: a working product (accounts, social, advertising, REDO payments)
+
+Decision from our humans: the whole app must actually work, not just demo. That means real accounts, real social features, real self-serve advertising, and **REDO for all financial transactions**.
+
+## Ground rules
+
+- Auth uses **Convex Auth** with the Password provider (email + password), with no third-party OAuth setup. Every write checks `ctx.auth`, and no mutation trusts a client-sent user id.
+- Payments go **only through REDO**:
+  - REDO credentials live in Convex environment variables (`npx convex env set ...`), never in git or the frontend.
+  - Payment confirmation arrives through a REDO webhook into a Convex HTTP action, with its signature verified. Only then does a paid feature turn on.
+  - Use REDO's sandbox or test mode until our humans say go live.
+- Demo content (sample users, comments, ads) must be clearly marked `isSample: true` and shown with a "Sample" badge, so nothing looks like a real person who doesn't exist.
+- Moderation minimum: users can delete their own posts and comments, and anyone can report a comment or post. Reported items are hidden after 3 reports.
+
+## Features, in build order
+
+1. **Accounts:** sign up, sign in, sign out, plus a profile with display name, current city, move-by date, budget, and household size.
+2. **Saved homes:** heart any home or apartment, with a "My saved places" page.
+3. **Comments on listings and towns:** threaded one level deep, newest first. A comment needs an account.
+4. **Roommate finder:**
+   - An opt-in roommate profile: budget range, towns of interest, move-in date, lifestyle tags, short bio.
+   - Matches are ranked by overlap of towns, budget and date.
+   - "Request to connect" sends a request. Contact details are shared only after both sides accept.
+5. **Town feed:** short posts per town, such as questions and tips, with likes and comments. It powers the social side of the town page.
+6. **Advertising, self-serve and paid through REDO:**
+   - An advertiser account creates a campaign: a sponsored map pin for a business ("Eat at Freddy's!"), a featured listing that is pinned to the top of "Places to live" and labeled "Sponsored", or a job listing pin ("Apply to REDO!").
+   - Checkout runs through REDO.
+   - The campaign is `pending_payment`, becomes `active` when the REDO webhook confirms, and ends at `expired` after its duration.
+   - The map shows active sponsored pins with a "Sponsored" label. The featured slot is never mixed silently with organic ranking.
+   - There is a basic advertiser dashboard: campaigns, status, impressions and clicks (counted server-side).
+7. **Stretch:** a build-process video made from the git history, board log and chat.
+
+## Data model (Convex)
+
+| Table | Fields |
+| --- | --- |
+| `users` | from Convex Auth |
+| `profiles` | userId, displayName, cityId, moveBy, budget, household, isSample |
+| `saved` | userId, listingId |
+| `comments` | targetType (listing/town/post), targetId, userId, body, parentId, reports, hidden, isSample |
+| `roommateProfiles` | userId, budgetMin, budgetMax, cityIds, moveIn, tags, bio, active |
+| `connections` | fromUserId, toUserId, status (pending/accepted/declined) |
+| `posts` | cityId, userId, body, likes, isSample |
+| `campaigns` | advertiserUserId, kind (pin/featured/job), title, body, url, lat, lng, listingId, cityId, startsAt, endsAt, status, redoPaymentId, impressions, clicks, isSample |
+| `payments` | campaignId, redoPaymentId, amount, currency, status, raw webhook event id (for idempotency) |
+
+## Blocked on humans
+
+REDO API documentation and sandbox credentials. Which REDO product or API handles payments, and how do webhooks work? Until those arrive, the REDO client is written behind an interface, `convex/lib/payments.ts`, with a clearly labeled sandbox stub. Everything else ships first.
