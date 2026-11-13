@@ -1,6 +1,43 @@
-# Utah Fit
+<p align="center">
+  <a href="https://cmascope.com"><img src="public/og.png" alt="Utah Fit: find a home in Utah that fits how you live" width="100%"></a>
+</p>
 
-Utah Fit helps people moving to Utah find where they fit. You set a budget and say what matters. It ranks homes and apartments across 42 Utah towns, shows them on a map, and traces every town's score to a public source. The live site is https://cmascope.com. For a presenter's script, see [DEMO.md](./DEMO.md).
+<h1 align="center">Utah Fit</h1>
+
+<p align="center">
+  <b>Find a home in Utah that fits how you live.</b><br>
+  Set a budget, say what matters, and see homes and apartments across 42 Utah towns ranked for you, with every score traced to a public source.
+</p>
+
+<p align="center">
+  🏆 <b>Winner, Technical category, REDO hackathon</b>
+</p>
+
+<p align="center">
+  <a href="https://cmascope.com"><b>Try it at cmascope.com</b></a> ·
+  <a href="./DEMO.md">Demo script</a> ·
+  <a href="#for-developers">For developers</a>
+</p>
+
+---
+
+## Why it exists
+
+Moving to Utah means picking a town before picking a house, and most sites only show you houses. Utah Fit starts with your budget and what you care about (cost of living, safety, air and water, outdoors, transit, culture and food, education, community) and tells you which towns fit, then which homes in them.
+
+- **Ranked for you.** Pick a persona or set eight priority sliders, and each of 42 towns gets a fit score. Homes are ranked by it, with a max-commute filter on top.
+- **Every number has a source.** Town scores trace back to public data, shown next to the Utah median. Home values are county assessor values, never asking prices. Apartment rents are HUD fair market rents for the ZIP code.
+- **See it on a map.** Homes sit on a map next to the list, and any of 21 metrics can be drawn as a heat map.
+- **Ask around.** Each town has a feed and comments, and signed-in users can message each other and save places.
+- **Works on a phone.** The end-to-end tests run at desktop and 390 px phone widths.
+
+<p align="center">
+  <img src="homes-desktop.png" alt="Ranked homes in Heber City beside a map of Utah" width="100%">
+</p>
+
+Built at the REDO hackathon, where it won the Technical category.
+
+## For developers
 
 ## What the site does
 
