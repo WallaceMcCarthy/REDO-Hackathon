@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  🏆 <b>Winner, Technical category, REDO hackathon</b>
+</p>
+
+<p align="center">
   <a href="https://cmascope.com"><b>Try it at cmascope.com</b></a> ·
   <a href="./DEMO.md">Demo script</a> ·
   <a href="#for-developers">For developers</a>
@@ -31,7 +35,7 @@ Moving to Utah means picking a town before picking a house, and most sites only 
   <img src="homes-desktop.png" alt="Ranked homes in Heber City beside a map of Utah" width="100%">
 </p>
 
-Built at the REDO hackathon.
+Built at the REDO hackathon, where it won the Technical category.
 
 ## For developers
 
